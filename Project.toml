@@ -1,0 +1,10 @@
+name = "GenesInteraction"
+uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
+authors = ["olivierlabayle "]
+version = "0.1.0"
+
+[deps]
+DecisionTree = "7806a523-6efd-50cb-b5f6-3fa6f1930dbb"
+MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
+MLJDecisionTreeInterface = "c6f25543-311c-4c74-83dc-3ea6d1015661"
+RDatasets = "ce6b1742-4840-55fa-b093-852dadbb1d8b"
