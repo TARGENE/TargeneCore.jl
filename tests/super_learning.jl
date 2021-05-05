@@ -21,4 +21,7 @@ library = [@pipeline(OneHotEncoder(),
                     name="MyPipeline")]
 
 X, y = simulation_dataset()
-metalearner = GenesInteraction.superlearn(library, X, y;nfolds=3, refit=false)
+sl = SuperLearner(library, LogisticClassifier())
+mach = machine(sl, X, y)
+
+fit!(mach)

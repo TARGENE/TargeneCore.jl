@@ -3,104 +3,64 @@ using MLJLinearModels: LogisticClassifier
 using DataFrames
 
 
-"""
-Implementation of the SuperLearning routine
-"""
-function superlearn(library, X, y; nfolds=10, refit=false)
-    # Define the learning network
-    Xs = source(X)
-    ys = source(y)
-    Z = DataFrame([])
-    for model in library
-        m = machine(model, Xs, ys)
-        Z_val_fold[!, name(model)] = predict(m, Xs)
-    end
-
-    y_hat = nothing
-
-    n, = size(y)
-    stratified_cv = StratifiedCV(; nfolds=nfolds, shuffle=false)
-    nfolds_iter = MLJBase.train_test_pairs(stratified_cv, 1:n, y)
-
-
-    Z_val = DataFrame([])
-    # Unfortunately can't seem to instantiate empty categorical array
-    y_val = nothing
-
-    # Loop over the different folds
-    for (train, val) in nfolds_iter
-        X_val = X[val, :]
-        Z_val_fold = DataFrame([])
-
-        # Loop over the different models in the library
-        for model in library
-            m = machine(model, X, y)
-            fit!(m, rows=train)
-            Z_val_fold[!, name(model)] = predict(m, X_val)
-        end
-
-        Z_val = vcat(Z_val, Z_val_fold)
-
-        if y_val === nothing
-            y_val = y[val]
-        else
-            y_val = vcat(y_val, y[val])
-        end
-        
-    end
-
-    metalearner = machine(LogisticClassifier(), Z_val, y_val)
-    fit!(metalearner, rows=1:n)
-
-    if refit
-        for model in library
-            m = machine(model, X, y)
-            fit!(m)
-        end
-    end
-
-    metalearner
-end
-
-
-mutable struct SuperLearner <: DeterministicNetwork
+mutable struct SuperLearner <: ProbabilisticNetwork
     library
     metalearner
 end
 
+expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
 
-knc = @load DecisionTreeClassifier pkg=DecisionTree
-lr = LogisticClassifier()
+train_test_pairs(X::AbstractNode, cv, rows) = node(XX->MLJBase.train_test_pairs(cv, rows, XX), X)
 
-library = [knc(), lr]
+train_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 1), X, f)
 
-function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
+test_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 2), X, f)
+
+
+function MLJ.fit(m::SuperLearner, verbosity::Int, X, y;nfolds=10, shuffle=false)
+    stratified_cv = StratifiedCV(; nfolds=nfolds, shuffle=shuffle)
+    n, = size(y)
+
     X = source(X)
     y = source(y)
 
-    Z = nothing
-    for model in m.library
-        mach = machine(model, X, y)
+    Zval = []
+    yval = []
+    folds = train_test_pairs(y, stratified_cv, 1:n)
+    for nfold in 1:nfolds
+        Xtrain = train_restrict(X, folds, nfold)
+        ytrain = train_restrict(y, folds, nfold)
+        Xtest = test_restrict(X, folds, nfold)
+        ytest = test_restrict(y, folds, nfold)
 
-        if Z === nothing
-            Z = predict(mach, X)
-        else
-            hcat(Z, predict(mach, X))
+        Zfold = []
+        for model in m.library
+            mach = machine(model, Xtrain, ytrain)
+            push!(Zfold, expected_value(predict(mach, Xtest)))
         end
+
+        Zfold = hcat(Zfold...)
+        
+        push!(Zval, Zfold)
+        push!(yval, ytest)
     end
 
-    mach = machine(m.metalearner, Z, y)
-    ŷ = predict(mach, Z)
+    Zval = MLJ.table(vcat(Zval...))
+    yval = vcat(yval...)
 
-    mach = machine(Deterministic(), X, y; predict=ŷ)
+    metamach = machine(m.metalearner, Zval, yval)
+
+    Zpred = []
+    for model in m.library
+        m = machine(model, X, y)
+        push!(Zpred, expected_value(predict(m, X)))
+    end
+
+    Zpred = MLJ.table(hcat(Zpred...))
+    ŷ = predict(metamach, Zpred)
+
+    mach = machine(Probabilistic(), X, y; predict=ŷ)
     fit!(mach, verbosity=verbosity - 1)
     return mach()
 
 end
-
-
-
-
-
-
-sl = superlearner(library)
