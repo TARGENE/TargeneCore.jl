@@ -21,7 +21,9 @@ library = [@pipeline(OneHotEncoder(),
                     name="MyPipeline")]
 
 X, y = simulation_dataset()
-sl = SuperLearner(library, LogisticClassifier())
+sl = SuperLearner(library, LogisticClassifier(), 3, false)
 mach = machine(sl, X, y)
 
 fit!(mach)
+
+fp = fitted_params(mach)

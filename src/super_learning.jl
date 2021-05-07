@@ -6,6 +6,8 @@ using DataFrames
 mutable struct SuperLearner <: ProbabilisticNetwork
     library
     metalearner
+    nfolds::Int
+    shuffle::Bool
 end
 
 expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
@@ -17,9 +19,10 @@ train_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(
 test_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 2), X, f)
 
 
-function MLJ.fit(m::SuperLearner, verbosity::Int, X, y;nfolds=10, shuffle=false)
-    stratified_cv = StratifiedCV(; nfolds=nfolds, shuffle=shuffle)
+function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
+    stratified_cv = StratifiedCV(; nfolds=m.nfolds, shuffle=m.shuffle)
     n, = size(y)
+    registry = []
 
     X = source(X)
     y = source(y)
@@ -27,7 +30,7 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y;nfolds=10, shuffle=false)
     Zval = []
     yval = []
     folds = train_test_pairs(y, stratified_cv, 1:n)
-    for nfold in 1:nfolds
+    for nfold in 1:m.nfolds
         Xtrain = train_restrict(X, folds, nfold)
         ytrain = train_restrict(y, folds, nfold)
         Xtest = test_restrict(X, folds, nfold)
@@ -52,8 +55,9 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y;nfolds=10, shuffle=false)
 
     Zpred = []
     for model in m.library
-        m = machine(model, X, y)
-        push!(Zpred, expected_value(predict(m, X)))
+        mach = machine(model, X, y)
+        push!(registry, mach)
+        push!(Zpred, expected_value(predict(mach, X)))
     end
 
     Zpred = MLJ.table(hcat(Zpred...))
@@ -61,6 +65,7 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y;nfolds=10, shuffle=false)
 
     mach = machine(Probabilistic(), X, y; predict=ŷ)
     fit!(mach, verbosity=verbosity - 1)
-    return mach()
+
+    return mach(), nothing, registry
 
 end
