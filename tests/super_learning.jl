@@ -1,8 +1,7 @@
 using GenesInteraction
 using Distributions, MLJ, Test, DataFrames, CategoricalArrays, MLJLinearModels
 
-function simulation_dataset()
-    n = 1000
+function simulation_dataset(;n=10000)
     Age = rand(DiscreteUniform(30, 70), n)
     X_1 = 1 ./ (1 .+ exp.(-0.005*Age .- 0.01)) .< rand(Uniform(0,1), n)
     X_2 = 1 ./ (1 .+ exp.(-0.01*Age)) .< rand(Uniform(0,1), n)
@@ -16,14 +15,15 @@ function simulation_dataset()
     X, categorical(y)
 end
 
-library = [@pipeline(OneHotEncoder(), 
-                    LogisticClassifier(), 
-                    name="MyPipeline")]
+library = [@pipeline(OneHotEncoder(;drop_last=true), 
+                    LogisticClassifier())]
 
-X, y = simulation_dataset()
+X, y = simulation_dataset(;n=1000000)
 sl = SuperLearner(library, LogisticClassifier(), 3, false)
 mach = machine(sl, X, y)
 
 fit!(mach)
 
-fp = fitted_params(mach)
+mach.report
+
+fitted_params(mach.report["Pipeline281"]).logistic_classifier.coefs
