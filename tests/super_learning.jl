@@ -22,13 +22,14 @@ function simple_library()
         lr = LogisticClassifier(lambda=λ)
         push!(library, lr)
     end
+    return library
 end
 
 lib = simple_library()
 
 X, y = simulation_dataset(;n=1000000)
 
-sl = SuperLearner(library, LogisticClassifier(), 3, false)
+sl = SuperLearner(lib, LogisticClassifier(), 3, false)
 
 pipe = @pipeline(OneHotEncoder(;drop_last=true), sl)
 

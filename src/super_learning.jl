@@ -30,12 +30,20 @@ Current assumptions:
 
 TODO
 """
-mutable struct SuperLearner <: DeterministicNetwork
+mutable struct SuperLearner <: DeterministicComposite
     library
     metalearner
     nfolds::Int
     shuffle::Bool
 end
+
+
+# @macro superlearner(library..., metalearner, nfolds, shuffle)
+#     field_declarations =
+#     [:($(fieldnames_[j])::$(model_supertypes_[j])=$(models_[j]))
+#                             for j in eachindex(library)]
+#     return
+# end
 
 """
     SuperLearner(library, metalearner;nfolds=10, shuffle=false)
