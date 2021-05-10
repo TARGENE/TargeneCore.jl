@@ -113,8 +113,7 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
     ŷ = expected_value(predict(metamach, Zpred))
 
     mach = machine(Deterministic(), X, y; predict=ŷ)
-    fit!(mach, verbosity=verbosity)
 
-    return (ŷ, nothing, registry)
+    return!(mach, m, verbosity)
 
 end

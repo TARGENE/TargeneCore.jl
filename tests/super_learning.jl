@@ -15,15 +15,40 @@ function simulation_dataset(;n=10000)
     X, categorical(y)
 end
 
-library = [@pipeline(OneHotEncoder(;drop_last=true), 
-                    LogisticClassifier())]
+
+function simple_library()
+    library = []
+    for λ in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1., 10., 100., 1000.]
+        lr = LogisticClassifier(lambda=λ)
+        push!(library, lr)
+    end
+end
+
+lib = simple_library()
 
 X, y = simulation_dataset(;n=1000000)
+
 sl = SuperLearner(library, LogisticClassifier(), 3, false)
-mach = machine(sl, X, y)
+
+pipe = @pipeline(OneHotEncoder(;drop_last=true), sl)
+
+mach = machine(pipe, X, y)
 
 fit!(mach)
 
-mach.report
+# I'd like to access the different machines in a user friendly manner to test the implementation
+# Not sure, but it seems that using the "report" attribute is the way to go
+sl_machine = mach.report.machines[2]
 
-fitted_params(mach.report["Pipeline281"]).logistic_classifier.coefs
+# This is a 37 list of machines
+sl_sub_machines = sl_machine.report.machines
+
+# For instance, what is this machine corresponding to?
+# I'd like to know if this is the global fit or a i-th fold fit
+# I guess the order of creation is maintained in this list so I could probably
+# write a method to sort this out but a naming mechanism would be more elegant in my view
+sub_machine = sl_sub_machines[10]
+
+# For completeness, I will probably be interested in optionally evaluating folds for ech machine 
+# and being able to retrieve machines scores on each fold, and the average score.
+
