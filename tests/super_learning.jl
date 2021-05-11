@@ -1,5 +1,14 @@
 using GenesInteraction
-using Distributions, MLJ, Test, DataFrames, CategoricalArrays, MLJLinearModels
+using Test
+using Random, Distributions
+using DataFrames, CategoricalArrays
+using MLJ
+
+import MLJLinearModels.LogisticClassifier
+import DecisionTree.DecisionTreeClassifier
+import EvoTrees.EvoTreeClassifier
+import NearestNeighborModels.KNNClassifier
+
 
 function simulation_dataset(;n=10000)
     Age = rand(DiscreteUniform(30, 70), n)
@@ -15,31 +24,97 @@ function simulation_dataset(;n=10000)
     X, categorical(y)
 end
 
-X, y = simulation_dataset(;n=1000000)
 
-sl = @superlearner(LogisticClassifier(lambda=1), metalearner=LogisticClassifier(), nfolds=3)
+@testset "Testing the @superlearner macro" begin
+    @testset "Basic usage" begin
+    sl = @superlearner(LogisticClassifier(lambda=1), 
+                        metalearner=LogisticClassifier(), 
+                        name=:TestSuperLearner)
+    
+    @test sl.logistic_classifier isa LogisticClassifier
+    @test sl.metalearner isa LogisticClassifier
+    @test sl.nfolds == 10
+    @test sl.shuffle == false
+    end
 
-pipe = @pipeline(OneHotEncoder(;drop_last=true), sl)
+    @testset "More advanced usage" begin
+        sl = @superlearner(LogisticClassifier(lambda=10), 
+                            LogisticClassifier(),
+                            metalearner=LogisticClassifier(), 
+                            name=:AdvancedSuperLearner,
+                            nfolds=3,
+                            shuffle=true)
+        
+        @test sl.logistic_classifier isa LogisticClassifier
+        @test sl.logistic_classifier.lambda == 10
+        @test sl.logistic_classifier2 isa LogisticClassifier
+        @test sl.metalearner isa LogisticClassifier
+        @test sl.nfolds == 3
+        @test sl.shuffle == true
+        end
 
-mach = machine(pipe, X, y)
-
-fit!(mach)
-
-# I'd like to access the different machines in a user friendly manner to test the implementation
-# Not sure, but it seems that using the "report" attribute is the way to go
-sl_machine = mach.report.machines[2]
-
-# This is a 37 list of machines
-sl_sub_machines = sl_machine.report.machines
-
-# For instance, what is this machine corresponding to?
-# I'd like to know if this is the global fit or a i-th fold fit
-# I guess the order of creation is maintained in this list so I could probably
-# write a method to sort this out but a naming mechanism would be more elegant in my view
-sub_machine = sl_sub_machines[10]
-
-# For completeness, I will probably be interested in optionally evaluating folds for ech machine 
-# and being able to retrieve machines scores on each fold, and the average score.
+end
 
 
-@pipeline(OneHotEncoder(;drop_last=true), sl)
+@testset "Testing fit! method of the superlearner" begin
+    @testset "With logistic regression simulation dataset" begin
+        Random.seed!(123)
+        X, y = simulation_dataset(;n=10000)
+        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(lambda=1),
+                        ConstantClassifier(),
+                        KNNClassifier(),
+                        EvoTreeClassifier(),
+                        metalearner=LogisticClassifier(),
+                        name=:Sim1SuperLearner,
+                        nfolds=10,
+                        shuffle=false
+                ) name=MyPipeline
+        mach = machine(pipe, X, y)
+        MLJ.fit!(mach)
+        fp = fitted_params(mach)
+
+        # Retrieve metalearner coefficients and check that the true model
+        # receives the highest coefficient
+        metalearner_coefs = fp.sim1_super_learner.metalearner[end].coefs
+        @test metalearner_coefs[1].second > 3
+        for i in 2:4
+            @test metalearner_coefs[i].second < 2
+        end
+
+        # Check coefficients of the true model, the true model definitions generates
+        # data according to X1,X2=true and X2=true while the model fits X1,X2=false 
+        lr_coefs = fp.sim1_super_learner.logistic_classifier[end-1].coefs
+        for pair in lr_coefs
+            if pair.first == :locus_1__false
+                @test pair.second ≈ 0.94 atol=0.006
+            elseif pair.first == :locus_2__false
+                @test pair.second ≈ -0.4 atol=0.006
+            elseif pair.first == :age
+                @test pair.second ≈ -0.01 atol=0.006
+            end
+        end
+    end
+
+    @testset "Emphasizing the problem if the same model is used multiple times"  begin
+        Random.seed!(123)
+        X, y = simulation_dataset(;n=10000)
+        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(lambda=1),
+                        ConstantClassifier(),
+                        KNNClassifier(),
+                        EvoTreeClassifier(),
+                        metalearner=LogisticClassifier(),
+                        name=:PbSuperLearner,
+                        nfolds=10,
+                        shuffle=false
+                ) name=MyPbPipeline
+        mach = machine(pipe, X, y)
+        MLJ.fit!(mach)
+        fp = fitted_params(mach)
+
+        # The metalearner has only been fitted once and the logistic regression 11 times
+        # I think because they share the same model, the current fitted_params method can't 
+        # make a difference between the 2.
+        # What is the unit of identification?
+        @test fp.pb_super_learner.metalearner == fp.pb_super_learner.logistic_classifier
+    end
+end

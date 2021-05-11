@@ -16,7 +16,7 @@ U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222.
 https://biostats.bepress.com/ucbbiostat/paper222
 
 Current Limitations that need further developments:
-   - The name of the generated struct is `SuperLearner` and fixed, so cannot create multiple superlearner during a single Julia run
+   - `name` and `metalearner` are required kw arguments
    - Y is binary and a stratified cross validation is used
    - The estimated quantity is E[Y|X]
 
@@ -35,7 +35,7 @@ macro superlearner(exs...)
     nfolds_ex = :(nfolds::Int=10)
     shuffle_ex = :(shuffle::Bool=false)
     metalearner_ex = :()
-
+    name_ex = :()
     existing_names = []
     library_exs = []
     for ex in exs
@@ -50,6 +50,8 @@ macro superlearner(exs...)
             model = __module__.eval(ex.args[2])
             metatype = typeof(model)
             metalearner_ex = :(metalearner::$(metatype)=$(model))
+        elseif typeof(ex) == Expr && ex.args[1] == :name
+            name_ex = ex.args[2].value
         # Parse library
         else
             model = __module__.eval(ex)
@@ -59,7 +61,7 @@ macro superlearner(exs...)
         end
     end
     
-    struct_ex = :(mutable struct SuperLearner <: AbstractSuperLearner
+    struct_ex = :(mutable struct $(name_ex) <: AbstractSuperLearner
         $(shuffle_ex)
         $(nfolds_ex)
         $(metalearner_ex)
@@ -69,7 +71,7 @@ macro superlearner(exs...)
     __module__.eval(MLJBase.Parameters.with_kw(struct_ex, __module__, false))
 
     esc(quote
-        SuperLearner()
+        $(name_ex)()
         end)
 end
 
@@ -113,7 +115,8 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
         ytest = test_restrict(y, folds, nfold)
 
         Zfold = []
-        for model in m.library
+        for modelname in library(m)
+            model = getfield(m, modelname)
             mach = machine(model, Xtrain, ytrain)
             push!(Zfold, expected_value(predict(mach, Xtest)))
         end
@@ -130,7 +133,8 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
     metamach = machine(m.metalearner, Zval, yval)
 
     Zpred = []
-    for model in m.library
+    for modelname in library(m)
+        model = getfield(m, modelname)
         mach = machine(model, X, y)
         push!(Zpred, expected_value(predict(mach, X)))
     end
@@ -142,4 +146,9 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
 
     return!(mach, m, verbosity)
 
+end
+
+
+function library(m::AbstractSuperLearner)
+    filter(x-> x ∉ (:nfolds, :shuffle, :metalearner), fieldnames(typeof(m)))
 end
