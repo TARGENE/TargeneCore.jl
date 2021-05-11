@@ -53,3 +53,5 @@ sub_machine = sl_sub_machines[10]
 # For completeness, I will probably be interested in optionally evaluating folds for ech machine 
 # and being able to retrieve machines scores on each fold, and the average score.
 
+
+@pipeline(OneHotEncoder(;drop_last=true), sl)

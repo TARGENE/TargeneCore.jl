@@ -30,20 +30,53 @@ Current assumptions:
 
 TODO
 """
-mutable struct SuperLearner <: DeterministicComposite
-    library
-    metalearner
-    nfolds::Int
-    shuffle::Bool
+# mutable struct SuperLearner <: DeterministicComposite
+#     library
+#     metalearner
+#     nfolds::Int
+#     shuffle::Bool
+# end
+
+
+macro superlearner(exs...)
+
+    nfolds_ex = :(nfolds::Int=10)
+    shuffle_ex = :(shuffle::Bool=false)
+    library_exs = []
+    for ex in exs
+        # Parse shuffle and nfolds values
+        if ex.args[1] == :nfolds
+            nfolds_ex.args[2] = ex.args[2]
+        elseif ex.args[1] == :shuffle
+            shuffle_ex.args[2] = ex.args[2]
+        # Parse metalearner
+        elseif ex.args[1] == :metalearner
+            model = eval(ex.args[2])
+            metatype = typeof(model)
+            metalearner_ex = :(metalearner::$metatype=$model)
+            
+        # Parse library
+        else
+            println(ex)
+        end
+    end
+    
+
+    struct_ex = :(mutable struct SuperLearnerBis <: DeterministicComposite
+        $(shuffle_ex)
+        $(nfolds_ex)
+        $(metalearner_ex)
+    end)
+
+    __module__.eval(MLJBase.Parameters.with_kw(struct_ex, __module__, false))
+
+    esc(quote
+        SuperLearnerBis()
+        end)
 end
 
-
-# @macro superlearner(library..., metalearner, nfolds, shuffle)
-#     field_declarations =
-#     [:($(fieldnames_[j])::$(model_supertypes_[j])=$(models_[j]))
-#                             for j in eachindex(library)]
-#     return
-# end
+metalearner = LogisticClassifier()
+sl = @superlearner(LogisticClassifier(), metalearner=metalearner, nfolds=3, shuffle=false)
 
 """
     SuperLearner(library, metalearner;nfolds=10, shuffle=false)
@@ -55,6 +88,61 @@ SuperLearner(library, metalearner;nfolds=10, shuffle=false) = SuperLearner(libra
 ###################################################
 ###   Helper functions                          ###
 ###################################################
+
+
+function is_uppercase(char::Char)
+    i = Int(char)
+    i > 64 && i < 91
+end
+
+"""
+    snakecase(str, del='_')
+
+Taken from StatisticalTraits.jl
+Return the snake case version of the abstract string or symbol, `str`, as in
+
+    snakecase("TheLASERBeam") == "the_laser_beam"
+
+"""
+function snakecase(str::AbstractString; delim='_')
+    snake = Char[]
+    n = length(str)
+    for i in eachindex(str)
+        char = str[i]
+        if is_uppercase(char)
+            if i != 1 && i < n &&
+                !(is_uppercase(str[i + 1]) && is_uppercase(str[i - 1]))
+                push!(snake, delim)
+            end
+            push!(snake, lowercase(char))
+        else
+            push!(snake, char)
+        end
+    end
+    return join(snake)
+end
+
+snakecase(s::Symbol) = Symbol(snakecase(string(s)))
+
+
+"""
+Taken from MLJBase.jl
+"""
+function generate_name!(M, existing_names)
+    str = split(string(M), '{') |> first
+    candidate = split(str, '.') |> last |> snakecase |> Symbol
+    candidate in existing_names ||
+        (push!(existing_names, candidate); return candidate)
+    n = 2
+    new_candidate = candidate
+    while true
+        new_candidate = string(candidate, n) |> Symbol
+        new_candidate in existing_names || break
+        n += 1
+    end
+    push!(existing_names, new_candidate)
+    return new_candidate
+end
 
 
 expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
