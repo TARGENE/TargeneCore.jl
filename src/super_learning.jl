@@ -30,12 +30,12 @@ Current assumptions:
 
 TODO
 """
-# mutable struct SuperLearner <: DeterministicComposite
-#     library
-#     metalearner
-#     nfolds::Int
-#     shuffle::Bool
-# end
+mutable struct SuperLearner <: DeterministicComposite
+    library
+    metalearner
+    nfolds::Int
+    shuffle::Bool
+end
 
 
 macro superlearner(exs...)
