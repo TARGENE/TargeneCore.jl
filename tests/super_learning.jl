@@ -15,21 +15,9 @@ function simulation_dataset(;n=10000)
     X, categorical(y)
 end
 
-
-function simple_library()
-    library = []
-    for λ in [1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1., 10., 100., 1000.]
-        lr = LogisticClassifier(lambda=λ)
-        push!(library, lr)
-    end
-    return library
-end
-
-lib = simple_library()
-
 X, y = simulation_dataset(;n=1000000)
 
-sl = SuperLearner(lib, LogisticClassifier(), 3, false)
+sl = @superlearner(LogisticClassifier(lambda=1), metalearner=LogisticClassifier(), nfolds=3)
 
 pipe = @pipeline(OneHotEncoder(;drop_last=true), sl)
 

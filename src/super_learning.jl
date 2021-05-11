@@ -1,148 +1,82 @@
 using MLJ, MLJBase
-using MLJLinearModels: LogisticClassifier
-using DataFrames
 
 
 ###################################################
 ###   SuperLearner and Constructors             ###
 ###################################################
 
+abstract type AbstractSuperLearner <: DeterministicComposite end
+
 """
-    SuperLearner(library, metalearner, nfolds::Bool, shuffle::Int)
+    superlearner model1 model2 ... modelk metalearner::Model=model nfolds::Int=10 shuffle::Bool=false
 
 Implements the SuperLearner estimator described in :
 van der Laan, Mark J.; Polley, Eric C.; and Hubbard, Alan E., "Super Learner" (July 2007).
 U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222.
 https://biostats.bepress.com/ucbbiostat/paper222
 
-Current assumptions:
+Current Limitations that need further developments:
+   - The name of the generated struct is `SuperLearner` and fixed, so cannot create multiple superlearner during a single Julia run
    - Y is binary and a stratified cross validation is used
    - The estimated quantity is E[Y|X]
 
-# Arguments
-
-- `library`: An iterable over models to be trained
-- `metalearner`: Model that will learn an optimal combination of the library members
-- `nfolds::Int`: Number of folds for internal cross validation
-- `shuffle::Bool`: Should the dataset be shuffled.
 
 # Examples
+```julia
+using MLJLinearModels: LogisticClassifier
+using GenesInteraction
 
-TODO
+superlearner = @superlearner LogisticClassifier(lambda=10) LogisticClassifier(lambda=1) metalearner=LogistiClassifier() nfolds=3 shuffle=false
+mach = machine(superlearner, X, y)
+fit!(mach)
+```
 """
-mutable struct SuperLearner <: DeterministicComposite
-    library
-    metalearner
-    nfolds::Int
-    shuffle::Bool
-end
-
-
 macro superlearner(exs...)
-
     nfolds_ex = :(nfolds::Int=10)
     shuffle_ex = :(shuffle::Bool=false)
+    metalearner_ex = :()
+
+    existing_names = []
     library_exs = []
     for ex in exs
-        # Parse shuffle and nfolds values
-        if ex.args[1] == :nfolds
+        # Parse shuffle
+        if typeof(ex) == Expr && ex.args[1] == :nfolds
             nfolds_ex.args[2] = ex.args[2]
-        elseif ex.args[1] == :shuffle
+        # Parse nfolds
+        elseif typeof(ex) == Expr && ex.args[1] == :shuffle
             shuffle_ex.args[2] = ex.args[2]
         # Parse metalearner
-        elseif ex.args[1] == :metalearner
-            model = eval(ex.args[2])
+        elseif typeof(ex) == Expr && ex.args[1] == :metalearner
+            model = __module__.eval(ex.args[2])
             metatype = typeof(model)
-            metalearner_ex = :(metalearner::$metatype=$model)
-            
+            metalearner_ex = :(metalearner::$(metatype)=$(model))
         # Parse library
         else
-            println(ex)
+            model = __module__.eval(ex)
+            modeltype = typeof(model)
+            attr_name = generate_name!(modeltype, existing_names)
+            push!(library_exs, :($(attr_name)::$(modeltype)=$(model)))
         end
     end
     
-
-    struct_ex = :(mutable struct SuperLearnerBis <: DeterministicComposite
+    struct_ex = :(mutable struct SuperLearner <: AbstractSuperLearner
         $(shuffle_ex)
         $(nfolds_ex)
         $(metalearner_ex)
-    end)
+        $(library_exs...)
+        end)
 
     __module__.eval(MLJBase.Parameters.with_kw(struct_ex, __module__, false))
 
     esc(quote
-        SuperLearnerBis()
+        SuperLearner()
         end)
 end
-
-metalearner = LogisticClassifier()
-sl = @superlearner(LogisticClassifier(), metalearner=metalearner, nfolds=3, shuffle=false)
-
-"""
-    SuperLearner(library, metalearner;nfolds=10, shuffle=false)
-
-"""
-SuperLearner(library, metalearner;nfolds=10, shuffle=false) = SuperLearner(library, metalearner, nfolds, shuffle)
 
 
 ###################################################
 ###   Helper functions                          ###
 ###################################################
-
-
-function is_uppercase(char::Char)
-    i = Int(char)
-    i > 64 && i < 91
-end
-
-"""
-    snakecase(str, del='_')
-
-Taken from StatisticalTraits.jl
-Return the snake case version of the abstract string or symbol, `str`, as in
-
-    snakecase("TheLASERBeam") == "the_laser_beam"
-
-"""
-function snakecase(str::AbstractString; delim='_')
-    snake = Char[]
-    n = length(str)
-    for i in eachindex(str)
-        char = str[i]
-        if is_uppercase(char)
-            if i != 1 && i < n &&
-                !(is_uppercase(str[i + 1]) && is_uppercase(str[i - 1]))
-                push!(snake, delim)
-            end
-            push!(snake, lowercase(char))
-        else
-            push!(snake, char)
-        end
-    end
-    return join(snake)
-end
-
-snakecase(s::Symbol) = Symbol(snakecase(string(s)))
-
-
-"""
-Taken from MLJBase.jl
-"""
-function generate_name!(M, existing_names)
-    str = split(string(M), '{') |> first
-    candidate = split(str, '.') |> last |> snakecase |> Symbol
-    candidate in existing_names ||
-        (push!(existing_names, candidate); return candidate)
-    n = 2
-    new_candidate = candidate
-    while true
-        new_candidate = string(candidate, n) |> Symbol
-        new_candidate in existing_names || break
-        n += 1
-    end
-    push!(existing_names, new_candidate)
-    return new_candidate
-end
 
 
 expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
@@ -162,10 +96,9 @@ test_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(X
 """
     MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
 """
-function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
+function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
     stratified_cv = StratifiedCV(; nfolds=m.nfolds, shuffle=m.shuffle)
     n, = size(y)
-    registry = Dict()
 
     X = source(X)
     y = source(y)
@@ -183,7 +116,6 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
         for model in m.library
             mach = machine(model, Xtrain, ytrain)
             push!(Zfold, expected_value(predict(mach, Xtest)))
-            registry[(name(model), nfold)] = mach
         end
 
         Zfold = hcat(Zfold...)
@@ -196,13 +128,11 @@ function MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
     yval = vcat(yval...)
 
     metamach = machine(m.metalearner, Zval, yval)
-    registry["metamachine"] = metamach
 
     Zpred = []
     for model in m.library
         mach = machine(model, X, y)
         push!(Zpred, expected_value(predict(mach, X)))
-        registry[name(model)] = mach
     end
 
     Zpred = MLJ.table(hcat(Zpred...))

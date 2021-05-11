@@ -1,8 +1,8 @@
 module GenesInteraction
 
-
+include("utils.jl")
 include("super_learning.jl")
 
-export SuperLearner
+export @superlearner, AbstractSuperLearner
 
-end # module
+end
