@@ -10,7 +10,7 @@ import EvoTrees.EvoTreeClassifier
 import NearestNeighborModels.KNNClassifier
 
 
-function simulation_dataset(;n=10000)
+function simulation_dataset(;n=10000, type=:classification)
     Age = rand(DiscreteUniform(30, 70), n)
     X_1 = 1 ./ (1 .+ exp.(-0.005*Age .- 0.01)) .< rand(Uniform(0,1), n)
     X_2 = 1 ./ (1 .+ exp.(-0.01*Age)) .< rand(Uniform(0,1), n)
@@ -20,21 +20,30 @@ function simulation_dataset(;n=10000)
         age = Age
     )
 
-    y = 1 ./ (1 .+ exp.(-0.01*Age - 0.94*X_1 + 0.4*X_2)) .< rand(Uniform(0,1), n)
-    X, categorical(y)
+    if type == :classification
+        y = 1 ./ (1 .+ exp.(-0.01*Age - 0.94*X_1 + 0.4*X_2)) .< rand(Uniform(0,1), n)
+        y = categorical(y)
+    else
+        μ = 0.023*Age - 0.45*X_1 + 0.98*X_2
+        y = μ + randn(n)*0.1
+    end
+    X, y
+    
 end
 
 
 @testset "Testing the @superlearner macro" begin
     @testset "Basic usage" begin
     sl = @superlearner(LogisticClassifier(lambda=1), 
-                        metalearner=LogisticClassifier(), 
+                        metalearner=LogisticClassifier(),
+                        crossval=StratifiedCV(;nfolds=10, shuffle=false),
                         name=:TestSuperLearner)
     
     @test sl.logistic_classifier isa LogisticClassifier
     @test sl.metalearner isa LogisticClassifier
-    @test sl.nfolds == 10
-    @test sl.shuffle == false
+    @test sl.crossval isa StratifiedCV
+    @test sl.crossval.nfolds == 10
+    @test sl.crossval.shuffle == false
     end
 
     @testset "More advanced usage" begin
@@ -42,15 +51,16 @@ end
                             LogisticClassifier(),
                             metalearner=LogisticClassifier(), 
                             name=:AdvancedSuperLearner,
-                            nfolds=3,
-                            shuffle=true)
+                            crossval=CV(;nfolds=3, shuffle=true))
         
         @test sl.logistic_classifier isa LogisticClassifier
         @test sl.logistic_classifier.lambda == 10
         @test sl.logistic_classifier2 isa LogisticClassifier
         @test sl.metalearner isa LogisticClassifier
-        @test sl.nfolds == 3
-        @test sl.shuffle == true
+        @test sl.crossval isa CV
+        @test sl.crossval.nfolds == 3
+        @test sl.crossval.shuffle == true
+        @test library(sl) == (:logistic_classifier, :logistic_classifier2)
         end
 
 end
@@ -66,8 +76,7 @@ end
                         EvoTreeClassifier(),
                         metalearner=LogisticClassifier(),
                         name=:Sim1SuperLearner,
-                        nfolds=10,
-                        shuffle=false
+                        crossval=StratifiedCV(;nfolds=10, shuffle=false)
                 ) name=MyPipeline
         mach = machine(pipe, X, y)
         MLJ.fit!(mach)
@@ -104,8 +113,7 @@ end
                         EvoTreeClassifier(),
                         metalearner=LogisticClassifier(),
                         name=:PbSuperLearner,
-                        nfolds=10,
-                        shuffle=false
+                        crossval=StratifiedCV(;nfolds=10, shuffle=false)
                 ) name=MyPbPipeline
         mach = machine(pipe, X, y)
         MLJ.fit!(mach)
@@ -117,4 +125,25 @@ end
         # What is the unit of identification?
         @test fp.pb_super_learner.metalearner == fp.pb_super_learner.logistic_classifier
     end
+end
+
+@testset "Testing helper functions" begin
+    y = source()
+
+    # Checking the return type is a Node
+    # Maybe test further the associated operation sometime? Need to know about theinternals.
+    sl_cv = @superlearner(LogisticClassifier(), 
+                        metalearner=LogisticClassifier(), 
+                        name=:SuperLearnerCV,
+                        crossval=CV())
+
+    @test GenesInteraction.getfolds(y, sl_cv, 1000) isa Node
+
+    sl_scv = @superlearner(LogisticClassifier(), 
+                        metalearner=LogisticClassifier(), 
+                        name=:SuperLearnerSCV,
+                        crossval=StratifiedCV())
+    @test GenesInteraction.getfolds(y, sl_scv, 1000) isa Node
+
+    @test library(sl_scv) == (:logistic_classifier,)
 end

@@ -8,50 +8,52 @@ using MLJ, MLJBase
 abstract type AbstractSuperLearner <: DeterministicComposite end
 
 """
-    superlearner model1 model2 ... modelk metalearner::Model=model nfolds::Int=10 shuffle::Bool=false
+    superlearner model1 model2 ... modelk metalearner::Model=model crossval=CV() name::Symbol=:Superlearner
 
 Implements the SuperLearner estimator described in :
 van der Laan, Mark J.; Polley, Eric C.; and Hubbard, Alan E., "Super Learner" (July 2007).
 U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222.
 https://biostats.bepress.com/ucbbiostat/paper222
 
-Current Limitations that need further developments:
-   - `name` and `metalearner` are required kw arguments
-   - Y is binary and a stratified cross validation is used
-   - The estimated quantity is E[Y|X]
+The estimated quantity is E[Y|X]
 
+# Required Keywords Arguments
+    - name::Symbol=AnyName, it will determine the struct name
+    - crossval::{CV, StratifiedCV}=ResamplingStrategy
+    - metalearner::Model=AnyModelMatchingTheInputAndTarget
 
 # Examples
 ```julia
 using MLJLinearModels: LogisticClassifier
 using GenesInteraction
 
-superlearner = @superlearner LogisticClassifier(lambda=10) LogisticClassifier(lambda=1) metalearner=LogistiClassifier() nfolds=3 shuffle=false
-mach = machine(superlearner, X, y)
+sl = @superlearner(LogisticClassifier(lambda=1), 
+                    metalearner=LogisticClassifier(),
+                    crossval=StratifiedCV(;nfolds=10, shuffle=false),
+                    name=:TestSuperLearner)
+mach = machine(sl, X, y)
 fit!(mach)
 ```
 """
 macro superlearner(exs...)
-    nfolds_ex = :(nfolds::Int=10)
-    shuffle_ex = :(shuffle::Bool=false)
+    crossval_ex = :()    
     metalearner_ex = :()
     name_ex = :()
+
     existing_names = []
     library_exs = []
     for ex in exs
-        # Parse shuffle
-        if typeof(ex) == Expr && ex.args[1] == :nfolds
-            nfolds_ex.args[2] = ex.args[2]
-        # Parse nfolds
-        elseif typeof(ex) == Expr && ex.args[1] == :shuffle
-            shuffle_ex.args[2] = ex.args[2]
         # Parse metalearner
-        elseif typeof(ex) == Expr && ex.args[1] == :metalearner
+        if typeof(ex) == Expr && ex.args[1] == :metalearner
             model = __module__.eval(ex.args[2])
             metatype = typeof(model)
             metalearner_ex = :(metalearner::$(metatype)=$(model))
         elseif typeof(ex) == Expr && ex.args[1] == :name
             name_ex = ex.args[2].value
+        elseif typeof(ex) == Expr && ex.args[1] == :crossval
+            crossval = __module__.eval(ex.args[2])
+            crossval_type = typeof(crossval)
+            crossval_ex = :(crossval::$(crossval_type)=$(crossval))
         # Parse library
         else
             model = __module__.eval(ex)
@@ -62,9 +64,8 @@ macro superlearner(exs...)
     end
     
     struct_ex = :(mutable struct $(name_ex) <: AbstractSuperLearner
-        $(shuffle_ex)
-        $(nfolds_ex)
         $(metalearner_ex)
+        $(crossval_ex)
         $(library_exs...)
         end)
 
@@ -80,10 +81,22 @@ end
 ###   Helper functions                          ###
 ###################################################
 
+function getfolds(y::AbstractNode, m::AbstractSuperLearner, n::Int)
+    if m.crossval isa StratifiedCV
+        folds = node(YY->MLJBase.train_test_pairs(m.crossval, 1:n, YY), y)
+    else
+        folds = node(YY->MLJBase.train_test_pairs(m.crossval, 1:n), y)
+    end
+    folds
+end
+
+
+function library(m::AbstractSuperLearner)
+    filter(x-> x ∉ (:crossval, :metalearner), fieldnames(typeof(m)))
+end
+
 
 expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
-
-train_test_pairs(X::AbstractNode, cv, rows) = node(XX->MLJBase.train_test_pairs(cv, rows, XX), X)
 
 train_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 1), X, f)
 
@@ -99,16 +112,16 @@ test_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(X
     MLJ.fit(m::SuperLearner, verbosity::Int, X, y)
 """
 function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
-    stratified_cv = StratifiedCV(; nfolds=m.nfolds, shuffle=m.shuffle)
-    n, = size(y)
+    n = nrows(y)
 
     X = source(X)
     y = source(y)
 
     Zval = []
     yval = []
-    folds = train_test_pairs(y, stratified_cv, 1:n)
-    for nfold in 1:m.nfolds
+    
+    folds = getfolds(y, m, n)
+    for nfold in 1:m.crossval.nfolds
         Xtrain = train_restrict(X, folds, nfold)
         ytrain = train_restrict(y, folds, nfold)
         Xtest = test_restrict(X, folds, nfold)
@@ -149,6 +162,3 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
 end
 
 
-function library(m::AbstractSuperLearner)
-    filter(x-> x ∉ (:nfolds, :shuffle, :metalearner), fieldnames(typeof(m)))
-end
