@@ -15,7 +15,14 @@ van der Laan, Mark J.; Polley, Eric C.; and Hubbard, Alan E., "Super Learner" (J
 U.C. Berkeley Division of Biostatistics Working Paper Series. Working Paper 222.
 https://biostats.bepress.com/ucbbiostat/paper222
 
-The estimated quantity is E[Y|X]
+# Current scope
+
+The estimated quantity is E[Y|X]. 
+Due to the fact that there is no standard way of identifying the mean of a 
+Distribution (`predict_mean` is not enforced):
+    - Only Continuous and Binary targets are suported
+    - For continuous targets, models in the library should be `Deterministic`
+
 
 # Required Keywords Arguments
     - name::Symbol=AnyName, it will determine the struct name
@@ -81,13 +88,24 @@ end
 ###   Helper functions                          ###
 ###################################################
 
-function getfolds(y::AbstractNode, m::AbstractSuperLearner, n::Int)
+
+function getfolds(y::AbstractNode, m::Model, n::Int)
     if m.crossval isa StratifiedCV
         folds = node(YY->MLJBase.train_test_pairs(m.crossval, 1:n, YY), y)
     else
-        folds = node(YY->MLJBase.train_test_pairs(m.crossval, 1:n), y)
+        folds = source(MLJBase.train_test_pairs(m.crossval, 1:n))
     end
     folds
+end
+
+
+function trainrows(X::AbstractNode, folds::AbstractNode, nfold)
+    node((XX, ff) -> selectrows(XX, ff[nfold][1]), X, folds)
+end
+
+
+function testrows(X::AbstractNode, folds::AbstractNode, nfold)
+    node((XX, ff) -> selectrows(XX, ff[nfold][2]), X, folds)
 end
 
 
@@ -96,11 +114,9 @@ function library(m::AbstractSuperLearner)
 end
 
 
-expected_value(X::AbstractNode) = node(XX->XX.prob_given_ref[2], X)
-
-train_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 1), X, f)
-
-test_restrict(X::AbstractNode, f::AbstractNode, i) = node((XX, ff) -> restrict(XX, ff[i], 2), X, f)
+function expected_value(X::AbstractNode)
+    node(XX->hasproperty(XX, :prob_given_ref) ? XX.prob_given_ref[2] : XX, X)
+end
 
 
 ###################################################
@@ -122,10 +138,10 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
     
     folds = getfolds(y, m, n)
     for nfold in 1:m.crossval.nfolds
-        Xtrain = train_restrict(X, folds, nfold)
-        ytrain = train_restrict(y, folds, nfold)
-        Xtest = test_restrict(X, folds, nfold)
-        ytest = test_restrict(y, folds, nfold)
+        Xtrain = trainrows(X, folds, nfold)
+        ytrain = trainrows(y, folds, nfold)
+        Xtest = testrows(X, folds, nfold)
+        ytest = testrows(y, folds, nfold)
 
         Zfold = []
         for modelname in library(m)

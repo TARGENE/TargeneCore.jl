@@ -2,12 +2,17 @@ using GenesInteraction
 using Test
 using Random, Distributions
 using DataFrames, CategoricalArrays
-using MLJ
+using MLJ, MLJBase
 
-import MLJLinearModels.LogisticClassifier
-import DecisionTree.DecisionTreeClassifier
-import EvoTrees.EvoTreeClassifier
-import NearestNeighborModels.KNNClassifier
+
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels
+KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels
+EvoTreeClassifier = @load EvoTreeClassifier pkg=EvoTrees
+DecisionTreeClassifier = @load DecisionTreeClassifier pkg=DecisionTree
+DecisionTreeRegressor = @load DecisionTreeRegressor pkg=DecisionTree
+SVMRegressor = @load SVMRegressor pkg=ScikitLearn
+KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels
 
 
 function simulation_dataset(;n=10000, type=:classification)
@@ -104,6 +109,44 @@ end
         end
     end
 
+    @testset "With linear regression simulation dataset" begin
+        Random.seed!(123)
+        X, y = simulation_dataset(;n=10000, type=:regression)
+        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LinearRegressor(),
+                        DecisionTreeRegressor(),
+                        KNNRegressor(),
+                        SVMRegressor(),
+                        metalearner=LinearRegressor(),
+                        name=:SimRegSuperLearner,
+                        crossval=CV(;nfolds=10, shuffle=false)
+                ) name=MyRegPipeline
+        mach = machine(pipe, X, y)
+        MLJ.fit!(mach)
+
+        fp = fitted_params(mach)
+
+        # Retrieve metalearner coefficients and check that the true model
+        # receives the highest coefficient
+        metalearner_coefs = fp.sim_reg_super_learner.metalearner[end].coefs
+        @test metalearner_coefs[1].second > 1
+        for i in 2:4
+            @test abs(metalearner_coefs[i].second) < 0.15
+        end
+        
+        # Check coefficients of the true model, the true model definitions generates
+        # data according to X1,X2=true and X2=true while the model fits X1,X2=false 
+        lr_coefs = fp.sim_reg_super_learner.linear_regressor[end-1].coefs
+        for pair in lr_coefs
+            if pair.first == :locus_1__false
+                @test pair.second ≈ 0.45 atol=0.006
+            elseif pair.first == :locus_2__false
+                @test pair.second ≈ -0.98 atol=0.006
+            elseif pair.first == :age
+                @test pair.second ≈ 0.023 atol=0.006
+            end
+        end
+    end
+
     @testset "Emphasizing the problem if the same model is used multiple times"  begin
         Random.seed!(123)
         X, y = simulation_dataset(;n=10000)
@@ -137,7 +180,7 @@ end
                         name=:SuperLearnerCV,
                         crossval=CV())
 
-    @test GenesInteraction.getfolds(y, sl_cv, 1000) isa Node
+    @test GenesInteraction.getfolds(y, sl_cv, 1000) isa Source
 
     sl_scv = @superlearner(LogisticClassifier(), 
                         metalearner=LogisticClassifier(), 
