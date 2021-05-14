@@ -147,6 +147,22 @@ end
         end
     end
 
+    @testset "Testing Optional Internal Evaluation" begin
+        Random.seed!(123)
+        X, y = simulation_dataset(;n=1000)
+        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(),
+                        EvoTreeClassifier(),
+                        metalearner=LogisticClassifier(),
+                        name=:EvaluatedSuperLearner,
+                        crossval=StratifiedCV(;nfolds=3, shuffle=false),
+                        risk=rmse
+                ) name=MyEvaluatedPipeline
+        mach = machine(pipe, X, y)
+        MLJ.fit!(mach)
+
+        @test_broken mach.report.risks[(:knn_regressor, 1)]()
+    end
+
     @testset "Emphasizing the problem if the same model is used multiple times"  begin
         Random.seed!(123)
         X, y = simulation_dataset(;n=10000)

@@ -8,7 +8,11 @@ using MLJ, MLJBase
 abstract type AbstractSuperLearner <: DeterministicComposite end
 
 """
-    superlearner model1 model2 ... modelk metalearner::Model=model crossval=CV() name::Symbol=:Superlearner
+    @superlearner(model1, ..., modelk,
+                     metalearner::Model=model,
+                     crossval=CV(),
+                     name::Symbol=:Superlearner,
+                     risk::Function=MLJMeasure)
 
 Implements the SuperLearner estimator described in :
 van der Laan, Mark J.; Polley, Eric C.; and Hubbard, Alan E., "Super Learner" (July 2007).
@@ -46,6 +50,7 @@ macro superlearner(exs...)
     crossval_ex = :()    
     metalearner_ex = :()
     name_ex = :()
+    risk_ex = :(risk=nothing)
 
     existing_names = []
     library_exs = []
@@ -55,12 +60,18 @@ macro superlearner(exs...)
             model = __module__.eval(ex.args[2])
             metatype = typeof(model)
             metalearner_ex = :(metalearner::$(metatype)=$(model))
+        # Parse structure name
         elseif typeof(ex) == Expr && ex.args[1] == :name
             name_ex = ex.args[2].value
+        # Parse cross validation strategy
         elseif typeof(ex) == Expr && ex.args[1] == :crossval
             crossval = __module__.eval(ex.args[2])
             crossval_type = typeof(crossval)
             crossval_ex = :(crossval::$(crossval_type)=$(crossval))
+        elseif typeof(ex) == Expr && ex.args[1] == :risk
+            riskfunc = __module__.eval(ex.args[2])
+            risktype = typeof(riskfunc)
+            risk_ex = :(risk::$(risktype)=$(riskfunc))
         # Parse library
         else
             model = __module__.eval(ex)
@@ -73,6 +84,7 @@ macro superlearner(exs...)
     struct_ex = :(mutable struct $(name_ex) <: AbstractSuperLearner
         $(metalearner_ex)
         $(crossval_ex)
+        $(risk_ex)
         $(library_exs...)
         end)
 
@@ -109,8 +121,13 @@ function testrows(X::AbstractNode, folds::AbstractNode, nfold)
 end
 
 
+function computerisk(riskfunc, ŷ::AbstractNode, ytrue::AbstractNode)
+    node((PP, TT) -> riskfunc(PP, int(TT) ? TT isa CategoricalArray : TT), ŷ, ytrue)
+end
+
+
 function library(m::AbstractSuperLearner)
-    filter(x-> x ∉ (:crossval, :metalearner), fieldnames(typeof(m)))
+    filter(x-> x ∉ (:crossval, :metalearner, :risk), fieldnames(typeof(m)))
 end
 
 
@@ -129,6 +146,8 @@ end
 """
 function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
     n = nrows(y)
+    risks = Dict()
+    machine_registry = Dict()
 
     X = source(X)
     y = source(y)
@@ -147,7 +166,13 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
         for modelname in library(m)
             model = getfield(m, modelname)
             mach = machine(model, Xtrain, ytrain)
-            push!(Zfold, expected_value(predict(mach, Xtest)))
+            machine_registry[(modelname, nfold)] = mach
+            ypred = expected_value(predict(mach, Xtest))
+            push!(Zfold, ypred)
+
+            if m.risk !== nothing
+                risks[(modelname, nfold)] = @node m.risk(ypred, ytest)
+            end
         end
 
         Zfold = hcat(Zfold...)
@@ -160,11 +185,13 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
     yval = vcat(yval...)
 
     metamach = machine(m.metalearner, Zval, yval)
+    machine_registry[:metalearner] = metamach
 
     Zpred = []
     for modelname in library(m)
         model = getfield(m, modelname)
         mach = machine(model, X, y)
+        machine_registry[modelname] = mach
         push!(Zpred, expected_value(predict(mach, X)))
     end
 
@@ -173,7 +200,11 @@ function MLJ.fit(m::AbstractSuperLearner, verbosity::Int, X, y)
 
     mach = machine(Deterministic(), X, y; predict=ŷ)
 
-    return!(mach, m, verbosity)
+    fitresult, cache, report = return!(mach, m, verbosity)
+
+    report = (report..., machine_registry=machine_registry, risks=risks)
+
+    return fitresult, cache, report
 
 end
 
