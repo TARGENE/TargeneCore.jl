@@ -6,12 +6,12 @@ using MLJ, MLJBase
 
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels
 KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels
-EvoTreeClassifier = @load EvoTreeClassifier pkg=EvoTrees
 DecisionTreeClassifier = @load DecisionTreeClassifier pkg=DecisionTree
+
+
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels
 DecisionTreeRegressor = @load DecisionTreeRegressor pkg=DecisionTree
-SVMRegressor = @load SVMRegressor pkg=ScikitLearn
 KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels
 
 
@@ -78,10 +78,9 @@ end
         pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(lambda=1),
                         ConstantClassifier(),
                         KNNClassifier(),
-                        EvoTreeClassifier(),
                         metalearner=LogisticClassifier(),
                         name=:Sim1SuperLearner,
-                        crossval=StratifiedCV(;nfolds=10, shuffle=false)
+                        crossval=StratifiedCV(;nfolds=3, shuffle=false)
                 ) name=MyPipeline
         mach = machine(pipe, X, y)
         MLJ.fit!(mach)
@@ -91,7 +90,7 @@ end
         # receives the highest coefficient
         metalearner_coefs = fp.sim1_super_learner.metalearner[end].coefs
         @test metalearner_coefs[1].second > 3
-        for i in 2:4
+        for i in 2:3
             @test metalearner_coefs[i].second < 2
         end
 
@@ -115,10 +114,9 @@ end
         pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LinearRegressor(),
                         DecisionTreeRegressor(),
                         KNNRegressor(),
-                        SVMRegressor(),
                         metalearner=LinearRegressor(),
                         name=:SimRegSuperLearner,
-                        crossval=CV(;nfolds=10, shuffle=false)
+                        crossval=CV(;nfolds=3, shuffle=false)
                 ) name=MyRegPipeline
         mach = machine(pipe, X, y)
         MLJ.fit!(mach)
@@ -129,7 +127,7 @@ end
         # receives the highest coefficient
         metalearner_coefs = fp.sim_reg_super_learner.metalearner[end].coefs
         @test metalearner_coefs[1].second > 1
-        for i in 2:4
+        for i in 2:3
             @test abs(metalearner_coefs[i].second) < 0.15
         end
         
@@ -145,44 +143,6 @@ end
                 @test pair.second ≈ 0.023 atol=0.006
             end
         end
-    end
-
-    @testset "Testing Optional Internal Evaluation" begin
-        Random.seed!(123)
-        X, y = simulation_dataset(;n=1000)
-        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(),
-                        EvoTreeClassifier(),
-                        metalearner=LogisticClassifier(),
-                        name=:EvaluatedSuperLearner,
-                        crossval=StratifiedCV(;nfolds=3, shuffle=false),
-                        risk=rmse
-                ) name=MyEvaluatedPipeline
-        mach = machine(pipe, X, y)
-        MLJ.fit!(mach)
-
-        @test_broken mach.report.risks[(:knn_regressor, 1)]()
-    end
-
-    @testset "Emphasizing the problem if the same model is used multiple times"  begin
-        Random.seed!(123)
-        X, y = simulation_dataset(;n=10000)
-        pipe = @pipeline OneHotEncoder(;drop_last=true) @superlearner(LogisticClassifier(lambda=1),
-                        ConstantClassifier(),
-                        KNNClassifier(),
-                        EvoTreeClassifier(),
-                        metalearner=LogisticClassifier(),
-                        name=:PbSuperLearner,
-                        crossval=StratifiedCV(;nfolds=10, shuffle=false)
-                ) name=MyPbPipeline
-        mach = machine(pipe, X, y)
-        MLJ.fit!(mach)
-        fp = fitted_params(mach)
-
-        # The metalearner has only been fitted once and the logistic regression 11 times
-        # I think because they share the same model, the current fitted_params method can't 
-        # make a difference between the 2.
-        # What is the unit of identification?
-        @test fp.pb_super_learner.metalearner == fp.pb_super_learner.logistic_classifier
     end
 end
 
