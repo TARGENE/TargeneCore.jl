@@ -66,7 +66,7 @@ end
         @test sl.crossval.nfolds == 3
         @test sl.crossval.shuffle == true
         @test library(sl) == (:logistic_classifier, :logistic_classifier2)
-        end
+    end
 
 end
 
@@ -88,7 +88,7 @@ end
 
         # Retrieve metalearner coefficients and check that the true model
         # receives the highest coefficient
-        metalearner_coefs = fp.sim1_super_learner.metalearner[end].coefs
+        metalearner_coefs = fp.sim1_super_learner.metalearner.coefs
         @test metalearner_coefs[1].second > 3
         for i in 2:3
             @test metalearner_coefs[i].second < 2

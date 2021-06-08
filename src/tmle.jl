@@ -1,65 +1,111 @@
-using MLJBase
+using Distributions
 using MLJ
-using MLJLinearModels: LogisticClassifier
+using GLM: glm
+using GLM: predict as predict_glm
+
+abstract type TMLEstimator end
+
+abstract type TMLEstimate end
 
 
-mergeAW(A,W) = hcat(A, W)
+"""
+    ATEEstimator(target_cond_expectation_estimator, treatment_cond_likelihood_estimator)
 
-first_covariate(Qbar) = log.(Qbar ./ (1 .- Qbar))
+# Scope:
 
-second_covariate(A, Gbar) = (2*A .- 1) ./ Gbar
+Implements the Targeted Minimum Loss-Based estimator of the Average Treatment Effect.
+The Average Treatment Effect is defined as: ATE = E[E[Y|T=1, W=w] - E[Y|T=0, W=w]],
+where:
 
-compute_ate(ate_1, ate_0) = mean(ate_1 .- ate_0)
+- Y is the target variable (Binary)
+- T is the treatment variable (Binary)
+- W is a confounder variable
+
+The TMLE procedure relies on plugin estimators. Here, the ATE requires both estimators of t,w → E[Y|T=t, W=w]
+and w → p(w). The empirical distribution will be used for w → p(w) all along. An estimator of 
+t,w → E[Y|T=t, W=w] is then needed. A first estimator is obtained via the provided 
+`target_cond_expectation_estimator` argument. Because those initial estimators are not 
+tailored to target the ATE they will be biased. The second stage of TMLE consists in optimizing 
+bias and variance of the ATE by fluctuating the t,w → E[Y|T=t, W=w] function.
+
+More information can be found about TMLE in "Causal Inference for Observational and Experimental Data"
+by Mark J. van der Laan and Sherri Rose.
+
+# Arguments:
+
+- target_cond_expectation_estimator::MLJ.Supervised : Typically a Stack
+- treatment_cond_likelihood_estimator::MLJ.Supervised : Typically a Stack
+
+# Examples:
+
+TODO
+
+"""
+struct ATEEstimator <: TMLEstimator 
+    target_cond_expectation_estimator::MLJ.Supervised
+    treatment_cond_likelihood_estimator::MLJ.Supervised
+end
 
 
+struct ATEEstimate <: TMLEstimate
+    estimate
+    initial_estimate
+    standard_error
+    pvalue
+end
 
-function compute_ate(Qbar_estimator, Gbar_estimator, A, W, y)
+
+function (tmle::ATEEstimator)(A, W, y)
+    # Functions that will compute covariates used by the fluctuator
+    compute_offset(X) = log.(X ./ (1 .- X))
+    compute_covariate(T, L) = reshape((2*T .- 1) ./ L, length(T), 1)
+
     # A will be used both as a treatment and a target
     # So need to manage types
     A = convert(Vector{Float64}, A)
     A_target = categorical(A)
-    X = mergeAW(A, W)
-
+    X = hcat(A, W)
     n = nrows(y)
     
-    # Find an initial estimate of Qbar = E[Y|A, W] by superlearning
-    # and compute first covariate X₁
-    Qbar_mach = machine(Q_estimator, X, y)
-    fit!(Qbar_mach)
-    Qbar = predict(Qbar_mach)
-    X₁ = first_covariate(Qbar)
+    # Find an initial estimate of E[Y|A, W] by superlearning
+    # and compute the offset
+    target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
+    fit!(target_expectation_mach)
+    target_expectation = predict(target_expectation_mach)
+    offset_full = compute_offset(target_expectation)
 
-    # Find an estimate of Gbar = P(A|W)
-    # and compute second covariate X₂
-    Gbar_mach = machine(G_estimator, W, A_target)
-    fit!(Gbar_mach)
-    Gbar = predict(Gbar_mach)
-    X₂ = second_covariate(A, Gbar)
+    # Find an estimate of P(A|W)
+    # and compute covariate
+    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, A_target)
+    fit!(treatment_likelihood_mach)
+    treatment_likelihood = predict(treatment_likelihood_mach)
+    cov_full = compute_covariate(A, treatment_likelihood)
 
-    # Fluctuate Qbar = E[Y|A, W]
-    # PROBLEM WITH THE INTERCEPT
-    covariates = hcat(X₁, X₂)
-    fluct_mach = machine(LogisticClassifier(;penalty=:none, fit_intercept=false), covariates, y)
-    fit!(fluct_mach)
+    # Fluctuate E[Y|A, W] using a LogisticRegression
+    fluctuator = glm(cov_full, y, Bernoulli(); offset=offset_full)
+    fluct_full = predict_glm(fluctuator, cov_full;offset=offset_full)
 
-    # Compute the final estimate ATEₙ = 1/n ∑ Fluctuator(A=1, W=w) - Fluctuator(A=0, W=w)
-    A1 = ones(n)
-    Qbar_A1 = predict(Qbar_mach, mergeAW(A1, W))
-    cov₁ = first_covariate(Qbar_A1)
-    cov₂ = second_covariate(A1, Gbar)
-    covariates = hcat(cov₁, cov₂)
-    fluct_A1 = predict(fluct_mach, covariates)
+    # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(A=1, W=w) - Fluctuator(A=0, W=w)
+    treatment_true = ones(n)
+    target_treatment_true = predict(target_expectation_mach, hcat(treatment_true, W))
+    offset = compute_offset(target_treatment_true)
+    cov = compute_covariate(treatment_true, treatment_likelihood)
+    fluct_treatment_true = predict_glm(fluctuator, cov;offset=offset)
 
-    A0 = zeros(n)
-    Qbar_A0 = predict(Qbar_mach, mergeAW(A0, W))
-    cov₁ = first_covariate(Qbar_A0)
-    Gbar_ = 1 .- Gbar
-    cov₂ = second_covariate(A0, Gbar_)
-    covariates = hcat(cov₁, cov₂)
-    fluct_A0 = predict(fluct_mach, covariates)
+    treatment_false = zeros(n)
+    target_treatment_false = predict(target_expectation_mach, hcat(treatment_false, W))
+    offset = compute_offset(target_treatment_false)
+    cov = compute_covariate(treatment_false, 1 .- treatment_likelihood)
+    fluct_treatment_false = predict_glm(fluctuator, cov; offset=offset)
 
-    ATEₙ = mean(fluct_A1 .- fluct_A0)
+    tmleATE = mean(fluct_treatment_true .- fluct_treatment_false)
+    initialATE = mean(target_treatment_true .- target_treatment_false)
 
-    return ATEₙ
+    # Influence curve and standard error
+    inf_curve = cov_full .* (float(y) .- fluct_full) .+ fluct_treatment_true .- fluct_treatment_false .- tmleATE
+    std_error = sqrt(var(inf_curve)/n)
+    pvalue = 2*(1 - cdf(Normal(0, 1), abs(tmleATE/std_error)))
+    
+    return ATEEstimate(tmleATE, initialATE, std_error, pvalue)
 
 end
