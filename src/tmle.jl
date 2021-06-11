@@ -1,8 +1,4 @@
-using Distributions
-using CategoricalArrays
-using MLJ
-using GLM: glm, GeneralizedLinearModel
-using GLM: predict as predict_glm
+
 
 abstract type TMLEstimator end
 
@@ -97,7 +93,8 @@ end
 function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
                              target_expectation_mach::Machine, 
                              treatment_likelihood_mach::Machine, 
-                             W, t)
+                             W, 
+                             t::Vector{<:Real})
     X = hcat(t, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, t)
@@ -105,7 +102,7 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
 end
 
 
-function fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector)
+function MLJ.fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector)
     n = nrows(y)
     X, tint, t, W, y = reformat(t, W, y)
     
@@ -124,12 +121,21 @@ function fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalV
     fluctuator = glm(reshape(covariate, :, 1), y, Bernoulli(); offset=offset)
     
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
-    fluct_treatment_true = compute_fluctuation(fluctuator, W, ones(n))
-    fluct_treatment_false = compute_fluctuation(fluctuator, W, zeros(n))
-    tmle.estimate = mean(fluct_treatment_true .- fluct_treatment_false)
+    fluct_treatment_true = compute_fluctuation(fluctuator, 
+                                               target_expectation_mach, 
+                                               treatment_likelihood_mach, 
+                                               W, 
+                                               ones(Int, n))
+    fluct_treatment_false = compute_fluctuation(fluctuator, 
+                                                target_expectation_mach, 
+                                                treatment_likelihood_mach, 
+                                                W, 
+                                                zeros(Int, n))
 
+    tmle.estimate = mean(fluct_treatment_true .- fluct_treatment_false)
+    
     # Standard error from the influence curve
-    observed_fluct = predict_glm(fluctuator, covariate;offset=offset)
+    observed_fluct = predict_glm(fluctuator, reshape(covariate, n, 1); offset=offset)
     inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct_treatment_true .- fluct_treatment_false .- tmle.estimate
     
     tmle.stderror = sqrt(var(inf_curve)/n)

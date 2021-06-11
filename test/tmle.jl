@@ -2,7 +2,6 @@ using GenesInteraction
 using Random
 using Test
 using Distributions
-using DataFrames
 using MLJ
 using StableRNGs
 
@@ -97,21 +96,29 @@ end
 
 
 @testset "Test ATE TMLE fit!" begin
+    n = 10000
+    rng = StableRNG(1234)
+    t, W, y, ATE = categorical_problem(rng; n=n)
     target_cond_expectation_estimator = MLJ.Stack(
                         lr=LogisticClassifier(), 
                         knn=KNNClassifier(),
                         metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=3, shuffle=false))
+                        resampling=StratifiedCV(;nfolds=10, shuffle=false))
 
     treatment_cond_likelihood_estimator = MLJ.Stack(
                         lr=LogisticClassifier(), 
                         knn=KNNClassifier(),
                         metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=3, shuffle=false))
+                        resampling=StratifiedCV(;nfolds=10, shuffle=false))
 
     ate_estimator = ATEEstimator(
                         target_cond_expectation_estimator,
                         treatment_cond_likelihood_estimator
                         )
+    
+    fit!(ate_estimator, t, W, y)
+    # In the large number we can get arbitrarily close
+    @test abs(ATE - ate_estimator.estimate) < 0.006
+
 
 end
