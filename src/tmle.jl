@@ -63,20 +63,23 @@ function ATEEstimator(target_cond_expectation_estimator::MLJ.Supervised,
 end
 
 
-function _check_data(t::CategoricalVector, W, y::CategoricalVector)
+function reformat(t::CategoricalVector{Bool}, W, y::CategoricalVector)
     # Ensure target is Binary
     length(levels(y)) == 2 || 
         throw(ArgumentError("y should be a vector of binary values"))
-    # Ensure treatment is Binary
-    length(levels(t)) == 2 || 
-        throw(ArgumentError("t should be a vector of binary values"))
+    
+    # The treatment will be used both as an input and a target
+    tint = convert(Vector{Int}, t)
+
+    X = hcat(tint, MLJ.matrix(W))
+    return (X, tint, t, W, y)
 end
 
 
-function compute_offset(mach, X)
+function compute_offset(fitted_mach, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = predict(mach, X).prob_given_ref[2]
+    expectation = predict(fitted_mach, X).prob_given_ref[2]
     return log.(expectation ./ (1 .- expectation))
 end
 
@@ -99,16 +102,9 @@ function compute_fluctuation(fluctuator, W, t)
 end
 
 
-function fit!(tmle::ATEEstimator, t::CategoricalVector, W, y::CategoricalVector)
-    _check_data(t, W, y)
-    
-    # Functions that will compute covariates used by the fluctuator
-    compute_covariate(T, L) = reshape((2*T .- 1) ./ L, length(T), 1)
-
-    # The treatment will be used both as an input and a target
-    t_asint = convert(Vector{Int}, t)
-    X = hcat(t_asint, W)
+function fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector)
     n = nrows(y)
+    X, tint, t, W, y = reformat(t, W, y)
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
@@ -121,7 +117,7 @@ function fit!(tmle::ATEEstimator, t::CategoricalVector, W, y::CategoricalVector)
     # Fluctuate E[Y|A, W] using a LogisticRegression
     # on the covariate and the offset 
     offset = compute_offset(target_expectation_mach, X)
-    covariate = compute_covariate(treatment_likelihood_mach, W, t_asint)
+    covariate = compute_covariate(treatment_likelihood_mach, W, tint)
     fluctuator = glm(reshape(covariate, n, 1), y, Bernoulli(); offset=offset)
     
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
