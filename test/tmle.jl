@@ -4,7 +4,6 @@ using Test
 using Distributions
 using DataFrames
 using MLJ
-using StatsPlots
 
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
@@ -34,68 +33,30 @@ function categorical_problem(;n=100)
     return A, W, y, ATE
 end
 
-function simulate(ate_estimator, range)
-    estimates = []
-    trueATES = []
-    for n in range
-        println("Estimation with n points = $n")
-        A, W, y, trueATE = categorical_problem(;n=n)
-        ate_estimate = ate_estimator(A, W, y)
-        push!(estimates, ate_estimate)
-        push!(trueATES, trueATE)
-    end
 
-    results = DataFrame(npoints=range,
-                        trueATE=trueATES,
-                        estimate=estimates)
-    return results
+@testset "Test ATETMLE helper functions" begin
+
 end
-
 #######################################################
 ######## The True model is part of the library ########
 #######################################################
 
-target_cond_expectation_estimator = @superlearner(
-                    LogisticClassifier(), 
-                    KNNClassifier(),
-                    metalearner=LogisticClassifier(), 
-                    name=:QSuperLearner,
-                    crossval=StratifiedCV(;nfolds=3, shuffle=false))
+@testset "Test ATE TMLE fit!" begin
+    target_cond_expectation_estimator = MLJ.Stack(
+                        lr=LogisticClassifier(), 
+                        knn=KNNClassifier(),
+                        metalearner=LogisticClassifier(), 
+                        resampling=StratifiedCV(;nfolds=3, shuffle=false))
 
-treatment_cond_likelihood_estimator = @superlearner(
-                    LogisticClassifier(), 
-                    KNNClassifier(),
-                    metalearner=LogisticClassifier(), 
-                    name=:GSuperLearner,
-                    crossval=StratifiedCV(;nfolds=3, shuffle=false))
+    treatment_cond_likelihood_estimator = MLJ.Stack(
+                        lr=LogisticClassifier(), 
+                        knn=KNNClassifier(),
+                        metalearner=LogisticClassifier(), 
+                        resampling=StratifiedCV(;nfolds=3, shuffle=false))
 
-ate_estimator = ATEEstimator(
-                    target_cond_expectation_estimator,
-                    treatment_cond_likelihood_estimator
-                    )
+    ate_estimator = ATEEstimator(
+                        target_cond_expectation_estimator,
+                        treatment_cond_likelihood_estimator
+                        )
 
-range = [50, 100, 300, 500, 800, 1000, 2000, 5000, 10000, 20000,
-                    50000, 75000, 100000, 200000]
-results = simulate(ate_estimator, range)
-tmle_estimates = [x.estimate for x in results.estimate]
-initial_estimates = [x.initial_estimate for x in results.estimate]
-std_errors = [x.standard_error for x in results.estimate]
-
-plot(results.npoints, tmle_estimates;
-        ribbon=1.96*std_errors./sqrt.(results.npoints), 
-        fillalpha=.5, 
-        legend=:bottomright, 
-        title="ATE estimates",
-        xlabel="Dataset size", 
-        ylabel="ATE",
-        xaxis=:log,
-        label="TML Estimate")
-plot!(results.npoints, initial_estimates; label="Initial Estimate")
-plot!(results.npoints, results.trueATE; label="Truth")
-
-#######################################################
-###### The True model is NOT part of the library ######
-#######################################################
-
-
-# TODO
+end

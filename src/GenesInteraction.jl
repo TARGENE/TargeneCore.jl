@@ -1,9 +1,17 @@
 module GenesInteraction
 
-include("utils.jl")
-include("super_learning.jl")
+
+# #############################################################################
+# EXPORTS
+# #############################################################################
+
+export ATEEstimator
+
+# #############################################################################
+# INCLUDES
+# #############################################################################
+
 include("tmle.jl")
 
-export @superlearner, AbstractSuperLearner, library, ATEEstimator
 
 end

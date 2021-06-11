@@ -1,11 +1,14 @@
 using Distributions
+using CategoricalArrays
 using MLJ
 using GLM: glm
 using GLM: predict as predict_glm
 
 abstract type TMLEstimator end
 
-abstract type TMLEstimate end
+pvalue(tmle::TMLEstimator) = 2*(1 - cdf(Normal(0, 1), abs(tmle.estimate/tmle.std_error)))
+
+confint(tmle::TMLEstimator) = (tmle.estimate - 1.96tmle.stderror, tmle.estimate + 1.96tmle.stderror)
 
 
 """
@@ -41,71 +44,97 @@ by Mark J. van der Laan and Sherri Rose.
 TODO
 
 """
-struct ATEEstimator <: TMLEstimator 
+mutable struct ATEEstimator <: TMLEstimator 
     target_cond_expectation_estimator::MLJ.Supervised
     treatment_cond_likelihood_estimator::MLJ.Supervised
-end
-
-
-struct ATEEstimate <: TMLEstimate
+    fitted::Bool
     estimate
-    initial_estimate
-    standard_error
-    pvalue
+    stderror
 end
 
 
-function (tmle::ATEEstimator)(A, W, y)
+function ATEEstimator(target_cond_expectation_estimator::MLJ.Supervised,
+                      treatment_cond_likelihood_estimator::MLJ.Supervised)
+    return ATEEstimator(target_cond_expectation_estimator,
+                        treatment_cond_likelihood_estimator,
+                        false,
+                        nothing,
+                        nothing)
+end
+
+
+function _check_data(t::CategoricalVector, W, y::CategoricalVector)
+    # Ensure target is Binary
+    length(levels(y)) == 2 || 
+        throw(ArgumentError("y should be a vector of binary values"))
+    # Ensure treatment is Binary
+    length(levels(t)) == 2 || 
+        throw(ArgumentError("t should be a vector of binary values"))
+end
+
+
+function compute_offset(mach, X)
+    # The machine is an estimate of a probability distribution
+    # In the binary case, the expectation is assumed to be the probability of the second class
+    expectation = predict(mach, X).prob_given_ref[2]
+    return log.(expectation ./ (1 .- expectation))
+end
+
+
+function compute_covariate(mach, W, t)
+    # tpred is an estimate of a probability distribution
+    # we need to extract the observed likelihood out of it
+    tpred = predict(mach, W)
+    likelihood_fn = pdf(tpred, levels(first(tpred)))
+    likelihood = [x[t[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
+    return (2t .- 1) ./ likelihood
+end
+
+
+function compute_fluctuation(fluctuator, W, t)
+    X = hcat(t, W)
+    offset = compute_offset(target_expectation_mach, X)
+    cov = compute_covariate(treatment_likelihood_mach, W, t)
+    return  predict_glm(fluctuator, reshape(cov, n, 1); offset=offset)
+end
+
+
+function fit!(tmle::ATEEstimator, t::CategoricalVector, W, y::CategoricalVector)
+    _check_data(t, W, y)
+    
     # Functions that will compute covariates used by the fluctuator
-    compute_offset(X) = log.(X ./ (1 .- X))
     compute_covariate(T, L) = reshape((2*T .- 1) ./ L, length(T), 1)
 
-    # A will be used both as a treatment and a target
-    # So need to manage types
-    A = convert(Vector{Float64}, A)
-    A_target = categorical(A)
-    X = hcat(A, W)
+    # The treatment will be used both as an input and a target
+    t_asint = convert(Vector{Int}, t)
+    X = hcat(t_asint, W)
     n = nrows(y)
     
-    # Find an initial estimate of E[Y|A, W] by superlearning
-    # and compute the offset
+    # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
     fit!(target_expectation_mach)
-    target_expectation = predict(target_expectation_mach)
-    offset_full = compute_offset(target_expectation)
 
-    # Find an estimate of P(A|W)
-    # and compute covariate
-    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, A_target)
+    # Estimate of P(A|W)
+    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, t)
     fit!(treatment_likelihood_mach)
-    treatment_likelihood = predict(treatment_likelihood_mach)
-    cov_full = compute_covariate(A, treatment_likelihood)
-
-    # Fluctuate E[Y|A, W] using a LogisticRegression
-    fluctuator = glm(cov_full, y, Bernoulli(); offset=offset_full)
-    fluct_full = predict_glm(fluctuator, cov_full;offset=offset_full)
-
-    # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(A=1, W=w) - Fluctuator(A=0, W=w)
-    treatment_true = ones(n)
-    target_treatment_true = predict(target_expectation_mach, hcat(treatment_true, W))
-    offset = compute_offset(target_treatment_true)
-    cov = compute_covariate(treatment_true, treatment_likelihood)
-    fluct_treatment_true = predict_glm(fluctuator, cov;offset=offset)
-
-    treatment_false = zeros(n)
-    target_treatment_false = predict(target_expectation_mach, hcat(treatment_false, W))
-    offset = compute_offset(target_treatment_false)
-    cov = compute_covariate(treatment_false, 1 .- treatment_likelihood)
-    fluct_treatment_false = predict_glm(fluctuator, cov; offset=offset)
-
-    tmleATE = mean(fluct_treatment_true .- fluct_treatment_false)
-    initialATE = mean(target_treatment_true .- target_treatment_false)
-
-    # Influence curve and standard error
-    inf_curve = cov_full .* (float(y) .- fluct_full) .+ fluct_treatment_true .- fluct_treatment_false .- tmleATE
-    std_error = sqrt(var(inf_curve)/n)
-    pvalue = 2*(1 - cdf(Normal(0, 1), abs(tmleATE/std_error)))
     
-    return ATEEstimate(tmleATE, initialATE, std_error, pvalue)
+    # Fluctuate E[Y|A, W] using a LogisticRegression
+    # on the covariate and the offset 
+    offset = compute_offset(target_expectation_mach, X)
+    covariate = compute_covariate(treatment_likelihood_mach, W, t_asint)
+    fluctuator = glm(reshape(covariate, n, 1), y, Bernoulli(); offset=offset)
+    
+    # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
+    fluct_treatment_true = compute_fluctuation(fluctuator, W, ones(n))
+    fluct_treatment_false = compute_fluctuation(fluctuator, W, zeros(n))
+    tmle.estimate = mean(fluct_treatment_true .- fluct_treatment_false)
+
+    # Standard error from the influence curve
+    observed_fluct = predict_glm(fluctuator, covariate;offset=offset)
+    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct_treatment_true .- fluct_treatment_false .- tmle.estimate
+    
+    tmle.stderror = sqrt(var(inf_curve)/n)
+
+    return tmle
 
 end
