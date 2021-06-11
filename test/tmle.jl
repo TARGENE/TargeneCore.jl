@@ -120,5 +120,4 @@ end
     # In the large number we can get arbitrarily close
     @test abs(ATE - ate_estimator.estimate) < 0.006
 
-
 end
