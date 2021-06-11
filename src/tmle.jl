@@ -1,7 +1,7 @@
 using Distributions
 using CategoricalArrays
 using MLJ
-using GLM: glm
+using GLM: glm, GeneralizedLinearModel
 using GLM: predict as predict_glm
 
 abstract type TMLEstimator end
@@ -76,7 +76,7 @@ function reformat(t::CategoricalVector{Bool}, W, y::CategoricalVector)
 end
 
 
-function compute_offset(fitted_mach, X)
+function compute_offset(fitted_mach::Machine, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
     expectation = predict(fitted_mach, X).prob_given_ref[2]
@@ -84,21 +84,24 @@ function compute_offset(fitted_mach, X)
 end
 
 
-function compute_covariate(mach, W, t)
+function compute_covariate(fitted_mach::Machine, W, t::Vector{<:Real})
     # tpred is an estimate of a probability distribution
     # we need to extract the observed likelihood out of it
-    tpred = predict(mach, W)
+    tpred = predict(fitted_mach, W)
     likelihood_fn = pdf(tpred, levels(first(tpred)))
     likelihood = [x[t[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
     return (2t .- 1) ./ likelihood
 end
 
 
-function compute_fluctuation(fluctuator, W, t)
+function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
+                             target_expectation_mach::Machine, 
+                             treatment_likelihood_mach::Machine, 
+                             W, t)
     X = hcat(t, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, t)
-    return  predict_glm(fluctuator, reshape(cov, n, 1); offset=offset)
+    return  predict_glm(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
 end
 
 
@@ -118,7 +121,7 @@ function fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalV
     # on the covariate and the offset 
     offset = compute_offset(target_expectation_mach, X)
     covariate = compute_covariate(treatment_likelihood_mach, W, tint)
-    fluctuator = glm(reshape(covariate, n, 1), y, Bernoulli(); offset=offset)
+    fluctuator = glm(reshape(covariate, :, 1), y, Bernoulli(); offset=offset)
     
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
     fluct_treatment_true = compute_fluctuation(fluctuator, W, ones(n))

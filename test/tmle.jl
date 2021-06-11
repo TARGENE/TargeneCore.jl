@@ -19,12 +19,12 @@ function categorical_problem(rng;n=100)
     py_given_aw(a, w) = 1 ./ (1 .+ exp.(2w .- 3a .+ 1))
     # Sample from dataset
     Unif = Uniform(0, 1)
-    w = rand(rng, Unif, n, 1) .< p_w()
+    w = rand(rng, Unif, n) .< p_w()
     t = rand(rng, Unif, n) .< pa_given_w(w)
     y = rand(rng, Unif, n) .< py_given_aw(t, w)
     # Convert to dataframe to respect the Tables.jl
     # and convert types
-    W = table(convert(Array{Int}, w))
+    W = reshape(convert(Array{Float64}, w), n, 1)
     t = categorical(t)
     y = categorical(y)
     # Compute the theoretical ATE
@@ -34,9 +34,6 @@ function categorical_problem(rng;n=100)
     
     return t, W, y, ATE
 end
-
-
-t, W, y, ATE = categorical_problem(rng;n=200)
 
 
 @testset "Test reformat" begin
@@ -68,12 +65,34 @@ t, W, y, ATE = categorical_problem(rng;n=200)
 end
 
 
-@testset "Test compute_offset" begin
-    X = hcat(convert(Vector{Int}, t), W)
-    model = LogisticClassifier()
-    mach = machine(model, X, y)
-    fit!(mach)
-    offset = GenesInteraction.compute_offset(mach, X)
+@testset "Test intermediate computations" begin
+    n = 100
+    t, W, y, _ = categorical_problem(rng; n=n)
+    X, tint, t, W, y = GenesInteraction.reformat(t, W, y)
+
+    # Testing compute_offset function
+    target_expectation_mach = machine(LogisticClassifier(), X, y)
+    fit!(target_expectation_mach, verbosity=0)
+    offset = GenesInteraction.compute_offset(target_expectation_mach, X)
+    ## Not sure how to test that the operation is correct
+    @test offset isa Vector{Float64}
+
+    # Testing compute_covariate function
+    treatment_likelihood_mach = machine(LogisticClassifier(), W, t)
+    fit!(treatment_likelihood_mach, verbosity=0)
+    covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, tint)
+    ## Not sure how to test that the operation is correct
+    @test covariate isa Vector{Float64}
+
+    # Testing compute_fluctuation function
+    fluctuator = GenesInteraction.glm(reshape(covariate, n, 1), y, Bernoulli(); offset=offset)
+    fluct = GenesInteraction.compute_fluctuation(fluctuator, 
+                                                 target_expectation_mach,
+                                                 treatment_likelihood_mach,
+                                                 W, 
+                                                 tint)
+    ## Not sure how to test that the operation is correct
+    @test covariate isa Vector{Float64}
 end
 
 
