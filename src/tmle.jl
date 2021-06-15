@@ -59,6 +59,9 @@ function ATEEstimator(target_cond_expectation_estimator::MLJ.Supervised,
 end
 
 
+combinetotable(t, W) = (treatment_=t, columntable(W)...)
+
+
 function reformat(t::CategoricalVector{Bool}, W, y::CategoricalVector)
     # Ensure target is Binary
     length(levels(y)) == 2 || 
@@ -66,8 +69,9 @@ function reformat(t::CategoricalVector{Bool}, W, y::CategoricalVector)
     
     # The treatment will be used both as an input and a target
     tint = convert(Vector{Int}, t)
+    
+    X = combinetotable(tint, W)
 
-    X = hcat(tint, MLJ.matrix(W))
     return (X, tint, t, W, y)
 end
 
@@ -95,7 +99,7 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
                              treatment_likelihood_mach::Machine, 
                              W, 
                              t::Vector{<:Real})
-    X = hcat(t, W)
+    X = combinetotable(t, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, t)
     return  predict_glm(fitted_fluctuator, reshape(cov, :, 1); offset=offset)

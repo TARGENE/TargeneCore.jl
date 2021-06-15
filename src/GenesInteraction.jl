@@ -1,5 +1,6 @@
 module GenesInteraction
 
+using Tables
 using Distributions
 using CategoricalArrays
 using MLJ

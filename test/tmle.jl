@@ -23,7 +23,7 @@ function categorical_problem(rng;n=100)
     y = rand(rng, Unif, n) .< py_given_aw(t, w)
     # Convert to dataframe to respect the Tables.jl
     # and convert types
-    W = reshape(convert(Array{Float64}, w), n, 1)
+    W = (W=convert(Array{Float64}, w),)
     t = categorical(t)
     y = categorical(y)
     # Compute the theoretical ATE
@@ -37,9 +37,8 @@ end
 
 @testset "Test reformat" begin
     # y should have exactly 2 levels
-    W = [1 0;
-         1 0;
-         0 1]
+    W = (col1=[1, 1, 0], col2=[0, 0, 1])
+
     t = categorical([false, true, true])
     y =  categorical(["a", "b", "c"])
     @test_throws ArgumentError GenesInteraction.reformat(t, W, y)
@@ -53,9 +52,9 @@ end
     t = categorical([false, true, true])
     y =  categorical(["a", "b", "b"])
     X, tint, tnew, Wnew, ynew = GenesInteraction.reformat(t, W, y)
-    @test X == [0 1 0;
-                1 1 0;
-                1 0 1]
+    @test X == (treatment_ = [0, 1, 1],
+                col1 = [1, 1, 0],
+                col2 = [0, 0, 1],)
     @test tint == [0, 1, 1]
     @test t == tnew
     @test y == ynew
