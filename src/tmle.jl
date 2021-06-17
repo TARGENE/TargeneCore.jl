@@ -59,20 +59,9 @@ function ATEEstimator(target_cond_expectation_estimator::MLJ.Supervised,
 end
 
 
-combinetotable(t, W) = (treatment_=t, columntable(W)...)
-
-
-function reformat(t::CategoricalVector{Bool}, W, y::CategoricalVector)
-    # Ensure target is Binary
-    length(levels(y)) == 2 || 
-        throw(ArgumentError("y should be a vector of binary values"))
-    
-    # The treatment will be used both as an input and a target
-    tint = convert(Vector{Int}, t)
-    
-    X = combinetotable(tint, W)
-
-    return (X, tint, t, W, y)
+function combinetotable(hot_mach::Machine, t, W)
+    thot = MLJ.transform(hot_mach, (t=t,))
+    return merge(thot, columntable(W))
 end
 
 
@@ -84,31 +73,39 @@ function compute_offset(fitted_mach::Machine, X)
 end
 
 
-function compute_covariate(fitted_mach::Machine, W, t::Vector{<:Real})
+function compute_covariate(fitted_mach::Machine, W, t)
     # tpred is an estimate of a probability distribution
     # we need to extract the observed likelihood out of it
+    tint = convert(Vector{Int}, t)
     tpred = predict(fitted_mach, W)
     likelihood_fn = pdf(tpred, levels(first(tpred)))
-    likelihood = [x[t[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
-    return (2t .- 1) ./ likelihood
+    likelihood = [x[tint[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
+    return (2tint .- 1) ./ likelihood
 end
 
 
 function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
                              target_expectation_mach::Machine, 
                              treatment_likelihood_mach::Machine, 
+                             hot_mach::Machine,
                              W, 
-                             t::Vector{<:Real})
-    X = combinetotable(t, W)
+                             t::CategoricalVector{Bool})
+    X = combinetotable(hot_mach, t, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, t)
     return  predict_glm(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
 end
 
 
-function MLJ.fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector)
+function MLJ.fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector{Bool})
     n = nrows(y)
-    X, tint, t, W, y = reformat(t, W, y)
+
+    # Fit Encoding of the treatment variable
+    hot_mach = machine(OneHotEncoder(), (t=t,))
+    fit!(hot_mach)
+
+    # Input checks and reformating
+    X = combinetotable(hot_mach, t, W)
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
@@ -121,20 +118,22 @@ function MLJ.fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::Categori
     # Fluctuate E[Y|A, W] using a LogisticRegression
     # on the covariate and the offset 
     offset = compute_offset(target_expectation_mach, X)
-    covariate = compute_covariate(treatment_likelihood_mach, W, tint)
+    covariate = compute_covariate(treatment_likelihood_mach, W, t)
     fluctuator = glm(reshape(covariate, :, 1), y, Bernoulli(); offset=offset)
-    
+
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
     fluct_treatment_true = compute_fluctuation(fluctuator, 
                                                target_expectation_mach, 
                                                treatment_likelihood_mach, 
+                                               hot_mach,
                                                W, 
-                                               ones(Int, n))
+                                               categorical(ones(Bool, n), levels=[false, true]))
     fluct_treatment_false = compute_fluctuation(fluctuator, 
                                                 target_expectation_mach, 
-                                                treatment_likelihood_mach, 
+                                                treatment_likelihood_mach,
+                                                hot_mach,
                                                 W, 
-                                                zeros(Int, n))
+                                                categorical(zeros(Bool, n), levels=[false, true]))
 
     tmle.estimate = mean(fluct_treatment_true .- fluct_treatment_false)
     

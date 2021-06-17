@@ -35,88 +35,105 @@ function categorical_problem(rng;n=100)
 end
 
 
-@testset "Test reformat" begin
-    # y should have exactly 2 levels
+@testset "Test target and treatment should be CategoricalVector{Bool}" begin
+    ate_estimator = ATEEstimator(
+            LogisticClassifier(),
+            LogisticClassifier()
+            )
     W = (col1=[1, 1, 0], col2=[0, 0, 1])
 
     t = categorical([false, true, true])
     y =  categorical(["a", "b", "c"])
-    @test_throws ArgumentError GenesInteraction.reformat(t, W, y)
+    @test_throws MethodError fit!(ate_estimator, t, W, y)
 
-    # t should be Boolean
     t = categorical([1, 2, 2])
-    y =  categorical(["a", "b", "b"])
-    @test_throws MethodError GenesInteraction.reformat(t, W, y)
-
-    # Check reformating
-    t = categorical([false, true, true])
-    y =  categorical(["a", "b", "b"])
-    X, tint, tnew, Wnew, ynew = GenesInteraction.reformat(t, W, y)
-    @test X == (treatment_ = [0, 1, 1],
-                col1 = [1, 1, 0],
-                col2 = [0, 0, 1],)
-    @test tint == [0, 1, 1]
-    @test t == tnew
-    @test y == ynew
-    @test W == Wnew
+    y =  categorical([false, true, true])
+    @test_throws MethodError fit!(ate_estimator, t, W, y)
 
 end
 
 
-@testset "Test intermediate computations" begin
-    n = 100
-    t, W, y, _ = categorical_problem(rng; n=n)
-    X, tint, t, W, y = GenesInteraction.reformat(t, W, y)
+@testset "Testing the various intermediate functions" begin
+    # Let's process the different functions in order of call by fit! 
+    # and check intermediate and final outputs
+    t = categorical([false, true, true, false, true, true, false])
+    y = categorical([true, true, false, false, false, true, true])
+    W = (W1=categorical([true, true, false, true, true, true, true]),)
+    
+    # Testing initial encoding
+    hot_mach = machine(OneHotEncoder(), (t=t,))
+    fit!(hot_mach)
 
+    X = GenesInteraction.combinetotable(hot_mach, t, W)
+    @test X == (t__false=[1, 0, 0, 1, 0, 0, 1],
+                t__true=[0, 1, 1, 0, 1, 1, 0],
+                W1=W.W1)
+
+    
+    # The following dummy model will have the predictive distribution
+    # [false, true] => [0.42857142857142855 0.5714285714285714]
+    # for both the treatment and the target
+    dummy_model = @pipeline OneHotEncoder() ConstantClassifier()
     # Testing compute_offset function
-    target_expectation_mach = machine(LogisticClassifier(), X, y)
+    target_expectation_mach = machine(dummy_model, X, y)
     fit!(target_expectation_mach, verbosity=0)
     offset = GenesInteraction.compute_offset(target_expectation_mach, X)
-    ## Not sure how to test that the operation is correct
     @test offset isa Vector{Float64}
+    @test all(isapprox.(offset, 0.28768, atol=1e-5))
 
     # Testing compute_covariate function
-    treatment_likelihood_mach = machine(LogisticClassifier(), W, t)
+    # The likelihood function is given bu the previous distribution
+    treatment_likelihood_mach = machine(dummy_model, W, t)
     fit!(treatment_likelihood_mach, verbosity=0)
-    covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, tint)
-    ## Not sure how to test that the operation is correct
+    covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, t)
     @test covariate isa Vector{Float64}
+    @test covariate ≈ [-2.33, 1.75, 1.75, -2.33, 1.75, 1.75, -2.33] atol=1e-2
 
     # Testing compute_fluctuation function
-    fluctuator = GenesInteraction.glm(reshape(covariate, n, 1), y, Bernoulli(); offset=offset)
+    fluctuator = GenesInteraction.glm(reshape(covariate, :, 1), y, Bernoulli(); offset=offset)
     fluct = GenesInteraction.compute_fluctuation(fluctuator, 
                                                  target_expectation_mach,
                                                  treatment_likelihood_mach,
+                                                 hot_mach,
                                                  W, 
-                                                 tint)
-    ## Not sure how to test that the operation is correct
-    @test covariate isa Vector{Float64}
+                                                 t)
+    # Not sure how to test that the operation is correct
+    @test fluct isa Vector{Float64}
+    @test all(isapprox.(fluct, [0.6644,
+                                0.4977,
+                                0.4977,
+                                0.6644,
+                                0.4977,
+                                0.4977,
+                                0.6644],
+                    atol = 1e-4))
 end
 
 
-@testset "Test ATE TMLE fit!" begin
-    n = 10000
+@testset "Test ATE TMLE fit! asymptotic behavior" begin
     rng = StableRNG(1234)
-    t, W, y, ATE = categorical_problem(rng; n=n)
     target_cond_expectation_estimator = MLJ.Stack(
                         lr=LogisticClassifier(), 
                         knn=KNNClassifier(),
                         metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=10, shuffle=false))
+                        resampling=StratifiedCV(;nfolds=5, shuffle=false))
 
     treatment_cond_likelihood_estimator = MLJ.Stack(
                         lr=LogisticClassifier(), 
                         knn=KNNClassifier(),
                         metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=10, shuffle=false))
+                        resampling=StratifiedCV(;nfolds=5, shuffle=false))
 
     ate_estimator = ATEEstimator(
                         target_cond_expectation_estimator,
                         treatment_cond_likelihood_estimator
                         )
     
-    fit!(ate_estimator, t, W, y)
-    # In the large number we can get arbitrarily close
-    @test abs(ATE - ate_estimator.estimate) < 0.006
-
+    abserrors = []
+    for n in [100, 1000, 10000, 100000]
+        t, W, y, ATE = categorical_problem(rng; n=n)
+        fit!(ate_estimator, t, W, y)
+        push!(abserrors, abs(ATE-ate_estimator.estimate))
+    end
+    @test abserrors == sort(abserrors, rev=true)
 end
