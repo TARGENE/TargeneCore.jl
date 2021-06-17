@@ -110,30 +110,28 @@ end
 end
 
 
-@testset "Test ATE TMLE fit! asymptotic behavior" begin
-    rng = StableRNG(1234)
-    target_cond_expectation_estimator = MLJ.Stack(
-                        lr=LogisticClassifier(), 
-                        knn=KNNClassifier(),
-                        metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=5, shuffle=false))
-
-    treatment_cond_likelihood_estimator = MLJ.Stack(
-                        lr=LogisticClassifier(), 
-                        knn=KNNClassifier(),
-                        metalearner=LogisticClassifier(), 
-                        resampling=StratifiedCV(;nfolds=5, shuffle=false))
-
+@testset "Test ATE TMLE fit! asymptotic behavior on binary target" begin
     ate_estimator = ATEEstimator(
-                        target_cond_expectation_estimator,
-                        treatment_cond_likelihood_estimator
+        LogisticClassifier(),
+        LogisticClassifier()
                         )
     
-    abserrors = []
+    abs_mean_errors = []
+    abs_var_errors = []
     for n in [100, 1000, 10000, 100000]
-        t, W, y, ATE = categorical_problem(rng; n=n)
-        fit!(ate_estimator, t, W, y)
-        push!(abserrors, abs(ATE-ate_estimator.estimate))
+        abserrors_at_n = []
+        for i in 1:10
+            rng = StableRNG(i)
+            t, W, y, ATE = categorical_problem(rng; n=n)
+            fit!(ate_estimator, t, W, y)
+            push!(abserrors_at_n, abs(ATE-ate_estimator.estimate))
+        end
+        push!(abs_mean_errors, mean(abserrors_at_n))
+        push!(abs_var_errors, var(abserrors_at_n))
     end
-    @test abserrors == sort(abserrors, rev=true)
+    # Check the average and variances decrease with n 
+    @test abs_mean_errors == sort(abs_mean_errors, rev=true)
+    @test abs_var_errors == sort(abs_var_errors, rev=true)
+    # Check the error's close to the target for large samples
+    @test all(abs_mean_errors .< [0.2, 0.02, 0.006, 0.003])
 end
