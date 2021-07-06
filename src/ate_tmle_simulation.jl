@@ -21,8 +21,9 @@ function categorical_problem(rng;n=100)
     w = rand(rng, Unif, n) .< p_w()
     t = rand(rng, Unif, n) .< pa_given_w(w)
     y = rand(rng, Unif, n) .< py_given_aw(t, w)
-    # Reshaping and type coercion
-    W = reshape(convert(Array{Float64}, w), n, 1)
+    # Convert to dataframe to respect the Tables.jl
+    # and convert types
+    W = (W=convert(Array{Float64}, w),)
     t = categorical(t)
     y = categorical(y)
     # Compute the theoretical ATE
@@ -33,6 +34,23 @@ function categorical_problem(rng;n=100)
     return t, W, y, ATE
 end
 
+
+function tmle_pkg_example(n)
+    p_t_given_W(W) = 1 ./ (1 .+ exp.(.-0.6W[:,1] .- 0.4W[:,2] .- 0.5W[:,3]))
+    p_y_given_tW(t, W) = 1 ./ (1 .+ exp.(.-t .-0.2W[:,1] .- 0.1W[:,2] .- 0.2W[:,3].^2))
+    norm = Normal(0, 1)
+    unif = Uniform(0, 1)
+    W = rand(norm, n, 3)
+    t = rand(unif, n) .< p_t_given_W(W)
+    y = rand(unif, n) .< p_y_given_tW(t, W)
+    # coerce types
+    W = MLJ.table(W)
+    t = categorical(t)
+    y = categorical(y)
+    ATE = missing
+
+    t, W, y, ATE
+end
 
 function asymptotics_behaviour(ate_estimator, range, rng)
     results = DataFrame(n = Int[],
@@ -94,20 +112,21 @@ end
 #######################################################
 ######## The True model is part of the library ########
 #######################################################
+
 rng = MersenneTwister(123)
 range = [50, 100, 300, 500, 800, 1000, 2000, 5000, 10000]
 
 target_cond_expectation_estimator = MLJ.Stack(
                     lr=LogisticClassifier(), 
-                    knn=KNNClassifier(),
+                    #knn=KNNClassifier(),
                     metalearner=LogisticClassifier(), 
-                    resampling=StratifiedCV(;nfolds=3, shuffle=false))
+                    resampling=CV(;nfolds=5, shuffle=false))
 
 treatment_cond_likelihood_estimator = MLJ.Stack(
                     lr=LogisticClassifier(), 
-                    knn=KNNClassifier(),
+                    #knn=KNNClassifier(),
                     metalearner=LogisticClassifier(), 
-                    resampling=StratifiedCV(;nfolds=3, shuffle=false))
+                    resampling=CV(;nfolds=5, shuffle=false))
 
 ate_estimator = ATEEstimator(
                     target_cond_expectation_estimator,
@@ -146,3 +165,35 @@ for i in 1:10
     results = asymptotics_behaviour(ate_estimator, range, rng)
     plot_results(results)
 end
+
+
+#######################################################
+###### THEIR dataset                             ######
+#######################################################
+
+
+target_cond_expectation_estimator = MLJ.Stack(
+                    lr=LogisticClassifier(), 
+                    metalearner=LogisticClassifier(), 
+                    resampling=StratifiedCV(;nfolds=5, shuffle=false))
+
+treatment_cond_likelihood_estimator = MLJ.Stack(
+                    lr=LogisticClassifier(),
+                    metalearner=LogisticClassifier(), 
+                    resampling=StratifiedCV(;nfolds=5, shuffle=false))
+
+ate_estimator = ATEEstimator(
+                    target_cond_expectation_estimator,
+                    treatment_cond_likelihood_estimator
+                    )
+
+n = 1000
+results = []
+for i in 1:1000
+    t, W, y, ATE = tmle_pkg_example(n)
+    fit!(ate_estimator, t, W, y)
+    push!(results, ate_estimator.estimate)
+end
+
+mean(results)
+var(results)
