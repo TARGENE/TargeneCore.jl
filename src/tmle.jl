@@ -97,23 +97,23 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
 end
 
 
-function MLJ.fit!(tmle::ATEEstimator, t::CategoricalVector{Bool}, W, y::CategoricalVector{Bool})
+function MLJ.fit!(tmle::ATEEstimator, verbosity::Int, t::CategoricalVector{Bool}, W, y::CategoricalVector{Bool})
     n = nrows(y)
 
     # Fit Encoding of the treatment variable
     hot_mach = machine(OneHotEncoder(), (t=t,))
-    fit!(hot_mach)
+    fit!(hot_mach, verbosity=verbosity)
 
     # Input checks and reformating
     X = combinetotable(hot_mach, t, W)
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
-    fit!(target_expectation_mach)
+    fit!(target_expectation_mach, verbosity=verbosity)
 
     # Estimate of P(A|W)
     treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, t)
-    fit!(treatment_likelihood_mach)
+    fit!(treatment_likelihood_mach, verbosity=verbosity)
     
     # Fluctuate E[Y|A, W] using a LogisticRegression
     # on the covariate and the offset 

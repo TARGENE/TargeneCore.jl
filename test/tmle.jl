@@ -123,7 +123,7 @@ end
         for i in 1:10
             rng = StableRNG(i)
             t, W, y, ATE = categorical_problem(rng; n=n)
-            fit!(ate_estimator, t, W, y)
+            fit!(ate_estimator, 0, t, W, y)
             push!(abserrors_at_n, abs(ATE-ate_estimator.estimate))
         end
         push!(abs_mean_errors, mean(abserrors_at_n))
