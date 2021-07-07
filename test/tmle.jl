@@ -1,15 +1,13 @@
 using GenesInteraction
 using Random
 using Test
-using Distributions
+using Distributions: Uniform, Bernoulli, var
 using MLJ
 using StableRNGs
 
 rng = StableRNG(123)
 
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels
-KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels
-DecisionTreeClassifier = @load DecisionTreeClassifier pkg=DecisionTree
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 
 function categorical_problem(rng;n=100)
@@ -44,11 +42,11 @@ end
 
     t = categorical([false, true, true])
     y =  categorical(["a", "b", "c"])
-    @test_throws MethodError fit!(ate_estimator, t, W, y)
+    @test_throws MethodError fit(ate_estimator, 0, t, W, y)
 
     t = categorical([1, 2, 2])
     y =  categorical([false, true, true])
-    @test_throws MethodError fit!(ate_estimator, t, W, y)
+    @test_throws MethodError fit(ate_estimator, 0, t, W, y)
 
 end
 
@@ -62,7 +60,7 @@ end
     
     # Testing initial encoding
     hot_mach = machine(OneHotEncoder(), (t=t,))
-    fit!(hot_mach)
+    fit!(hot_mach, verbosity=0)
 
     X = GenesInteraction.combinetotable(hot_mach, t, W)
     @test X == (t__false=[1, 0, 0, 1, 0, 0, 1],
@@ -110,7 +108,7 @@ end
 end
 
 
-@testset "Test ATE TMLE fit! asymptotic behavior on binary target" begin
+@testset "Test ATE TMLE fit asymptotic behavior on binary target" begin
     ate_estimator = ATEEstimator(
         LogisticClassifier(),
         LogisticClassifier()
@@ -123,8 +121,8 @@ end
         for i in 1:10
             rng = StableRNG(i)
             t, W, y, ATE = categorical_problem(rng; n=n)
-            fit!(ate_estimator, 0, t, W, y)
-            push!(abserrors_at_n, abs(ATE-ate_estimator.estimate))
+            fitresult, _, _ = fit(ate_estimator, 0, t, W, y)
+            push!(abserrors_at_n, abs(ATE-fitresult.estimate))
         end
         push!(abs_mean_errors, mean(abserrors_at_n))
         push!(abs_var_errors, var(abserrors_at_n))

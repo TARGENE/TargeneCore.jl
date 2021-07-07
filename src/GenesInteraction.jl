@@ -7,13 +7,13 @@ using MLJ
 using GLM: glm, GeneralizedLinearModel
 using GLM: predict as predict_glm
 
-import MLJ.fit!
+import MLJ.fit
 
 # #############################################################################
 # EXPORTS
 # #############################################################################
 
-export ATEEstimator, fit!
+export ATEEstimator, fit
 
 # #############################################################################
 # INCLUDES

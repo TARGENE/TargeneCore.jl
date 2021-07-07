@@ -43,19 +43,6 @@ TODO
 mutable struct ATEEstimator <: TMLEstimator 
     target_cond_expectation_estimator::MLJ.Supervised
     treatment_cond_likelihood_estimator::MLJ.Supervised
-    fitted::Bool
-    estimate
-    stderror
-end
-
-
-function ATEEstimator(target_cond_expectation_estimator::MLJ.Supervised,
-                      treatment_cond_likelihood_estimator::MLJ.Supervised)
-    return ATEEstimator(target_cond_expectation_estimator,
-                        treatment_cond_likelihood_estimator,
-                        false,
-                        nothing,
-                        nothing)
 end
 
 
@@ -97,7 +84,7 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
 end
 
 
-function MLJ.fit!(tmle::ATEEstimator, verbosity::Int, t::CategoricalVector{Bool}, W, y::CategoricalVector{Bool})
+function MLJ.fit(tmle::ATEEstimator, verbosity::Int, t::CategoricalVector{Bool}, W, y::CategoricalVector{Bool})
     n = nrows(y)
 
     # Fit Encoding of the treatment variable
@@ -135,14 +122,18 @@ function MLJ.fit!(tmle::ATEEstimator, verbosity::Int, t::CategoricalVector{Bool}
                                                 W, 
                                                 categorical(zeros(Bool, n), levels=[false, true]))
 
-    tmle.estimate = mean(fluct_treatment_true .- fluct_treatment_false)
+    estimate = mean(fluct_treatment_true .- fluct_treatment_false)
     
     # Standard error from the influence curve
     observed_fluct = predict_glm(fluctuator, reshape(covariate, n, 1); offset=offset)
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct_treatment_true .- fluct_treatment_false .- tmle.estimate
-    
-    tmle.stderror = sqrt(var(inf_curve)/n)
+    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct_treatment_true .- fluct_treatment_false .- estimate
 
-    return tmle
+    fitresult = (
+        estimate=estimate,
+        stderror=sqrt(var(inf_curve)/n)
+        )
+    cache = nothing
+    report = nothing
+    return fitresult, cache, report
 
 end

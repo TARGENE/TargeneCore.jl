@@ -197,3 +197,22 @@ end
 
 mean(results)
 var(results)
+
+
+struct MyModel<:Supervised
+end
+
+MLJ.fit(m::MyModel, X1, X2, y) = (nothing, nothing, nothing)
+
+MLJ.predict(m::MyModel, fitresult, X1, X2) = nothing
+
+n = 10
+X1 = rand(n, 2)
+X2 = rand(n, 3)
+y = rand(n)
+
+m = machine(MyModel(), X1, X2, y)
+
+fit!(m)
+predict(m)
+predict(m, X1, X2)
