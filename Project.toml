@@ -22,3 +22,4 @@ XGBoost = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
 [compat]
 MLJ = "0.16"
 MLJBase = "0.18"
+MLJDecisionTreeInterface = "0.1"
