@@ -195,3 +195,7 @@ end
     @test mean(estimates) ≈ 1.0000 atol=1e-4
     @test var(estimates) ≈ 0.0063 atol=1e-4
 end
+
+@testset "Bounded Outcome regression" begin
+    # Todo
+end
