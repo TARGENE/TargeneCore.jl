@@ -1,13 +1,15 @@
 module GenesInteraction
 
+using Distributions: expectation
 using Tables
 using Distributions
 using CategoricalArrays
 using MLJ
-using GLM: glm, GeneralizedLinearModel
-using GLM: predict as predict_glm
+using GLM
 
 import MLJ.fit
+import GLM.checky
+import GLM.devresid
 
 # #############################################################################
 # EXPORTS
