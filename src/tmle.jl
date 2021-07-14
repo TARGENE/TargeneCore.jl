@@ -121,7 +121,7 @@ end
 ###############################################################################
 
 
-function MLJ.fit(tmle::ATEEstimator, 
+function MLJ.fit(tmle::TMLEstimator, 
                  verbosity::Int, 
                  t::CategoricalVector{Bool}, 
                  W, 
