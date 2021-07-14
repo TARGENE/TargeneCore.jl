@@ -1,14 +1,15 @@
 using GenesInteraction
 using Random
 using Test
-using Distributions: Uniform, Bernoulli, var
+using Distributions
 using MLJ
 using StableRNGs
 
 rng = StableRNG(123)
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
+expit(X) = 1 ./ (1 .+ exp.(-X))
 
 function categorical_problem(rng;n=100)
     p_w() = 0.3
@@ -32,21 +33,36 @@ function categorical_problem(rng;n=100)
     return t, W, y, ATE
 end
 
+"""
+From https://www.degruyter.com/document/doi/10.2202/1557-4679.1043/html
+The theoretical ATE is 1
+"""
+function continuous_problem(rng;n=100)
+    Unif = Uniform(0, 1)
+    W = float(rand(rng, Bernoulli(0.5), n, 3))
+    t = rand(rng, Unif, n) .< expit(0.5W[:, 1] + 1.5W[:, 2] - W[:,3])
+    y = t + 2W[:, 1] + 3W[:, 2] - 4W[:, 3] + rand(rng, Normal(0,1), n)
+    # Type coercion
+    W = MLJ.table(W)
+    t = categorical(t)
+    return t, W, y, 1
+end
 
-@testset "Test target and treatment should be CategoricalVector{Bool}" begin
+@testset "Test target/treatment types" begin
     ate_estimator = ATEEstimator(
             LogisticClassifier(),
-            LogisticClassifier()
+            LogisticClassifier(),
+            Bernoulli()
             )
     W = (col1=[1, 1, 0], col2=[0, 0, 1])
 
     t = categorical([false, true, true])
     y =  categorical(["a", "b", "c"])
-    @test_throws MethodError fit(ate_estimator, 0, t, W, y)
+    @test_throws MethodError MLJ.fit(ate_estimator, 0, t, W, y)
 
     t = categorical([1, 2, 2])
     y =  categorical([false, true, true])
-    @test_throws MethodError fit(ate_estimator, 0, t, W, y)
+    @test_throws MethodError MLJ.fit(ate_estimator, 0, t, W, y)
 
 end
 
@@ -60,7 +76,7 @@ end
     
     # Testing initial encoding
     hot_mach = machine(OneHotEncoder(), (t=t,))
-    fit!(hot_mach, verbosity=0)
+    MLJ.fit!(hot_mach, verbosity=0)
 
     X = GenesInteraction.combinetotable(hot_mach, t, W)
     @test X == (t__false=[1, 0, 0, 1, 0, 0, 1],
@@ -74,7 +90,7 @@ end
     dummy_model = @pipeline OneHotEncoder() ConstantClassifier()
     # Testing compute_offset function
     target_expectation_mach = machine(dummy_model, X, y)
-    fit!(target_expectation_mach, verbosity=0)
+    MLJ.fit!(target_expectation_mach, verbosity=0)
     offset = GenesInteraction.compute_offset(target_expectation_mach, X)
     @test offset isa Vector{Float64}
     @test all(isapprox.(offset, 0.28768, atol=1e-5))
@@ -82,7 +98,7 @@ end
     # Testing compute_covariate function
     # The likelihood function is given bu the previous distribution
     treatment_likelihood_mach = machine(dummy_model, W, t)
-    fit!(treatment_likelihood_mach, verbosity=0)
+    MLJ.fit!(treatment_likelihood_mach, verbosity=0)
     covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, t)
     @test covariate isa Vector{Float64}
     @test covariate ≈ [-2.33, 1.75, 1.75, -2.33, 1.75, 1.75, -2.33] atol=1e-2
@@ -111,7 +127,8 @@ end
 @testset "Test ATE TMLE fit asymptotic behavior on binary target" begin
     ate_estimator = ATEEstimator(
         LogisticClassifier(),
-        LogisticClassifier()
+        LogisticClassifier(),
+        Bernoulli()
                         )
     
     abs_mean_errors = []
@@ -121,7 +138,7 @@ end
         for i in 1:10
             rng = StableRNG(i)
             t, W, y, ATE = categorical_problem(rng; n=n)
-            fitresult, _, _ = fit(ate_estimator, 0, t, W, y)
+            fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
             push!(abserrors_at_n, abs(ATE-fitresult.estimate))
         end
         push!(abs_mean_errors, mean(abserrors_at_n))
@@ -132,4 +149,53 @@ end
     @test abs_var_errors == sort(abs_var_errors, rev=true)
     # Check the error's close to the target for large samples
     @test all(abs_mean_errors .< [0.2, 0.02, 0.006, 0.003])
+end
+
+@testset "Test ATE TMLE fit asymptotic behavior on continuous target" begin
+    ate_estimator = ATEEstimator(
+        LinearRegressor(),
+        LogisticClassifier(),
+        Normal()
+                        )
+    
+    abs_mean_errors = []
+    abs_var_errors = []
+    for n in [100, 1000, 10000, 100000]
+        abserrors_at_n = []
+        for i in 1:10
+            rng = StableRNG(i)
+            t, W, y, ATE = continuous_problem(rng; n=n)
+            fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
+            push!(abserrors_at_n, abs(ATE-fitresult.estimate))
+        end
+        push!(abs_mean_errors, mean(abserrors_at_n))
+        push!(abs_var_errors, var(abserrors_at_n))
+    end
+    # Check the average and variances decrease with n 
+    @test abs_mean_errors == sort(abs_mean_errors, rev=true)
+    @test abs_var_errors == sort(abs_var_errors, rev=true)
+    # Check the error's close to the target for large samples
+    @test all(abs_mean_errors .< [0.2, 0.06, 0.02, 0.006])
+end
+
+@testset "Non regression test of ATE for continuous target" begin
+    ate_estimator = ATEEstimator(
+        LinearRegressor(),
+        LogisticClassifier(),
+        Normal()
+                        )
+    n = 1000
+    estimates = []
+    for i in 1:1000
+        rng = StableRNG(i)
+        t, W, y, ATE = continuous_problem(rng; n=n)
+        fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
+        push!(estimates, fitresult.estimate)
+    end
+    @test mean(estimates) ≈ 1.0000 atol=1e-4
+    @test var(estimates) ≈ 0.0063 atol=1e-4
+end
+
+@testset "Bounded Outcome regression" begin
+    #Todo
 end
