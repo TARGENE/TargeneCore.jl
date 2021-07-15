@@ -1,4 +1,3 @@
-using GenesInteraction
 using Random
 using Test
 using Distributions

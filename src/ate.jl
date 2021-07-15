@@ -44,24 +44,24 @@ end
 ## Offset and covariate
 ###############################################################################
 
-function compute_offset(fitted_mach::Machine{<:Probabilistic}, X)
+function compute_offset(y_cond_exp_estimate::Machine{<:Probabilistic}, X)
     # The machine is an estimate of a probability distribution
     # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = MLJ.predict(fitted_mach, X).prob_given_ref[2]
+    expectation = MLJ.predict(y_cond_exp_estimate, X).prob_given_ref[2]
     return logit(expectation)
 end
 
 
-function compute_offset(fitted_mach::Machine{<:Deterministic}, X)
-    return MLJ.predict(fitted_mach, X)
+function compute_offset(y_cond_exp_estimate::Machine{<:Deterministic}, X)
+    return MLJ.predict(y_cond_exp_estimate, X)
 end
 
 
-function compute_covariate(fitted_mach::Machine, W, t)
+function compute_covariate(t_likelihood_estimate::Machine, W, t)
     # tpred is an estimate of a probability distribution
     # we need to extract the observed likelihood out of it
     tint = convert(Vector{Int}, t)
-    tpred = MLJ.predict(fitted_mach, W)
+    tpred = MLJ.predict(t_likelihood_estimate, W)
     likelihood_fn = pdf(tpred, levels(first(tpred)))
     likelihood = [x[tint[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
     # truncate predictions, is this really necessary/suitable?
