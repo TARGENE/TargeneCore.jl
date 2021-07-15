@@ -11,3 +11,9 @@ end
 Remove default check for y to be binary
 """
 GLM.checky(y, d::Bernoulli) = nothing
+
+
+function combinetotable(hot_mach::Machine, T, W)
+    thot = MLJ.transform(hot_mach, T)
+    return merge(thot, columntable(W))
+end

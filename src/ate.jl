@@ -38,15 +38,6 @@ mutable struct ATEEstimator <: TMLEstimator
     fluctuation_family::Distribution
 end
 
-###############################################################################
-## Helper functions
-###############################################################################
-
-
-function combinetotable(hot_mach::Machine, t, W)
-    thot = MLJ.transform(hot_mach, (t=t,))
-    return merge(thot, columntable(W))
-end
 
 
 ###############################################################################
@@ -88,7 +79,7 @@ function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel,
                              hot_mach::Machine,
                              W, 
                              t::CategoricalVector{Bool})
-    X = combinetotable(hot_mach, t, W)
+    X = combinetotable(hot_mach, (t=t, ), W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, t)
     return  GLM.predict(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
@@ -107,11 +98,12 @@ function MLJ.fit(tmle::ATEEstimator,
     n = nrows(y)
 
     # Fit Encoding of the treatment variable
-    hot_mach = machine(OneHotEncoder(), (t=t,))
+    T = (t=t,)
+    hot_mach = machine(OneHotEncoder(), T)
     fit!(hot_mach, verbosity=verbosity)
 
     # Input checks and reformating
-    X = combinetotable(hot_mach, t, W)
+    X = combinetotable(hot_mach, T, W)
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)

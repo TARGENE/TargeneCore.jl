@@ -75,10 +75,11 @@ end
     W = (W1=categorical([true, true, false, true, true, true, true]),)
     
     # Testing initial encoding
-    hot_mach = machine(OneHotEncoder(), (t=t,))
+    T = (t=t,)
+    hot_mach = machine(OneHotEncoder(), T)
     MLJ.fit!(hot_mach, verbosity=0)
 
-    X = GenesInteraction.combinetotable(hot_mach, t, W)
+    X = GenesInteraction.combinetotable(hot_mach, T, W)
     @test X == (t__false=[1, 0, 0, 1, 0, 0, 1],
                 t__true=[0, 1, 1, 0, 1, 1, 0],
                 W1=W.W1)
