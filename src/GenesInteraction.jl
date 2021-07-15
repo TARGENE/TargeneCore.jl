@@ -15,13 +15,16 @@ import GLM.devresid
 # EXPORTS
 # #############################################################################
 
-export ATEEstimator, fit
+export ATEEstimator, InteractionATEEstimator
+export fit
 
 # #############################################################################
 # INCLUDES
 # #############################################################################
 
+include("utils.jl")
 include("tmle.jl")
-
+include("ate.jl")
+include("interaction_ate.jl")
 
 end
