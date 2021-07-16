@@ -1,4 +1,5 @@
 logit(X) = log.(X ./ (1 .- X))
+expit(X) = 1 ./ (1 .+ exp.(-X))
 
 """
 Hack into GLM to compute deviance on y a real

@@ -1,5 +1,7 @@
 module TestATE
 
+include("utils.jl")
+
 using GenesInteraction
 using Random
 using Test
@@ -7,13 +9,10 @@ using Distributions
 using MLJ
 using StableRNGs
 
-include("utils.jl")
-
-rng = StableRNG(123)
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
-expit(X) = 1 ./ (1 .+ exp.(-X))
+
 
 function categorical_problem(rng;n=100)
     p_w() = 0.3
@@ -44,7 +43,7 @@ The theoretical ATE is 1
 function continuous_problem(rng;n=100)
     Unif = Uniform(0, 1)
     W = float(rand(rng, Bernoulli(0.5), n, 3))
-    t = rand(rng, Unif, n) .< expit(0.5W[:, 1] + 1.5W[:, 2] - W[:,3])
+    t = rand(rng, Unif, n) .< GenesInteraction.expit(0.5W[:, 1] + 1.5W[:, 2] - W[:,3])
     y = t + 2W[:, 1] + 3W[:, 2] - 4W[:, 3] + rand(rng, Normal(0,1), n)
     # Type coercion
     W = MLJ.table(W)
@@ -146,11 +145,12 @@ end
 end
 
 @testset "Test ATE TMLE fit asymptotic behavior on continuous target" begin
+
     ate_estimator = ATEEstimator(
         LinearRegressor(),
         LogisticClassifier(),
         Normal()
-                        )
+    )
     
     abs_mean_errors, abs_var_errors = asymptotics(ate_estimator, continuous_problem)
 
@@ -179,9 +179,6 @@ end
     @test var(estimates) ≈ 0.0063 atol=1e-4
 end
 
-@testset "Bounded Outcome regression" begin
-    #Todo
-end
 
 end
 
