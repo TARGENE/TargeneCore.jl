@@ -6,6 +6,8 @@ using Distributions
 using Random
 using StableRNGs
 
+include("utils.jl")
+
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
@@ -58,19 +60,8 @@ end
         Bernoulli()
         )
 
-    abs_mean_errors = []
-    abs_var_errors = []
-    for n in [100, 1000, 10000, 100000]
-        abserrors_at_n = []
-        for i in 1:10
-            rng = StableRNG(i)
-            T, W, y, ATE = categorical_problem(rng; n=n)
-            fitresult, _, _ = MLJ.fit(interaction_estimator, 0, T, W, y)
-            push!(abserrors_at_n, abs(ATE-fitresult.estimate))
-        end
-        push!(abs_mean_errors, mean(abserrors_at_n))
-        push!(abs_var_errors, var(abserrors_at_n))
-    end
+    abs_mean_errors, abs_var_errors = asymptotics(interaction_estimator, categorical_problem)
+
     # Check the average and variances decrease with n 
     @test abs_mean_errors == sort(abs_mean_errors, rev=true)
     @test abs_var_errors == sort(abs_var_errors, rev=true)

@@ -7,6 +7,8 @@ using Distributions
 using MLJ
 using StableRNGs
 
+include("utils.jl")
+
 rng = StableRNG(123)
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
@@ -134,19 +136,8 @@ end
         Bernoulli()
                         )
     
-    abs_mean_errors = []
-    abs_var_errors = []
-    for n in [100, 1000, 10000, 100000]
-        abserrors_at_n = []
-        for i in 1:10
-            rng = StableRNG(i)
-            t, W, y, ATE = categorical_problem(rng; n=n)
-            fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
-            push!(abserrors_at_n, abs(ATE-fitresult.estimate))
-        end
-        push!(abs_mean_errors, mean(abserrors_at_n))
-        push!(abs_var_errors, var(abserrors_at_n))
-    end
+    abs_mean_errors, abs_var_errors = asymptotics(ate_estimator, categorical_problem)
+
     # Check the average and variances decrease with n 
     @test abs_mean_errors == sort(abs_mean_errors, rev=true)
     @test abs_var_errors == sort(abs_var_errors, rev=true)
@@ -161,19 +152,8 @@ end
         Normal()
                         )
     
-    abs_mean_errors = []
-    abs_var_errors = []
-    for n in [100, 1000, 10000, 100000]
-        abserrors_at_n = []
-        for i in 1:10
-            rng = StableRNG(i)
-            t, W, y, ATE = continuous_problem(rng; n=n)
-            fitresult, _, _ = MLJ.fit(ate_estimator, 0, t, W, y)
-            push!(abserrors_at_n, abs(ATE-fitresult.estimate))
-        end
-        push!(abs_mean_errors, mean(abserrors_at_n))
-        push!(abs_var_errors, var(abserrors_at_n))
-    end
+    abs_mean_errors, abs_var_errors = asymptotics(ate_estimator, continuous_problem)
+
     # Check the average and variances decrease with n 
     @test abs_mean_errors == sort(abs_mean_errors, rev=true)
     @test abs_var_errors == sort(abs_var_errors, rev=true)
