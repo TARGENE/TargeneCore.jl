@@ -12,8 +12,9 @@ end
 function tomultivariate(T)
     t = []
     mapping = Dict((true, true)=>1, (true, false)=>2, (false, true)=>3, (false, false)=>4)
+    features = Tables.schema(T).names
     for row in Tables.rows(T)
-        push!(t, mapping[(row.t1, row.t2)])
+        push!(t, mapping[(row[features[1]], row[features[2]])])
     end
     return categorical(t)
 end
@@ -29,12 +30,11 @@ end
 function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
     # tpred is an estimate of a probability distribution
     # we need to extract the observed likelihood out of it
-    features = schema(T).names
+    features = Tables.schema(T).names
     t₁ = convert(Vector{Int}, Tables.getcolumn(T, features[1]))
     t₂ = convert(Vector{Int}, Tables.getcolumn(T, features[2]))
     tpred = MLJ.predict(t_likelihood_estimate, W)
-    likelihood_fn = pdf(tpred, levels(first(tpred)))
-    likelihood = [x[t_target[i]] for (i, x) in enumerate(eachrow(likelihood_fn))]
+    likelihood = pdf.(tpred, t_target)
     # truncate predictions, is this really necessary/suitable?
     likelihood = min.(0.995, max.(0.005, likelihood))
     return (t₁ .- 1).*(t₂ .- 1) ./ likelihood
@@ -99,11 +99,15 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     counterfactual_treatments = [(true, true, 1), 
                                 (true, false, -1), 
                                 (false, true, -1), 
-                                (false, false, -1)]
+                                (false, false, +1)]
     fluct = zeros(n)
+    features = Tables.schema(T).names
     for (t₁, t₂, sign) in counterfactual_treatments
-        counterfactualT = (t₁=repeat([t₁], n), t₂=repeat([t₂], n))
-        counterfactual_t_target = tomultivariate(T)
+        counterfactualT = NamedTuple{features}([
+                            categorical(repeat([t₁], n), levels=[true, false]), 
+                            categorical(repeat([t₂], n), levels=[true, false])
+        ])
+        counterfactual_t_target = tomultivariate(counterfactualT)
         fluct .+= sign*compute_fluctuation(fluctuator, 
                                 target_expectation_mach, 
                                 treatment_likelihood_mach, 

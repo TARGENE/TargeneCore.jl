@@ -1,3 +1,6 @@
+module TestATE
+
+using GenesInteraction
 using Random
 using Test
 using Distributions
@@ -199,3 +202,7 @@ end
 @testset "Bounded Outcome regression" begin
     #Todo
 end
+
+end
+
+true

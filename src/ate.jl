@@ -120,24 +120,24 @@ function MLJ.fit(tmle::ATEEstimator,
     fluctuator = glm(reshape(covariate, :, 1), y, tmle.fluctuation_family; offset=offset)
 
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
-    fluct_treatment_true = compute_fluctuation(fluctuator, 
-                                               target_expectation_mach, 
-                                               treatment_likelihood_mach, 
-                                               hot_mach,
-                                               W, 
-                                               categorical(ones(Bool, n), levels=[false, true]))
-    fluct_treatment_false = compute_fluctuation(fluctuator, 
-                                                target_expectation_mach, 
-                                                treatment_likelihood_mach,
-                                                hot_mach,
-                                                W, 
-                                                categorical(zeros(Bool, n), levels=[false, true]))
+    fluct = (compute_fluctuation(fluctuator, 
+                                target_expectation_mach, 
+                                treatment_likelihood_mach, 
+                                hot_mach,
+                                W, 
+                                categorical(ones(Bool, n), levels=[false, true]))
+            - compute_fluctuation(fluctuator, 
+                                target_expectation_mach, 
+                                treatment_likelihood_mach,
+                                hot_mach,
+                                W, 
+                                categorical(zeros(Bool, n), levels=[false, true])))
 
-    estimate = mean(fluct_treatment_true .- fluct_treatment_false)
+    estimate = mean(fluct)
     
     # Standard error from the influence curve
     observed_fluct = GLM.predict(fluctuator, reshape(covariate, n, 1); offset=offset)
-    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct_treatment_true .- fluct_treatment_false .- estimate
+    inf_curve = covariate .* (float(y) .- observed_fluct) .+ fluct .- estimate
 
     fitresult = (
         estimate=estimate,

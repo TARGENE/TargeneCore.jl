@@ -1,4 +1,4 @@
-using GenesInteraction
+using Test
 
-include("ate.jl")
-include("interaction_ate.jl")
+@test include("ate.jl")
+@test include("interaction_ate.jl")
