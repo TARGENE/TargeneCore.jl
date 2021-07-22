@@ -29,3 +29,6 @@ dev/
 
 # My personal trash file
 src/sandbox.jl
+
+# Jupyter
+*checkpoints
