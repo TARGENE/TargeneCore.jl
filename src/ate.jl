@@ -40,34 +40,8 @@ end
 
 
 
-###############################################################################
-## Offset and covariate
-###############################################################################
-
-function compute_offset(y_cond_exp_estimate::Machine{<:Probabilistic}, X)
-    # The machine is an estimate of a probability distribution
-    # In the binary case, the expectation is assumed to be the probability of the second class
-    expectation = MLJ.predict(y_cond_exp_estimate, X).prob_given_ref[2]
-    return logit(expectation)
-end
 
 
-function compute_offset(y_cond_exp_estimate::Machine{<:Deterministic}, X)
-    return MLJ.predict(y_cond_exp_estimate, X)
-end
-
-
-function compute_covariate(t_likelihood_estimate::Machine, W, t)
-    # tpred is an estimate of a probability distribution
-    # we need to extract the observed likelihood out of it
-    tint = convert(Vector{Int}, t)
-    tpred = MLJ.predict(t_likelihood_estimate, W)
-    likelihood_fn = pdf(tpred, levels(first(tpred)))
-    likelihood = [x[tint[i] + 1] for (i, x) in enumerate(eachrow(likelihood_fn))]
-    # truncate predictions, is this really necessary/suitable?
-    likelihood = min.(0.995, max.(0.005, likelihood))
-    return (2tint .- 1) ./ likelihood
-end
 
 ###############################################################################
 ## Fluctuation
@@ -76,12 +50,12 @@ end
 function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
                              target_expectation_mach::Machine, 
                              treatment_likelihood_mach::Machine, 
-                             hot_mach::Machine,
                              W, 
-                             t::CategoricalVector{Bool})
-    X = combinetotable(hot_mach, (t=t, ), W)
+                             t_target)
+    T = (t=float(t_target),)
+    X = merge(T, W)
     offset = compute_offset(target_expectation_mach, X)
-    cov = compute_covariate(treatment_likelihood_mach, W, t)
+    cov = compute_covariate(treatment_likelihood_mach, W, T, t_target)
     return  GLM.predict(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
 end
 
@@ -97,41 +71,37 @@ function MLJ.fit(tmle::ATEEstimator,
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
     n = nrows(y)
 
-    # Fit Encoding of the treatment variable
-    T = (t=t,)
-    hot_mach = machine(OneHotEncoder(), T)
-    fit!(hot_mach, verbosity=verbosity)
-
-    # Input checks and reformating
-    X = combinetotable(hot_mach, T, W)
+    # Convert to NamedTuples
+    W = Tables.columntable(W)
+    T = (t=float(t),)
+    X = merge(T, W)
+    t_target = t
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
     fit!(target_expectation_mach, verbosity=verbosity)
 
     # Estimate of P(A|W)
-    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, t)
+    treatment_likelihood_mach = machine(tmle.treatment_cond_likelihood_estimator, W, t_target)
     fit!(treatment_likelihood_mach, verbosity=verbosity)
     
     # Fluctuate E[Y|A, W] 
     # on the covariate and the offset 
     offset = compute_offset(target_expectation_mach, X)
-    covariate = compute_covariate(treatment_likelihood_mach, W, t)
+    covariate = compute_covariate(treatment_likelihood_mach, W, T, t_target)
     fluctuator = glm(reshape(covariate, :, 1), y, tmle.fluctuation_family; offset=offset)
 
     # Compute the final estimate tmleATE = 1/n ∑ Fluctuator(t=1, W=w) - Fluctuator(t=0, W=w)
     fluct = (compute_fluctuation(fluctuator, 
                                 target_expectation_mach, 
                                 treatment_likelihood_mach, 
-                                hot_mach,
                                 W, 
-                                categorical(ones(Bool, n), levels=[false, true]))
+                                categorical(ones(Bool, n), levels=levels(t_target)))
             - compute_fluctuation(fluctuator, 
                                 target_expectation_mach, 
                                 treatment_likelihood_mach,
-                                hot_mach,
                                 W, 
-                                categorical(zeros(Bool, n), levels=[false, true])))
+                                categorical(zeros(Bool, n), levels=levels(t_target))))
 
     estimate = mean(fluct)
     

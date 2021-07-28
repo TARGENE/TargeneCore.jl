@@ -73,21 +73,14 @@ end
 @testset "Testing the various intermediate functions" begin
     # Let's process the different functions in order of call by fit! 
     # and check intermediate and final outputs
-    t = categorical([false, true, true, false, true, true, false])
+    t_target = categorical([false, true, true, false, true, true, false])
     y = categorical([true, true, false, false, false, true, true])
     W = (W1=categorical([true, true, false, true, true, true, true]),)
     
-    # Testing initial encoding
-    T = (t=t,)
-    hot_mach = machine(OneHotEncoder(), T)
-    MLJ.fit!(hot_mach, verbosity=0)
+    # Converting to NamedTuples
+    T = (t=float(t_target),)
+    X = merge(T, W)
 
-    X = GenesInteraction.combinetotable(hot_mach, T, W)
-    @test X == (t__false=[1, 0, 0, 1, 0, 0, 1],
-                t__true=[0, 1, 1, 0, 1, 1, 0],
-                W1=W.W1)
-
-    
     # The following dummy model will have the predictive distribution
     # [false, true] => [0.42857142857142855 0.5714285714285714]
     # for both the treatment and the target
@@ -101,9 +94,9 @@ end
 
     # Testing compute_covariate function
     # The likelihood function is given bu the previous distribution
-    treatment_likelihood_mach = machine(dummy_model, W, t)
+    treatment_likelihood_mach = machine(dummy_model, W, t_target)
     MLJ.fit!(treatment_likelihood_mach, verbosity=0)
-    covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, t)
+    covariate = GenesInteraction.compute_covariate(treatment_likelihood_mach, W, T, t_target)
     @test covariate isa Vector{Float64}
     @test covariate ≈ [-2.33, 1.75, 1.75, -2.33, 1.75, 1.75, -2.33] atol=1e-2
 
@@ -112,9 +105,8 @@ end
     fluct = GenesInteraction.compute_fluctuation(fluctuator, 
                                                  target_expectation_mach,
                                                  treatment_likelihood_mach,
-                                                 hot_mach,
                                                  W, 
-                                                 t)
+                                                 t_target)
     # Not sure how to test that the operation is correct
     @test fluct isa Vector{Float64}
     @test all(isapprox.(fluct, [0.6644,

@@ -20,26 +20,6 @@ function tomultivariate(T)
 end
 
 
-###############################################################################
-## Offset and covariate
-###############################################################################
-
-"""
-(2*T1-1) * (2*T2-1) / p(T1,T2 | W)
-"""
-function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
-    # tpred is an estimate of a probability distribution
-    # we need to extract the observed likelihood out of it
-    features = Tables.columnnames(T)
-    t₁ = Tables.getcolumn(T, features[1])
-    t₂ = Tables.getcolumn(T, features[2])
-    tpred = MLJ.predict(t_likelihood_estimate, W)
-    likelihood = pdf.(tpred, t_target)
-    # truncate predictions, is this really necessary/suitable?
-    likelihood = min.(0.995, max.(0.005, likelihood))
-    return (2t₁ .- 1).*(2t₂ .- 1) ./ likelihood
-end
-
 
 ###############################################################################
 ## Fluctuation
