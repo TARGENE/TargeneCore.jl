@@ -37,7 +37,7 @@ function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
     likelihood = pdf.(tpred, t_target)
     # truncate predictions, is this really necessary/suitable?
     likelihood = min.(0.995, max.(0.005, likelihood))
-    return (t₁ .- 1).*(t₂ .- 1) ./ likelihood
+    return (2t₁ .- 1).*(2t₂ .- 1) ./ likelihood
 end
 
 
@@ -99,7 +99,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     counterfactual_treatments = [(true, true, 1), 
                                 (true, false, -1), 
                                 (false, true, -1), 
-                                (false, false, +1)]
+                                (false, false, 1)]
     fluct = zeros(n)
     features = Tables.schema(T).names
     for (t₁, t₂, sign) in counterfactual_treatments
@@ -126,6 +126,7 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     fitresult = (
     estimate=estimate,
     stderror=sqrt(var(inf_curve)/n),
+    mean_inf_curve=mean(inf_curve),
     target_expectation_mach=target_expectation_mach,
     treatment_likelihood_mach=treatment_likelihood_mach,
     fluctuation=fluctuator

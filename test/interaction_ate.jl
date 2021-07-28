@@ -14,14 +14,13 @@ mutable struct InteractionTransformer <: Static end
 function MLJ.transform(a::InteractionTransformer, _, X)
     Xmatrix = MLJ.matrix(X)
     nrows, ncols = size(Xmatrix)
-    Xinteracts = Matrix{Float64}(undef, nrows, ncols*(ncols-1))
+    ninter = Int(ncols*(ncols-1)/2)
+    Xinteracts = Matrix{Float64}(undef, nrows, ninter)
     i = 0
-    for col₁ in 1:ncols
-        for col₂ in 1:ncols
-            if col₁!= col₂  
-                i += 1
-                Xinteracts[:, i] = Xmatrix[:, col₁] .* Xmatrix[:, col₂]
-            end
+    for col₁ in 1:(ncols-1)
+        for col₂ in (col₁+1):ncols
+            i += 1
+            Xinteracts[:, i] = Xmatrix[:, col₁] .* Xmatrix[:, col₂]
         end
     end
     return MLJ.table(hcat(Xmatrix, Xinteracts))
@@ -68,11 +67,28 @@ function continuous_problem(rng;n)
 end
 
 
-@testset "Test tomultivariate" begin
-    T = (t1 = categorical([true, false, false, true]),
-         t2 = categorical([true, true, false, false]))
+@testset "Test Helper functions" begin
+    # Test tomultivariate function
     # The mapping is fixed and harcoded
-    @test GenesInteraction.tomultivariate(T) == categorical([1, 3, 4, 2])
+    T = (t1 = categorical([true, false, false, true, true, true, false]),
+         t2 = categorical([true, true, true, true, true, false, false]))
+    W = MLJ.table(rand(7, 3))
+    t_target = GenesInteraction.tomultivariate(T)
+    @test t_target == categorical([1, 3, 3, 1, 1, 2, 4])
+    # Test compute_covariate
+
+    t_likelihood_estimate = machine(ConstantClassifier(), W, t_target)
+    fit!(t_likelihood_estimate)
+    
+    cov = GenesInteraction.compute_covariate(t_likelihood_estimate, W, T, t_target)
+    @test cov == [2.3333333333333335,
+                 -3.5,
+                 -3.5,
+                 2.3333333333333335,
+                 2.3333333333333335,
+                 -7.0,
+                 7.0]
+
 end
 
 
@@ -89,8 +105,8 @@ end
     @test abs_mean_errors == sort(abs_mean_errors, rev=true)
     @test abs_var_errors == sort(abs_var_errors, rev=true)
     # Check the error's close to the target for large samples
-    @test all(abs_mean_errors .< [0.15, 0.03, 0.02, 0.004])
-    @test all(abs_var_errors .< [0.03, 0.0007, 0.0002, 7.9e-6])
+    @test all(abs_mean_errors .< [0.47, 0.08, 0.03, 0.006])
+    @test all(abs_var_errors .< [0.09, 0.004, 0.0003, 8.5e-6])
 end
 
 
@@ -113,7 +129,7 @@ end
     @test abs_var_errors == sort(abs_var_errors, rev=true)
     # Check the error's close to the target for large samples
     @test all(abs_mean_errors .< [0.6, 0.2, 0.06, 0.02])
-    @test all(abs_var_errors .< [0.08, 0.006, 0.002, 7.2e-5])
+    @test all(abs_var_errors .< [0.08, 0.008, 0.002, 7.2e-5])
 end
 
 end
