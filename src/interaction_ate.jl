@@ -30,9 +30,9 @@ end
 function compute_covariate(t_likelihood_estimate::Machine, W, T, t_target)
     # tpred is an estimate of a probability distribution
     # we need to extract the observed likelihood out of it
-    features = Tables.schema(T).names
-    t₁ = convert(Vector{Int}, Tables.getcolumn(T, features[1]))
-    t₂ = convert(Vector{Int}, Tables.getcolumn(T, features[2]))
+    features = Tables.columnnames(T)
+    t₁ = Tables.getcolumn(T, features[1])
+    t₂ = Tables.getcolumn(T, features[2])
     tpred = MLJ.predict(t_likelihood_estimate, W)
     likelihood = pdf.(tpred, t_target)
     # truncate predictions, is this really necessary/suitable?
@@ -48,11 +48,10 @@ end
 function compute_fluctuation(fitted_fluctuator::GeneralizedLinearModel, 
                             target_expectation_mach::Machine, 
                             treatment_likelihood_mach::Machine, 
-                            hot_mach::Machine,
                             W, 
                             T, 
                             t_target)
-    X = combinetotable(hot_mach, T, W)
+    X = merge(T, W)
     offset = compute_offset(target_expectation_mach, X)
     cov = compute_covariate(treatment_likelihood_mach, W, T, t_target)
     return  GLM.predict(fitted_fluctuator, reshape(cov, :, 1); offset=offset)
@@ -71,13 +70,15 @@ function MLJ.fit(tmle::InteractionATEEstimator,
                  y::Union{CategoricalVector{Bool}, Vector{<:Real}})
     n = nrows(y)
 
-    # Fit Encoding of the treatment variable
+    # Get T as a target and convert to float so that it will not be hot encoded
+    # by the target_expectation_mach
     t_target = tomultivariate(T)
-    hot_mach = machine(OneHotEncoder(), T)
-    fit!(hot_mach, verbosity=verbosity)
+    Tnames = Tables.columnnames(T)
+    T = NamedTuple{Tnames}([float(Tables.getcolumn(T, colname)) for colname in Tnames])
 
-    # Input checks and reformating
-    X = combinetotable(hot_mach, T, W)
+    # Maybe check T and X don't have the same column names?
+    W = Tables.columntable(W)
+    X = merge(T, W)
     
     # Initial estimate of E[Y|A, W]
     target_expectation_mach = machine(tmle.target_cond_expectation_estimator, X, y)
@@ -96,22 +97,17 @@ function MLJ.fit(tmle::InteractionATEEstimator,
     # Compute the final estimate 
     # InteractionATE = 1/n ∑ [ Fluctuator(t₁=1, t₂=1, W=w) - Fluctuator(t₁=1, t₂=0, W=w)
     #                        - Fluctuator(t₁=0, t₂=1, W=w) + Fluctuator(t₁=0, t₂=0, W=w)]
-    counterfactual_treatments = [(true, true, 1), 
-                                (true, false, -1), 
-                                (false, true, -1), 
-                                (false, false, 1)]
+    counterfactual_treatments = [(ones, ones, 1), 
+                                 (ones, zeros, -1), 
+                                 (zeros, ones, -1), 
+                                 (zeros, zeros, 1)]
     fluct = zeros(n)
-    features = Tables.schema(T).names
     for (t₁, t₂, sign) in counterfactual_treatments
-        counterfactualT = NamedTuple{features}([
-                            categorical(repeat([t₁], n), levels=[true, false]), 
-                            categorical(repeat([t₂], n), levels=[true, false])
-        ])
+        counterfactualT = NamedTuple{Tnames}([t₁(n), t₂(n)])
         counterfactual_t_target = tomultivariate(counterfactualT)
         fluct .+= sign*compute_fluctuation(fluctuator, 
                                 target_expectation_mach, 
                                 treatment_likelihood_mach, 
-                                hot_mach,
                                 W, 
                                 counterfactualT,
                                 counterfactual_t_target)

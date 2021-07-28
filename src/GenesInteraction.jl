@@ -1,5 +1,6 @@
 module GenesInteraction
 
+using Tables: columnnames
 using Distributions: expectation
 using Tables
 using Distributions

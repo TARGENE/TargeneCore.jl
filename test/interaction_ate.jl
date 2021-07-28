@@ -8,6 +8,7 @@ using MLJ
 using Distributions
 using Random
 using StableRNGs
+using Tables
 
 mutable struct InteractionTransformer <: Static end
     
@@ -76,10 +77,12 @@ end
     t_target = GenesInteraction.tomultivariate(T)
     @test t_target == categorical([1, 3, 3, 1, 1, 2, 4])
     # Test compute_covariate
-
+    
     t_likelihood_estimate = machine(ConstantClassifier(), W, t_target)
     fit!(t_likelihood_estimate)
     
+    Tnames = Tables.columnnames(T)
+    T = NamedTuple{Tnames}([float(Tables.getcolumn(T, colname)) for colname in Tnames])
     cov = GenesInteraction.compute_covariate(t_likelihood_estimate, W, T, t_target)
     @test cov == [2.3333333333333335,
                  -3.5,
@@ -105,8 +108,8 @@ end
     @test abs_mean_errors == sort(abs_mean_errors, rev=true)
     @test abs_var_errors == sort(abs_var_errors, rev=true)
     # Check the error's close to the target for large samples
-    @test all(abs_mean_errors .< [0.47, 0.08, 0.03, 0.006])
-    @test all(abs_var_errors .< [0.09, 0.004, 0.0003, 8.5e-6])
+    @test all(abs_mean_errors .< [0.51, 0.083, 0.03, 0.006])
+    @test all(abs_var_errors .< [0.09, 0.005, 0.0003, 9.2e-6])
 end
 
 
