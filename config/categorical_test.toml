@@ -1,0 +1,34 @@
+targettype = "categorical"
+nfolds = 3
+# For the estimation of E[Y|W, T]
+[Q]
+    [Q.outcome]
+    type = "categorical"
+
+    [Q.resampling]
+    type = "StratifiedCV"
+    nfolds = 3
+
+    [Q.LogisticClassifier]
+    lambda = [1.0, 10]
+    fit_intercept = [true, false]
+
+    [Q.KNNClassifier]
+    K = [3, 5, 10]
+    
+# For the estimation of p(T| W)
+[G]
+    [G.outcome]
+    type = "categorical"
+
+    [G.resampling]
+    type = "CV"
+    nfolds = 2
+
+    [G.LogisticClassifier]
+    lambda = [1.0, 10]
+    fit_intercept = [true, false]
+
+    [G.KNNClassifier]
+    K = [3, 5, 10]
+

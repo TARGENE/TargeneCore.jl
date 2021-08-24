@@ -11,14 +11,19 @@ function parse_commandline()
 
 
     @add_arg_table s begin
-        "<snpfile>"
-            help = "The SNP file .bed"
+        "<genfile>"
+            help = "A PLINK Genotype file (.bed format)"
             required = true
         "<phenotypefile>"
-            help = "The phenotype file"
+            help = "A PLINK phenotype file (.txt format)"
             required = true
         "<confoundersfile>"
-            help = "The confounders file"
+            help = "A file containing the confounding variable values "*
+                   " used for the analysis (.csv format)"
+            required = true
+        "<snpfile>"
+            help = "A file containing the SNPs to consider for interactions, "* 
+                   "each line correspond to an interaction (.csv format)"
             required = true
     end
 
@@ -32,7 +37,13 @@ function main()
         println("  $arg  =>  $val")
     end
 
-    runepistatis(parsed_args["<snpfile>"], parsed_args["<phenotypefile>"], parsed_args["<confoundersfile>"])
+    runepistatis(
+        parsed_args["<genfile>"], 
+        parsed_args["<phenotypefile>"], 
+        parsed_args["<confoundersfile>"],
+        parsed_args["<snpfile>"];
+        estimatorfile=parsed_args["<snpfile>"]
+    )
 end
 
 main()
