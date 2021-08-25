@@ -41,7 +41,7 @@ function stack_from_config(config)
     # Define the resampling strategy
     resampling = pop!(config, "resampling")
     resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
-    
+
     # Define the models library
     models = Dict()
     for (modelname, hyperparams) in config
@@ -50,7 +50,7 @@ function stack_from_config(config)
         counter = 1
         for paramvals in Base.Iterators.product(values(hyperparams)...)
             model = modeltype(;NamedTuple{paramnames}(paramvals)...)
-            models[modelname*"_$counter"] = model
+            models[Symbol(modelname*"_$counter")] = model
             counter += 1
         end
     end

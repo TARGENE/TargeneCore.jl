@@ -1,2 +1,6 @@
 [deps]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
+MLJLinearModels = "6ee0df7b-362f-4a72-a706-9e79364fb692"
+NearestNeighborModels = "636a865e-7cf4-491e-846c-de09b730eb36"
