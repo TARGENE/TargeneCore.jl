@@ -34,24 +34,25 @@ EvoTreeClassifier = @load EvoTreeClassifier pkg=EvoTrees verbosity = 0
 
 function stack_from_config(config)
     # Define the metalearner
-    outcome = pop!(config, "outcome")
-    metalearner = outcome["type"] == "categorical" ? 
+    metalearner = config["outcome"]["type"] == "categorical" ? 
         LogisticClassifier(fit_intercept=false) : LinearRegressor(fit_intercept=false)
 
     # Define the resampling strategy
-    resampling = pop!(config, "resampling")
+    resampling = config["resampling"]
     resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
 
     # Define the models library
     models = Dict()
     for (modelname, hyperparams) in config
-        modeltype = eval(Symbol(modelname))
-        paramnames = Tuple(Symbol(x[1]) for x in hyperparams)
-        counter = 1
-        for paramvals in Base.Iterators.product(values(hyperparams)...)
-            model = modeltype(;NamedTuple{paramnames}(paramvals)...)
-            models[Symbol(modelname*"_$counter")] = model
-            counter += 1
+        if !(modelname in ("resampling", "outcome"))
+            modeltype = eval(Symbol(modelname))
+            paramnames = Tuple(Symbol(x[1]) for x in hyperparams)
+            counter = 1
+            for paramvals in Base.Iterators.product(values(hyperparams)...)
+                model = modeltype(;NamedTuple{paramnames}(paramvals)...)
+                models[Symbol(modelname*"_$counter")] = model
+                counter += 1
+            end
         end
     end
 
@@ -59,9 +60,8 @@ function stack_from_config(config)
     Stack(;metalearner=metalearner, resampling=resampling, models...)
 end
 
-function tmle_from_toml(file::String)
 
-    config = TOML.parsefile(file)
+function tmle_from_toml(config::Dict)
 
     ytype = config["Q"]["outcome"]["type"]
     distr = nothing
@@ -81,33 +81,101 @@ function tmle_from_toml(file::String)
 end
 
 
+###############################################################################
+# RUN EPISTASIS ESTIMATION
+
+"""
+    filtering_idx(snparray, snpquery, snp_idx)
+Returns a list of indices for which people in snparray have a combination 
+of alleles given by the snpquery.
+"""
+function filtering_idx(snparray, snpquery, snp_idx)
+    interaction_order = size(snpquery)[1] ÷ 3
+    allindices = BitSet[]
+    columns = Int64[]
+    for i in 1:interaction_order
+        basecol_id = 3i - 2
+        snpcol = snp_idx[snpquery[basecol_id]]
+        snpindices = findall(
+            x -> (x == snpquery[basecol_id + 1] || x == snpquery[basecol_id + 2]), 
+            @view(snparray[:, snpcol])
+            )
+        push!(allindices, BitSet(snpindices))
+        push!(columns, snpcol)
+    end
+    
+    return collect(intersect(allindices...)), columns
+end
+
+"""
+
+Converts the treatment variables to categorical Table
+"""
+function prepareTreatment(T, snpquery::DataFrameRow)
+    interaction_order = size(snpquery)[1] ÷ 3
+    treatment_alleles = [snpquery[3i-1] for i in 1:interaction_order]
+    return MLJ.table(T .== transpose(treatment_alleles))
+end
+
+
+function prepareTarget(y, config)
+    if config["Q"]["outcome"]["type"] == "categorical"
+        y = categorical(y)
+    end
+    return y
+end
 
 
 """
 TODO
 """
-function runepistatis(genfile, phenotypefile, confoundersfile, snpfile)
+function tmleepistasis(genotypefile, 
+    phenotypefile, 
+    confoundersfile, 
+    snpfile, 
+    estimatorfile,
+    outfile;
+    verbosity=0)
+
+    config = TOML.parsefile(estimatorfile)
+    # Build tmle
+    tmle = tmle_from_toml(config)
     # Read SNP data
-    snpdata = SnpData(genfile)
+    snpdata = SnpData(genotypefile)
     snp_idx = Dict((x => i) for (i,x) in enumerate(snpdata.snp_info.snpid))
-    # Read potential epistatic SNPs
-    query_snps = CSV.File(snpfile) |> DataFrame
+    # Read SNP Queries
+    snpqueries = CSV.File(snpfile) |> DataFrame
     # Read Confounders
-    W = query_snps = CSV.File(confoundersfile) |> DataFrame
+    W = CSV.File(confoundersfile) |> DataFrame
     # Read Target
-    Y =  DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
+    y =  DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
     # Run TMLE over potential epistatic SNPS
-    for snps_row in eachrow(query_snps)
-        snpcols = [snp_idx[snp] for snp in snps_row]
-        T = convert(Matrix{Float64}, @view(snpdata.snparray[:, snpcols]))
-        println(size(T))
+    estimates = []
+    stderrors = []
+    for snpquery in eachrow(snpqueries)
+        # Filter and prepare the data to retrieve only individuals 
+        # corresponding to the queried SNPs alleles and match `fit`
+        # expected input types
+        indices, columns = filtering_idx(snpdata.snparray, snpquery, snp_idx)
+        Wsnp = W[indices, :]
+        ysnp = prepareTarget(y[indices], config)
+        Tsnp = prepareTreatment(snpdata.snparray[indices, columns], snpquery)
+        # Estimate epistasis
+        # TODO: replace with machine syntax
+        fitresult, _, _ = TMLE.fit(tmle, verbosity, Tsnp, Wsnp, ysnp)
+        push!(estimates, fitresult.estimate)
+        push!(stderrors, fitresult.stderror)
     end
+    # Save the results
+    snpqueries["Estimate"] = estimates
+    snpqueries["Standard Error"] = stderrors
+    CSV.write(outfile, df)
 end
 
 ###############################################################################
 # EXPORTS
 
-export runepistatis
+export tmleepistasis
 
 
 end
