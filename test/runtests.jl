@@ -143,11 +143,19 @@ end
 
     tmle_config = joinpath("config", "continuous.toml")
     outfile = "tmleepistasis_results.csv"
-    # results = @enter tmleepistasis(genotypefile, 
-    #                 phenotypefile, 
-    #                 confoundersfile, 
-    #                 snpfile,
-    #                 tmle_config,
-    #                 outfile)
+    tmleepistasis(genotypefile, 
+                    phenotypefile, 
+                    confoundersfile, 
+                    snpfile,
+                    tmle_config,
+                    outfile)
+    
+    try
+        results = CSV.File(outfile) |> DataFrame
+        @test results[!, "Estimate"] isa Vector
+        @test results[!, "Standard Error"] isa Vector
+    finally
+        rm(outfile)
+    end
 
 end

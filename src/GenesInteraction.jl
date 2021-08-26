@@ -167,9 +167,9 @@ function tmleepistasis(genotypefile,
         push!(stderrors, fitresult.stderror)
     end
     # Save the results
-    snpqueries["Estimate"] = estimates
-    snpqueries["Standard Error"] = stderrors
-    CSV.write(outfile, df)
+    snpqueries[!, "Estimate"] = estimates
+    snpqueries[!, "Standard Error"] = stderrors
+    CSV.write(outfile, snpqueries)
 end
 
 ###############################################################################
