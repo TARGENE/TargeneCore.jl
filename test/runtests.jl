@@ -3,7 +3,14 @@ using GenesInteraction
 using MLJ
 using Distributions
 using TOML
+using CSV
+using DataFrames
+using CategoricalArrays
 
+genotypefile = joinpath("data", "mouse")
+phenotypefile = joinpath("data", "pheno_10_causals.txt")
+confoundersfile = joinpath("data", "confouders.csv")
+snpfile = joinpath("data", "query_snps.csv")
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity = 0
 KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity = 0
@@ -93,11 +100,47 @@ end
     @test Gstack.LogisticClassifier_2.fit_intercept == false
 end
 
+
+@testset "prepareTreatment" begin
+    snpqueries = CSV.File(snpfile) |> DataFrame
+    T = [2 0;
+        0 0;
+        2 3;
+        0 3]
+    T = GenesInteraction.prepareTreatment(T, first(snpqueries))
+    @test Tables.getcolumn(T, :x1) == [1, 0, 1, 0]
+    @test Tables.getcolumn(T, :x2) == [0, 0, 1, 1]
+end
+
+@testset "prepareTarget" begin
+    # categorical config
+    y = [true, false, true]
+    config = TOML.parsefile(joinpath("config", "categorical.toml"))
+    y = GenesInteraction.prepareTarget(y, config)
+    @test y == CategoricalArray{Bool,1,UInt32}([true, false, true])
+    # continuous config
+    y = [1, 0, 1]
+    config = TOML.parsefile(joinpath("config", "continuous.toml"))
+    @test GenesInteraction.prepareTarget(y, config) == y
+end
+
+@testset "Test filtering_idx" begin
+    snparray = [3 2 3 0;
+                0 2 0 1;
+                1 1 1 1;
+                3 0 0 1;
+                2 3 3 0;
+                0 0 2 2]
+    snpqueries = CSV.File(snpfile) |> DataFrame
+    snpquery = first(snpqueries)
+    snp_idx = Dict("rs3683945" => 2, "rs3706761"=> 1)
+    indices, columns = GenesInteraction.filtering_idx(snparray, snpquery, snp_idx)
+    @test columns == [2, 1]
+    @test indices == [1, 2, 4, 6]
+end
+
 @testset "Epistasis estimation run" begin
-    genotypefile = joinpath("data", "mouse")
-    phenotypefile = joinpath("data", "pheno_10_causals.txt")
-    confoundersfile = joinpath("data", "confouders.csv")
-    snpfile = joinpath("data", "query_snps.csv")
+
     tmle_config = joinpath("config", "continuous.toml")
     outfile = "tmleepistasis_results.csv"
     # results = @enter tmleepistasis(genotypefile, 
