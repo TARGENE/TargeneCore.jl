@@ -22,4 +22,5 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 [compat]
 ArgParse = "1.1"
 MLJ = "0.16"
+MLJLinearModels = "0.5"
 SnpArrays = "0.3"
