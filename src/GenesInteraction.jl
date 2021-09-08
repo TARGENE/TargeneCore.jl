@@ -19,39 +19,6 @@ include("stackbuilding.jl")
 ###############################################################################
 # RUN EPISTASIS ESTIMATION
 
-"""
-    filtering_idx(snparray, snpquery, snp_idx)
-Returns a list of indices for which people in snparray have a combination 
-of alleles given by the snpquery.
-"""
-function filtering_idx(snparray, snpquery, snp_idx)
-    interaction_order = size(snpquery)[1] ÷ 3
-    allindices = BitSet[]
-    columns = Int64[]
-    for i in 1:interaction_order
-        basecol_id = 3i - 2
-        snpcol = snp_idx[snpquery[basecol_id]]
-        snpindices = findall(
-            x -> (x == snpquery[basecol_id + 1] || x == snpquery[basecol_id + 2]), 
-            @view(snparray[:, snpcol])
-            )
-        push!(allindices, BitSet(snpindices))
-        push!(columns, snpcol)
-    end
-    
-    return collect(intersect(allindices...)), columns
-end
-
-"""
-
-Converts the treatment variables to categorical Table
-"""
-function prepareTreatment(T, snpquery::DataFrameRow)
-    interaction_order = size(snpquery)[1] ÷ 3
-    treatment_alleles = [snpquery[3i-1] for i in 1:interaction_order]
-    return MLJ.table(T .== transpose(treatment_alleles))
-end
-
 
 function prepareTarget(y, config)
     if config["Q"]["outcome"]["type"] == "categorical"
@@ -61,56 +28,55 @@ function prepareTarget(y, config)
 end
 
 
+function filter_data(T, W, y)
+    # Combine all elements together
+    fulldata = hcat(T, W)
+    fulldata[!, "Y"] = y
+
+    # Filter based on missingness
+    filtered_data = dropmissing(fulldata)
+
+    return filtered_data[!, names(T)], filtered_data[!, names(W)], filtered_data[!, "Y"]
+end
+
 """
 TODO
 """
-function tmleepistasis(genotypefile, 
-    phenotypefile, 
+function UKBBtmleepistasis(phenotypefile, 
     confoundersfile, 
     queryfile, 
     estimatorfile,
     outfile;
-    verbosity=0)
-
-    config = TOML.parsefile(estimatorfile)
+    threshold=0.9,
+    verbosity=1)
+    
     # Build tmle
+    config = TOML.parsefile(estimatorfile)
     tmle = tmle_from_toml(config)
-    # Read SNP data
-    snpdata = SnpData(genotypefile)
-    snp_idx = Dict((x => i) for (i,x) in enumerate(snpdata.snp_info.snpid))
-    # Read SNP Queries
-    snpqueries = CSV.File(queryfile) |> DataFrame
+
+    # Build Genotypes
+    T = UKBBGenotypes(queryfile; threshold=threshold)
+
     # Read Confounders
     W = CSV.File(confoundersfile) |> DataFrame
+
     # Read Target
     y =  DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
+
+    # Filter data based on missingness
+    T, W, y = filter_data(T, W, y)
+
     # Run TMLE over potential epistatic SNPS
-    estimates = []
-    stderrors = []
-    for snpquery in eachrow(snpqueries)
-        # Filter and prepare the data to retrieve only individuals 
-        # corresponding to the queried SNPs alleles and match `fit`
-        # expected input types
-        indices, columns = filtering_idx(snpdata.snparray, snpquery, snp_idx)
-        Wsnp = W[indices, :]
-        ysnp = prepareTarget(y[indices], config)
-        Tsnp = prepareTreatment(snpdata.snparray[indices, columns], snpquery)
-        # Estimate epistasis
-        # TODO: replace with machine syntax
-        fitresult, _, _ = TMLE.fit(tmle, verbosity, Tsnp, Wsnp, ysnp)
-        push!(estimates, fitresult.estimate)
-        push!(stderrors, fitresult.stderror)
-    end
-    # Save the results
-    snpqueries[!, "Estimate"] = estimates
-    snpqueries[!, "Standard Error"] = stderrors
-    CSV.write(outfile, snpqueries)
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity)
+    println(mach.fitresult.estimate)
+    println(mach.fitresult.stderror)
 end
 
 ###############################################################################
 # EXPORTS
 
-export tmleepistasis
+export UKBBtmleepistasis
 
 
 end

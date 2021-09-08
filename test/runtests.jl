@@ -61,12 +61,12 @@ end
                      0.7 0.1 0.1;
                      0.1 0.1 0.8]
 
-    @test GenesInteraction.retrieve_alleles(probabilities, 2, 3; threshold=0.79) == [nothing, nothing, false]
-    @test GenesInteraction.retrieve_alleles(probabilities, 2, 3; threshold=0.69) == [true, nothing, false]
-    @test GenesInteraction.retrieve_alleles(probabilities, 2, 1; threshold=0.69) == [true, false, nothing]
-    @test GenesInteraction.retrieve_alleles(probabilities, 2, 1; threshold=0.79) == [nothing, false, nothing]
-    @test GenesInteraction.retrieve_alleles(probabilities, 3, 1; threshold=0.69) == [nothing, false, true]
-    @test GenesInteraction.retrieve_alleles(probabilities, 3, 1; threshold=0.79) == [nothing, false, true]
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 2, 3; threshold=0.79) .=== [missing, missing, false])
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 2, 3; threshold=0.69) .=== [true, missing, false])
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 2, 1; threshold=0.69) .=== [true, false, missing])
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 2, 1; threshold=0.79) .=== [missing, false, missing])
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 3, 1; threshold=0.69) .=== [missing, false, true])
+    @test all(GenesInteraction.retrieve_alleles(probabilities, 3, 1; threshold=0.79) .=== [missing, false, true])
 end
 
 
@@ -80,7 +80,7 @@ end
     @test genotypes[1:10, "RSID_10"] == [true, true, true, true, true, true, true, true, true, true]
     # RSID_100
     # More varied 
-    @test genotypes[1:10, "RSID_100"] == [nothing, false, nothing, nothing, nothing, nothing, nothing, nothing, true, nothing]
+    @test all(genotypes[1:10, "RSID_100"] .=== [missing, false, missing, missing, missing, missing, missing, missing, true, missing])
 
     rm(queryfile)
 end
@@ -168,16 +168,9 @@ end
 end
 
 
-# @testset "prepareTreatment" begin
-#     snpqueries = CSV.File(snpfile) |> DataFrame
-#     T = [2 0;
-#         0 0;
-#         2 3;
-#         0 3]
-#     T = GenesInteraction.prepareTreatment(T, first(snpqueries))
-#     @test Tables.getcolumn(T, :x1) == [1, 0, 1, 0]
-#     @test Tables.getcolumn(T, :x2) == [0, 0, 1, 1]
-# end
+@testset "Test filter_data function" begin
+    #TODO
+end
 
 @testset "prepareTarget" begin
     # categorical config

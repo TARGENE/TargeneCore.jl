@@ -16,7 +16,7 @@ end
 function retrieve_alleles(probabilities, all_1_index::Int, all_2_index::Int; threshold=0.9)
     n = size(probabilities)[2]
     # The default value is missing
-    t = Vector{Union{Bool, Nothing}}(undef, n)
+    t = Vector{Union{Bool, Missing}}(undef, n)
     for i in 1:n
         # If no allele has been annotated with sufficient confidence
         # we discard the sample
@@ -48,7 +48,6 @@ function UKBBGenotypes(queryfile; threshold=0.9)
     # Let's load the variants by the files they are in
     # Not sure how useful that is...
     bgen_groups = groupby(query_df, :BGENFILE)
-    invalid_ids = Set{Int}()
     genotypes = DataFrame()
     for key in keys(bgen_groups)
         b = GenesInteraction.read_bgen(key.BGENFILE)

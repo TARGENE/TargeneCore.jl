@@ -11,9 +11,6 @@ function parse_commandline()
 
 
     @add_arg_table s begin
-        "<genotypefile>"
-            help = "A PLINK Genotype file (.bed format)"
-            required = true
         "<phenotypefile>"
             help = "A PLINK phenotype file (.txt format)"
             required = true
@@ -39,7 +36,13 @@ function parse_commandline()
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
-            default = 0  
+            default = 1
+        "--imputation-threshold", "-t"
+            help = "As we use imputed data, a decision must be taken regarding the most "*
+                   "probable allele given the probabilities for each allele. Only most probable alleles "*
+                   "passing the threshold are considered."
+            arg_type = Float
+            default = 0.9
     end
 
     return parse_args(s)
@@ -52,14 +55,14 @@ function main()
         println("  $arg  =>  $val")
     end
 
-    tmleepistasis(
-        parsed_args["<genotypefile>"], 
+    UKBBtmleepistasis(
         parsed_args["<phenotypefile>"], 
         parsed_args["<confoundersfile>"],
         parsed_args["<queryfile>"],
         parsed_args["<estimatorfile>"],
         parsed_args["<outfile>"];
-        verbosity=parsed_args["verbosity"]
+        verbosity=parsed_args["verbosity"],
+        threshold=parsed_args["imputation-threshold"]
     )
 end
 
