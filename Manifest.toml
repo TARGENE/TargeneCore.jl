@@ -47,6 +47,12 @@ git-tree-sha1 = "4af69e205efc343068dc8722b8dfec1ade89254a"
 uuid = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
 version = "0.1.0"
 
+[[BGEN]]
+deps = ["CodecZlib", "CodecZstd", "Printf", "SIMD", "SQLite", "SpecialFunctions", "Statistics", "Tables", "TranscodingStreams"]
+git-tree-sha1 = "51d1f16331f06c921625b1da5e1406fd1b876c7b"
+uuid = "6db4b851-9beb-4b83-9d64-eb1cfb37721d"
+version = "0.1.5"
+
 [[BGZFStreams]]
 deps = ["CodecZlib", "Test"]
 git-tree-sha1 = "b0e322aef9f1895a09a0c48a118111fd509f666a"
@@ -60,6 +66,12 @@ version = "0.3.3"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[BinaryProvider]]
+deps = ["Libdl", "Logging", "SHA"]
+git-tree-sha1 = "ecdec412a9abc8db54c0efc5548c64dfce072058"
+uuid = "b99e7846-7c00-51b0-8f62-c81ae34c0232"
+version = "0.5.10"
 
 [[BioCore]]
 deps = ["Automa", "BufferedStreams", "YAML"]
@@ -181,6 +193,11 @@ version = "0.3.2"
 git-tree-sha1 = "3f71217b538d7aaee0b69ab47d9b7724ca8afa0d"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
 version = "4.0.4"
+
+[[DBInterface]]
+git-tree-sha1 = "d3e9099ef8d63b180a671a35552f93a1e0250cbb"
+uuid = "a10d1c49-ce27-4219-8d33-6db1a4562965"
+version = "2.4.1"
 
 [[DataAPI]]
 git-tree-sha1 = "ee400abb2298bd13bfc3df1c412ed228061a2385"
@@ -902,6 +919,18 @@ git-tree-sha1 = "bfdf9532c33db35d2ce9df4828330f0e92344a52"
 uuid = "476501e8-09a2-5ece-8869-fb82de89a1fa"
 version = "0.6.25"
 
+[[SQLite]]
+deps = ["BinaryProvider", "DBInterface", "Dates", "Libdl", "Random", "SQLite_jll", "Serialization", "Tables", "Test", "WeakRefStrings"]
+git-tree-sha1 = "97261d38a26415048ce87f49a7a20902aa047836"
+uuid = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
+version = "1.1.4"
+
+[[SQLite_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
+git-tree-sha1 = "9a0e24b81e3ce02c4b2eb855476467c7b93b8a8f"
+uuid = "76ed43ae-9a5d-5a62-8c75-30186b810ce8"
+version = "3.36.0+0"
+
 [[ScanByte]]
 deps = ["Libdl", "SIMD"]
 git-tree-sha1 = "9cc2955f2a254b18be655a4ee70bc4031b2b189e"
@@ -1142,6 +1171,12 @@ deps = ["ArrayInterface", "CPUSummary", "HostCPUFeatures", "Hwloc", "IfElse", "L
 git-tree-sha1 = "5e6e23728d6c8d26d2826f6cb2cd21892a958a43"
 uuid = "3d5dd08c-fd9d-11e8-17fa-ed2836048c2f"
 version = "0.20.38"
+
+[[WeakRefStrings]]
+deps = ["DataAPI", "Random", "Test"]
+git-tree-sha1 = "28807f85197eaad3cbd2330386fac1dcb9e7e11d"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "0.6.2"
 
 [[XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]

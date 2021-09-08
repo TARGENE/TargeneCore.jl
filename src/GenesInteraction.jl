@@ -7,79 +7,14 @@ using MLJ
 using Distributions
 using TMLE
 using TOML
+using BGEN
 
 ###############################################################################
-# REGRESSORS
+# INCLUDES
 
-RandomForestRegressor = @load RandomForestRegressor pkg=DecisionTree verbosity = 0
-NuSVR = @load NuSVR pkg=LIBSVM verbosity = 0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity = 0
-KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity = 0
-NeuralNetworkRegressor = @load NeuralNetworkRegressor pkg=MLJFlux verbosity = 0
-EvoTreeRegressor = @load EvoTreeRegressor pkg=EvoTrees verbosity = 0
-
-###############################################################################
-# CLASSIFIERS
-
-RandomForestClassifier= @load RandomForestClassifier pkg=DecisionTree verbosity = 0
-NuSVC = @load NuSVC pkg=LIBSVM verbosity = 0
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity = 0
-KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity = 0
-NeuralNetworkClassifier = @load NeuralNetworkClassifier pkg=MLJFlux verbosity = 0
-EvoTreeClassifier = @load EvoTreeClassifier pkg=EvoTrees verbosity = 0
-
-###############################################################################
-# BUILD TMLE FROM .TOML
-
-
-function stack_from_config(config)
-    # Define the metalearner
-    metalearner = config["outcome"]["type"] == "categorical" ? 
-        LogisticClassifier(fit_intercept=false) : LinearRegressor(fit_intercept=false)
-
-    # Define the resampling strategy
-    resampling = config["resampling"]
-    resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
-
-    # Define the models library
-    models = Dict()
-    for (modelname, hyperparams) in config
-        if !(modelname in ("resampling", "outcome"))
-            modeltype = eval(Symbol(modelname))
-            paramnames = Tuple(Symbol(x[1]) for x in hyperparams)
-            counter = 1
-            for paramvals in Base.Iterators.product(values(hyperparams)...)
-                model = modeltype(;NamedTuple{paramnames}(paramvals)...)
-                models[Symbol(modelname*"_$counter")] = model
-                counter += 1
-            end
-        end
-    end
-
-    # Define the Stack
-    Stack(;metalearner=metalearner, resampling=resampling, models...)
-end
-
-
-function tmle_from_toml(config::Dict)
-
-    ytype = config["Q"]["outcome"]["type"]
-    distr = nothing
-    if ytype == "categorical"
-        distr = Bernoulli()
-    elseif ytype == "continuous"
-        distr = Normal()
-    else
-        error("The type of y should be either continuous or categorical")
-    end
-
-    Qstack = stack_from_config(config["Q"])
-    Gstack = stack_from_config(config["G"])
-
-    return InteractionATEEstimator(Qstack, Gstack, distr)
-
-end
-
+include("genotype_extraction.jl")
+include("models.jl")
+include("stackbuilding.jl")
 
 ###############################################################################
 # RUN EPISTASIS ESTIMATION
@@ -132,7 +67,7 @@ TODO
 function tmleepistasis(genotypefile, 
     phenotypefile, 
     confoundersfile, 
-    snpfile, 
+    queryfile, 
     estimatorfile,
     outfile;
     verbosity=0)
@@ -144,7 +79,7 @@ function tmleepistasis(genotypefile,
     snpdata = SnpData(genotypefile)
     snp_idx = Dict((x => i) for (i,x) in enumerate(snpdata.snp_info.snpid))
     # Read SNP Queries
-    snpqueries = CSV.File(snpfile) |> DataFrame
+    snpqueries = CSV.File(queryfile) |> DataFrame
     # Read Confounders
     W = CSV.File(confoundersfile) |> DataFrame
     # Read Target
