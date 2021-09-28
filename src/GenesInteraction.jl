@@ -12,7 +12,7 @@ using BGEN
 ###############################################################################
 # INCLUDES
 
-include("genotype_extraction.jl")
+include("ukbb.jl")
 include("models.jl")
 include("stackbuilding.jl")
 

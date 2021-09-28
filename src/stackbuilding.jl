@@ -34,18 +34,18 @@ end
 function tmle_from_toml(config::Dict)
 
     ytype = config["Q"]["outcome"]["type"]
-    distr = nothing
+    F = nothing
     if ytype == "categorical"
-        distr = Bernoulli()
+        F = BinaryFluctuation()
     elseif ytype == "continuous"
-        distr = Normal()
+        F = ContinuousFluctuation()
     else
         error("The type of y should be either continuous or categorical")
     end
 
-    Qstack = stack_from_config(config["Q"])
-    Gstack = stack_from_config(config["G"])
+    Q̅ = stack_from_config(config["Q"])
+    G = FullCategoricalJoint(stack_from_config(config["G"]))
 
-    return InteractionATEEstimator(Qstack, Gstack, distr)
+    return TMLEstimator(Q̅, G, F)
 
 end
