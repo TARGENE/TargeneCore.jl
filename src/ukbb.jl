@@ -13,7 +13,7 @@ function read_bgen(bgen_file::String)
 end
 
 
-function retrieve_alleles(probabilities, index_to_genotype, threshold=0.9)
+function samples_genotype(probabilities, variant_genotypes, threshold=0.9)
     n = size(probabilities)[2]
     # The default value is missing
     t = Vector{Union{String, Missing}}(missing, n)
@@ -21,7 +21,7 @@ function retrieve_alleles(probabilities, index_to_genotype, threshold=0.9)
         # If no allele has been annotated with sufficient confidence
         # the sample is declared as missing for this variant
         sample_gen_index = findfirst(x -> x >= threshold, probabilities[:, i])
-        sample_gen_index isa Nothing || (t[i] = index_to_genotype[sample_gen_index])
+        sample_gen_index isa Nothing || (t[i] = variant_genotypes[sample_gen_index])
     end
     return t
 end
@@ -44,10 +44,67 @@ function UKBBGenotypes(queryfile)
         # Iterate over variants
         for rsid in rsids
             v = variant_by_rsid(b, rsid)
-            index_to_genotype = [alleles(v)[1]^2, alleles(v)[1]*alleles(v)[2], alleles(v)[2]^2]
+            variant_genotypes = [alleles(v)[1]^2, alleles(v)[1]*alleles(v)[2], alleles(v)[2]^2]
             probabilities = probabilities!(b, v)
-            genotypes[!, rsid] = retrieve_alleles(probabilities, index_to_genotype, threshold)
+            genotypes[!, rsid] = samples_genotype(probabilities, variant_genotypes, threshold)
         end
     end
     return genotypes
+end
+
+
+###############################################################################
+# RUN EPISTASIS ESTIMATION
+
+
+function prepareTarget(y, config)
+    if config["Q"]["outcome"]["type"] == "categorical"
+        y = categorical(y)
+    end
+    return y
+end
+
+
+function filter_data(T, W, y)
+    # Combine all elements together
+    fulldata = hcat(T, W)
+    fulldata[!, "Y"] = y
+
+    # Filter based on missingness
+    filtered_data = dropmissing(fulldata)
+
+    return filtered_data[!, names(T)], filtered_data[!, names(W)], filtered_data[!, "Y"]
+end
+
+"""
+TODO
+"""
+function UKBBtmleepistasis(phenotypefile, 
+    confoundersfile, 
+    queryfile, 
+    estimatorfile,
+    outfile;
+    threshold=0.9,
+    verbosity=1)
+    
+    # Build tmle
+    tmle = tmle_from_toml(TOML.parsefile(estimatorfile))
+
+    # Build Genotypes
+    T = UKBBGenotypes(queryfile; threshold=threshold)
+
+    # Read Confounders
+    W = CSV.File(confoundersfile) |> DataFrame
+
+    # Read Target
+    y =  DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
+
+    # Filter data based on missingness
+    T, W, y = filter_data(T, W, y)
+
+    # Run TMLE over potential epistatic SNPS
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity)
+    println(mach.fitresult.estimate)
+    println(mach.fitresult.stderror)
 end

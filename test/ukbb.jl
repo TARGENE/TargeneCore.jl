@@ -22,6 +22,30 @@ include("helper_fns.jl")
     @test b.idx === nothing
 end
 
+@testset "Test samples_genotype" begin
+    probabilities = [0.3 0.2 0.9;
+                     0.5 0.2 0.05;
+                     0.2 0.6 0.05]
+    variant_genotypes = ["AA", "AT", "TT"]
+    
+    threshold = 0.9
+    genotypes = GenesInteraction.samples_genotype(
+        probabilities, 
+        variant_genotypes, 
+        threshold)
+    @test genotypes[1] === genotypes[2] === missing
+    @test genotypes[3] == "AA"
+
+    threshold = 0.55
+    genotypes = GenesInteraction.samples_genotype(
+        probabilities, 
+        variant_genotypes, 
+        threshold)
+    @test genotypes[1]  === missing
+    @test genotypes[2] == "TT"
+    @test genotypes[3] == "AA"
+
+end
 
 @testset "Test UKBBGenotypes function" begin
     build_query_file(threshold=0.95)
