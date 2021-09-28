@@ -1,3 +1,18 @@
+function parse_queries(queryfile::String)
+    config = TOML.parsefile(queryfile)
+    queries = Dict()
+    for (queryname, querydict) in config
+        if lowercase(queryname) ∉ ("threshold", "snps")
+            rsids = collect(keys(querydict))
+            vals = [split(filter(x->!isspace(x), querydict[rsid]), "->") for rsid in rsids]
+            rsids_symbols = Tuple(Symbol(x) for x in rsids)
+            queries[queryname] = NamedTuple{rsids_symbols}(vals)
+        end
+    end
+    return queries
+end
+
+
 function read_bgen(bgen_file::String)
     kwargs = Dict{Symbol, Any}(:sample_path => nothing, :idx_path => nothing)
     if bgen_file[end-3:end] == "bgen"
@@ -53,9 +68,6 @@ function UKBBGenotypes(queryfile)
 end
 
 
-###############################################################################
-# RUN EPISTASIS ESTIMATION
-
 
 function prepareTarget(y, config)
     if config["Q"]["outcome"]["type"] == "categorical"
@@ -89,6 +101,9 @@ function UKBBtmleepistasis(phenotypefile,
     
     # Build tmle
     tmle = tmle_from_toml(TOML.parsefile(estimatorfile))
+
+    # Parse queries
+    queries = parse_queries(queryfile)
 
     # Build Genotypes
     T = UKBBGenotypes(queryfile; threshold=threshold)

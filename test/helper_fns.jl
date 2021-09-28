@@ -11,9 +11,12 @@ function build_query_file(;path=queryfile, threshold=0.9)
         "SNPS" => Dict(
             "RSID_10"  => BGEN.datadir("example.8bits.bgen"),
             "RSID_100" => BGEN.datadir("example.8bits.bgen")),
-        "QUERIES" => Dict(
-            "query_1" => "AG -> GG & AA -> GG",
-            "query_2" => "AA -> GG & AA -> GG"
+        "QUERY_1" => Dict(
+            "RSID_10"  => "AG -> GG",
+            "RSID_100" => "AA -> GG"),
+        "QUERY_2" => Dict(
+            "RSID_10"  => "AA -> GG",
+            "RSID_100" => "AA -> GG"
         )
     )
     open(path, "w") do io

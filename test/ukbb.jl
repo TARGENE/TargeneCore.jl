@@ -27,7 +27,7 @@ end
                      0.5 0.2 0.05;
                      0.2 0.6 0.05]
     variant_genotypes = ["AA", "AT", "TT"]
-    
+
     threshold = 0.9
     genotypes = GenesInteraction.samples_genotype(
         probabilities, 
@@ -59,6 +59,38 @@ end
     rm(queryfile)
 end
 
+@testset "Test parse_queries" begin
+    build_query_file()
+    queries = GenesInteraction.parse_queries(queryfile)
+    @test queries == Dict(
+        "QUERY_1" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"]),
+        "QUERY_2" => (RSID_10 = ["AA", "GG"], RSID_100 = ["AA", "GG"])
+    )
+    rm(queryfile)
+end
+
+
+@testset "Epistasis estimation run" begin
+    tmle_config = joinpath("config", "tmle_continuous.toml")
+    build_query_file()
+    outfile = "tmleepistasis_results.csv"
+    tmleepistasis(genotypefile, 
+                    phenotypefile, 
+                    confoundersfile, 
+                    snpfile,
+                    tmle_config,
+                    outfile)
+    
+    try
+        results = CSV.File(outfile) |> DataFrame
+        @test results[!, "Estimate"] isa Vector
+        @test results[!, "Standard Error"] isa Vector
+    finally
+        rm(outfile)
+        rm(queryfile)
+    end
+
+end
 
 end;
 
