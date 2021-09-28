@@ -42,7 +42,25 @@ function samples_genotype(probabilities, variant_genotypes, threshold=0.9)
 end
 
 
-function UKBBGenotypes(queryfile)
+"""
+
+A heterozygous genotype can be specified as (ALLELE₁, ALLELE₂) or (ALLELE₂, ALLELE₁).
+Here we align this heterozygous specification on the query and default to 
+(ALLELE₁, ALLELE₂) provided in the BGEN file if nothing is specified in the query.
+"""
+function variant_genotypes(variant::Variant, query::NamedTuple)
+    all₁, all₂ = alleles(variant)
+    # Either (ALLELE₂, ALLELE₁) is provided in the query
+    # and we return it as the heterozygous genotype. 
+    # Or the other specification will do in all other cases.
+    if all₂*all₁ in query[Symbol(variant.rsid)]
+        return [all₁*all₁, all₂*all₁, all₂*all₂]
+    end
+    return [all₁*all₁, all₁*all₂, all₂*all₂]
+end
+
+
+function UKBBGenotypes(queryfile, query)
     config = TOML.parsefile(queryfile)
     snps = config["SNPS"]
     threshold = config["threshold"]
@@ -59,21 +77,12 @@ function UKBBGenotypes(queryfile)
         # Iterate over variants
         for rsid in rsids
             v = variant_by_rsid(b, rsid)
-            variant_genotypes = [alleles(v)[1]^2, alleles(v)[1]*alleles(v)[2], alleles(v)[2]^2]
+            variant_gens = variant_genotypes(v, query)
             probabilities = probabilities!(b, v)
-            genotypes[!, rsid] = samples_genotype(probabilities, variant_genotypes, threshold)
+            genotypes[!, rsid] = samples_genotype(probabilities, variant_gens, threshold)
         end
     end
     return genotypes
-end
-
-
-
-function prepareTarget(y, config)
-    if config["Q"]["outcome"]["type"] == "categorical"
-        y = categorical(y)
-    end
-    return y
 end
 
 
@@ -88,15 +97,12 @@ function filter_data(T, W, y)
     return filtered_data[!, names(T)], filtered_data[!, names(W)], filtered_data[!, "Y"]
 end
 
-"""
-TODO
-"""
-function UKBBtmleepistasis(phenotypefile, 
+
+function TMLEEpistasisUKBB(phenotypefile, 
     confoundersfile, 
     queryfile, 
     estimatorfile,
     outfile;
-    threshold=0.9,
     verbosity=1)
     
     # Build tmle
@@ -106,13 +112,13 @@ function UKBBtmleepistasis(phenotypefile,
     queries = parse_queries(queryfile)
 
     # Build Genotypes
-    T = UKBBGenotypes(queryfile; threshold=threshold)
+    T = UKBBGenotypes(queryfile, queries)
 
     # Read Confounders
     W = CSV.File(confoundersfile) |> DataFrame
 
     # Read Target
-    y =  DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
+    y = DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
 
     # Filter data based on missingness
     T, W, y = filter_data(T, W, y)

@@ -20,7 +20,7 @@ include("stackbuilding.jl")
 ###############################################################################
 # EXPORTS
 
-export UKBBtmleepistasis
+export TMLEEpistasisUKBB
 
 
 end

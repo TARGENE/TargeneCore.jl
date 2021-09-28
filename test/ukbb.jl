@@ -49,7 +49,8 @@ end
 
 @testset "Test UKBBGenotypes function" begin
     build_query_file(threshold=0.95)
-    genotypes = GenesInteraction.UKBBGenotypes(queryfile)
+    queries = GenesInteraction.parse_queries(queryfile)
+    genotypes = GenesInteraction.UKBBGenotypes(queryfile, queries["QUERY_1"])
     # I only looked at the firs 10 rows
     # RSID_10
     @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
@@ -70,27 +71,42 @@ end
 end
 
 
-@testset "Epistasis estimation run" begin
-    tmle_config = joinpath("config", "tmle_continuous.toml")
-    build_query_file()
-    outfile = "tmleepistasis_results.csv"
-    tmleepistasis(genotypefile, 
-                    phenotypefile, 
-                    confoundersfile, 
-                    snpfile,
-                    tmle_config,
-                    outfile)
-    
-    try
-        results = CSV.File(outfile) |> DataFrame
-        @test results[!, "Estimate"] isa Vector
-        @test results[!, "Standard Error"] isa Vector
-    finally
-        rm(outfile)
-        rm(queryfile)
-    end
+@testset "Test variant_genotypes" begin
+    b = GenesInteraction.read_bgen(BGEN.datadir("example.8bits.bgen"))
+    v = variant_by_rsid(b, "RSID_10")
 
+    query = (RSID_10=["AG", "GG"],)
+    @test GenesInteraction.variant_genotypes(v, query) == ["AA", "AG", "GG"]
+
+    query = (RSID_10=["GA", "GG"],)
+    @test GenesInteraction.variant_genotypes(v, query) == ["AA", "GA", "GG"]
+
+    query = (RSID_10=["AA", "GG"],)
+    @test GenesInteraction.variant_genotypes(v, query) == ["AA", "AG", "GG"]
 end
+
+
+# @testset "Epistasis estimation run" begin
+#     tmle_config = joinpath("config", "tmle_continuous.toml")
+#     build_query_file()
+#     outfile = "tmleepistasis_results.csv"
+#     TMLEEpistasisUKBB(genotypefile, 
+#                     phenotypefile, 
+#                     confoundersfile, 
+#                     snpfile,
+#                     tmle_config,
+#                     outfile)
+    
+#     try
+#         results = CSV.File(outfile) |> DataFrame
+#         @test results[!, "Estimate"] isa Vector
+#         @test results[!, "Standard Error"] isa Vector
+#     finally
+#         rm(outfile)
+#         rm(queryfile)
+#     end
+
+# end
 
 end;
 
