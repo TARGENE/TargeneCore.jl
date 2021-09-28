@@ -19,7 +19,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
 
 @testset "Categorical target TMLE built from configuration file" begin
-    tmle_config = joinpath("config", "categorical.toml")
+    tmle_config = joinpath("config", "tmle_categorical.toml")
     tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config))
     @test tmle.fluctuation.glm isa GLMClassifier
 
@@ -61,7 +61,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 end
 
 @testset "Continuous target TMLE built from configuration file" begin
-    tmle_config = joinpath("config", "continuous.toml")
+    tmle_config = joinpath("config", "tmle_continuous.toml")
     tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config))
     @test tmle.fluctuation.glm isa GLMRegressor
 
