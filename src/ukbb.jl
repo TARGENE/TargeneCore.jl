@@ -48,19 +48,20 @@ A heterozygous genotype can be specified as (ALLELE₁, ALLELE₂) or (ALLELE₂
 Here we align this heterozygous specification on the query and default to 
 (ALLELE₁, ALLELE₂) provided in the BGEN file if nothing is specified in the query.
 """
-function variant_genotypes(variant::Variant, query::NamedTuple)
+function variant_genotypes(variant::Variant, queries::Dict)
     all₁, all₂ = alleles(variant)
     # Either (ALLELE₂, ALLELE₁) is provided in the query
     # and we return it as the heterozygous genotype. 
     # Or the other specification will do in all other cases.
-    if all₂*all₁ in query[Symbol(variant.rsid)]
+    queried_alleles = [q[Symbol(variant.rsid)] for q in values(queries)]
+    if all₂*all₁ in collect(Iterators.flatten(queried_alleles))
         return [all₁*all₁, all₂*all₁, all₂*all₂]
     end
     return [all₁*all₁, all₁*all₂, all₂*all₂]
 end
 
 
-function UKBBGenotypes(queryfile, query)
+function UKBBGenotypes(queryfile, queries)
     config = TOML.parsefile(queryfile)
     snps = config["SNPS"]
     threshold = config["threshold"]
@@ -78,7 +79,7 @@ function UKBBGenotypes(queryfile, query)
         # Iterate over variants in this chromosome
         for rsid in rsids
             v = variant_by_rsid(b, rsid)
-            variant_gens = variant_genotypes(v, query)
+            variant_gens = variant_genotypes(v, queries)
             probabilities = probabilities!(b, v)
             chr_genotypes[!, rsid] = samples_genotype(probabilities, variant_gens, threshold)
         end
@@ -90,15 +91,45 @@ function UKBBGenotypes(queryfile, query)
 end
 
 
-function filter_data(T, W, y)
-    # Combine all elements together
-    fulldata = hcat(T, W)
-    fulldata[!, "Y"] = y
+function preprocess(genotypes, confounders, phenotypes;
+                    typeoftarget=nothing,
+                    verbosity=1)
+    
+    # Join all elements together
+    data = innerjoin(
+            innerjoin(genotypes, confounders, on=:SAMPLE_ID),
+            phenotypes,
+            on = :SAMPLE_ID =>:eid
+            )
 
-    # Filter based on missingness
-    filtered_data = dropmissing(fulldata)
+    # Check no data has been lost at this stage
+    any(nrows(array) != nrows(data) for array in (genotypes, confounders, phenotypes)) &&
+        @warn """The number of matching samples is different in data sources: \n 
+            - Genotypes: $(nrows(genotypes)) \n
+            - Confounders: $(nrows(confounders)) \n
+            - Phenotypes: $(nrows(phenotypes)) \n
+            - After Join: $(nrows(data)) \n
+        """
 
-    return filtered_data[!, names(T)], filtered_data[!, names(W)], filtered_data[!, "Y"]
+    # Filter any line where an element is missing
+    filtered_data = dropmissing(data)
+    verbosity >= 1 && @info "Samples size after missing removed: $(nrows(filtered_data))"
+
+    # Retrieve T and convert to categorical data
+    T = filtered_data[!, filter(!=("SAMPLE_ID"), names(genotypes))]
+    for name in names(T)
+        T[!, name] = categorical(T[:, name])
+    end
+
+    # Retrieve W
+    W = filtered_data[!, filter(!=("SAMPLE_ID"), names(confounders))]
+
+    # Retrieve y which is assumed to be the first column after SAMPLE_ID
+    # and convert to categorical array if needed
+    y = filtered_data[!, filter(!=("eid"), names(phenotypes))][!, 1]
+    typeoftarget == "binary" ? y = categorical(convert(Vector{Bool}, y)) : nothing
+
+    return T, W, y
 end
 
 
@@ -110,26 +141,53 @@ function TMLEEpistasisUKBB(phenotypefile,
     verbosity=1)
     
     # Build tmle
-    tmle = tmle_from_toml(TOML.parsefile(estimatorfile))
+    tmle_config = TOML.parsefile(estimatorfile)
+    tmle = tmle_from_toml(tmle_config)
 
     # Parse queries
     queries = parse_queries(queryfile)
 
+    verbosity >= 1 && @info "Loading Genotypes, Confounders and Phenotypes."
     # Build Genotypes
-    T = UKBBGenotypes(queryfile, queries)
+    genotypes = UKBBGenotypes(queryfile, queries)
 
     # Read Confounders
-    W = CSV.File(confoundersfile) |> DataFrame
+    confounders = CSV.File(confoundersfile) |> DataFrame
 
     # Read Target
-    y = DataFrame(CSV.File(phenotypefile;header=false))[:, 3]
-
+    phenotype = CSV.File(phenotypefile) |> DataFrame
+    verbosity >= 1 && @info "Preprocessing."
     # Filter data based on missingness
-    T, W, y = filter_data(T, W, y)
+    T, W, y = preprocess(genotypes, 
+                         confounders, 
+                         phenotype;
+                         typeoftarget=tmle_config["Q"]["outcome"]["type"],
+                         verbosity=verbosity)
 
     # Run TMLE over potential epistatic SNPS
     mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity)
-    println(mach.fitresult.estimate)
-    println(mach.fitresult.stderror)
+    results = DataFrame(
+        QUERY=String[], 
+        ESTIMATE=Float64[], 
+        PVALUE=Float64[],
+        LOWER_BOUND=Float64[],
+        UPPER_BOUND=Float64[],
+        STD_ERROR=Float64[]
+        )
+    for (queryname, query) in queries
+        verbosity >= 1 && @info "Estimation for query: $queryname."
+        # Update the query
+        mach.model.fluctuation.query = query
+
+        fit!(mach; verbosity=verbosity-1)
+
+        estimate = mach.fitresult.estimate
+        stderror = mach.fitresult.stderror
+        pval = pvalue(mach.model, estimate, stderror)
+        lwb, upb = confint(mach.model, estimate, stderror)
+
+        push!(results, (queryname, estimate, pval, upb, lwb, stderror))
+    end
+
+    CSV.write(outfile, results)
 end

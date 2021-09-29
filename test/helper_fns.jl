@@ -1,21 +1,21 @@
 
-genotypefile = joinpath("data", "mouse")
-phenotypefile = joinpath("data", "pheno_10_causals.txt")
-confoundersfile = joinpath("data", "confouders.csv")
+continuous_phenotype_file = joinpath("data", "phenotype_continuous.csv")
+categorical_phenotype_file = joinpath("data", "phenotype_categorical.csv")
+confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")
 
 
-function build_query_file(;path=queryfile, threshold=0.9)
+function build_query_file(;path=queryfile, threshold=0.9, het="AG")
     queries = Dict(
         "threshold" => threshold,
         "SNPS" => Dict(
             "RSID_10"  => BGEN.datadir("example.8bits.bgen"),
             "RSID_100" => BGEN.datadir("example.8bits.bgen")),
         "QUERY_1" => Dict(
-            "RSID_10"  => "AG -> GG",
-            "RSID_100" => "AA -> GG"),
+            "RSID_10"  => het*" -> GG",
+            "RSID_100" => het*" -> GG"),
         "QUERY_2" => Dict(
-            "RSID_10"  => "AA -> GG",
+            "RSID_10"  => het*" -> GG",
             "RSID_100" => "AA -> GG"
         )
     )

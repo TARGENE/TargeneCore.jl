@@ -4,7 +4,7 @@
 
 function stack_from_config(config)
     # Define the metalearner
-    metalearner = config["outcome"]["type"] == "categorical" ? 
+    metalearner = config["outcome"]["type"] in("binary", "categorical") ? 
         LogisticClassifier(fit_intercept=false) : LinearRegressor(fit_intercept=false)
 
     # Define the resampling strategy
@@ -35,7 +35,7 @@ function tmle_from_toml(config::Dict)
 
     ytype = config["Q"]["outcome"]["type"]
     F = nothing
-    if ytype == "categorical"
+    if ytype == "binary"
         F = BinaryFluctuation()
     elseif ytype == "continuous"
         F = ContinuousFluctuation()
