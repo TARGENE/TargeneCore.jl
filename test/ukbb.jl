@@ -51,7 +51,9 @@ end
     build_query_file(threshold=0.95)
     queries = GenesInteraction.parse_queries(queryfile)
     genotypes = GenesInteraction.UKBBGenotypes(queryfile, queries["QUERY_1"])
-    # I only looked at the firs 10 rows
+    # I only look at the first 10 rows
+    # SAMPLE_ID    
+    @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
     # RSID_10
     @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
     # RSID_100
@@ -86,27 +88,23 @@ end
 end
 
 
-# @testset "Epistasis estimation run" begin
-#     tmle_config = joinpath("config", "tmle_continuous.toml")
-#     build_query_file()
-#     outfile = "tmleepistasis_results.csv"
-#     TMLEEpistasisUKBB(genotypefile, 
-#                     phenotypefile, 
-#                     confoundersfile, 
-#                     snpfile,
-#                     tmle_config,
-#                     outfile)
+@testset "Epistasis estimation run" begin
+    tmle_config = joinpath("config", "tmle_continuous.toml")
+    build_query_file()
+    outfile = "tmleepistasis_results.csv"
+    TMLEEpistasisUKBB(genotypefile, 
+                    phenotypefile, 
+                    confoundersfile, 
+                    snpfile,
+                    tmle_config,
+                    outfile)
     
-#     try
-#         results = CSV.File(outfile) |> DataFrame
-#         @test results[!, "Estimate"] isa Vector
-#         @test results[!, "Standard Error"] isa Vector
-#     finally
-#         rm(outfile)
-#         rm(queryfile)
-#     end
 
-# end
+    rm(outfile)
+    rm(queryfile)
+
+
+end
 
 end;
 

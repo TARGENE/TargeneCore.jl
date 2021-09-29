@@ -70,17 +70,21 @@ function UKBBGenotypes(queryfile, query)
         haskey(bgen_groups, path) ? push!(bgen_groups[path], rsid) : bgen_groups[path] = [rsid]
     end
 
-    genotypes = DataFrame()
+    genotypes = nothing
     for (path, rsids) in bgen_groups
         b = GenesInteraction.read_bgen(path)
+        chr_genotypes = DataFrame(SAMPLE_ID=b.samples)
 
-        # Iterate over variants
+        # Iterate over variants in this chromosome
         for rsid in rsids
             v = variant_by_rsid(b, rsid)
             variant_gens = variant_genotypes(v, query)
             probabilities = probabilities!(b, v)
-            genotypes[!, rsid] = samples_genotype(probabilities, variant_gens, threshold)
+            chr_genotypes[!, rsid] = samples_genotype(probabilities, variant_gens, threshold)
         end
+        # I think concatenating should suffice but I still join as a safety
+        genotypes isa Nothing ? genotypes = chr_genotypes :
+            genotypes = innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
     end
     return genotypes
 end
