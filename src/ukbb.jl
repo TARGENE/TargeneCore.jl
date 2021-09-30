@@ -95,6 +95,11 @@ function preprocess(genotypes, confounders, phenotypes;
                     typeoftarget=nothing,
                     verbosity=1)
     
+    # Make sure data SAMPLE_ID types coincide
+    genotypes.SAMPLE_ID = string.(genotypes.SAMPLE_ID)
+    confounders.SAMPLE_ID = string.(confounders.SAMPLE_ID)
+    phenotypes.eid = string.(phenotypes.eid)
+    
     # Join all elements together
     data = innerjoin(
             innerjoin(genotypes, confounders, on=:SAMPLE_ID),
