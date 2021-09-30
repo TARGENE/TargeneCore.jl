@@ -190,4 +190,6 @@ function TMLEEpistasisUKBB(phenotypefile,
     end
 
     CSV.write(outfile, results)
+    
+    verbosity >= 1 && @info "Done."
 end

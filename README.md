@@ -7,3 +7,15 @@
 
 
 Find genetic variant interactions causaly responsible of diseases in the UKBB.
+
+## Description of the command line interface
+
+From the project's root directory:
+
+```bash
+julia --project ukbb_epistasis.jl --help
+```
+
+## Docker image
+
+The application is not delivered as a standalone script yet but a docker image is provided and can be found [here](https://hub.docker.com/repository/docker/olivierlabayle/tmle-epistasis)
