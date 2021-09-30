@@ -1,0 +1,30 @@
+# For the estimation of E[Y|W, T]
+[Q]
+    # Description of the outcome
+    [Q.outcome]
+    type = "binary"
+
+    # Description of the resampling strategy
+    [Q.resampling]
+    type = "StratifiedCV"
+    nfolds = 2
+    # List all models and hyperparameters
+    [Q.LogisticClassifier]
+    fit_intercept = true
+
+    
+# For the estimation of p(T| W)
+[G]
+    # Description of the outcome
+    [G.outcome]
+    type = "categorical"
+    # Description of the resampling strategy
+    [G.resampling]
+    type = "StratifiedCV"
+    nfolds = 2
+    # List all models and hyperparameters
+    [G.LogisticClassifier]
+    fit_intercept = true
+
+
+
