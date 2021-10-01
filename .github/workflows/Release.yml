@@ -31,6 +31,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: docker
+          file: docker/Dockerfile
           push: true
           tags: olivierlabayle/tmle-epistasis:${{ github.event.inputs.version }}
