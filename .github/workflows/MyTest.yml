@@ -8,13 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v1
-
-      - name: Read file contents
-        id: read_file
-        uses: andstor/file-reader-action@v1
-        with:
-          path: "Project.toml"
+        uses: actions/checkout@v2
+        
+      - name: Set Version
+        run:  "PKG_VERSION=$(grep version Project.toml | cut -d '"' -f2)" >> $GITHUB_ENV
 
       - name: File contents
-        run: echo "grep version ${{ steps.read_file.outputs.contents }} | cut -d '"' -f2"
+        run: echo "olivierlabayle/tmle-epistasis:${{ env.PKG_VERSION }}"
