@@ -99,11 +99,10 @@ end
         )
 
     # Continuous phenotypes
-    phenotypes = CSV.File(continuous_phenotype_file) |> DataFrame
-    T, W, y = GenesInteraction.preprocess(genotypes, confounders, phenotypes;
-                typeoftarget="continuous", verbosity=0)
+    phenotypes = CSV.File(phenotypefile, select=["eid", "continuous_phenotype"]) |> DataFrame
+    T, W, y = GenesInteraction.preprocess(genotypes, confounders, phenotypes;verbosity=0)
 
-    @test y == phenotypes.phenotype[11:n-10]
+    @test y == phenotypes.continuous_phenotype[11:n-10]
 
     @test size(T) == (480, 2)
     @test size(W) == (480, 2)
@@ -118,9 +117,8 @@ end
     @test T.RSID_2 isa CategoricalArray
 
     # Binary phenotypes
-    phenotypes = CSV.File(categorical_phenotype_file) |> DataFrame
+    phenotypes = CSV.File(phenotypefile, select=["eid", "categorical_phenotype"]) |> DataFrame
     T, W, y = GenesInteraction.preprocess(genotypes, confounders, phenotypes;
-                typeoftarget="binary",
                 verbosity=0)
 
     @test y isa CategoricalArray{Bool,1,UInt32}
@@ -130,40 +128,52 @@ end
 @testset "Test TMLEEpistasisUKBB with continuous target" begin
     estimatorfile = joinpath("config", "tmle_continuous.toml")
     build_query_file()
-    outfile = "cont_results.csv"
-    TMLEEpistasisUKBB(continuous_phenotype_file, 
-                      confoundersfile, 
-                      queryfile, 
-                      estimatorfile,
-                      outfile;
-                      verbosity=0)
+    parsed_args = Dict(
+        "phenotypes" => phenotypefile,
+        "confounders" => confoundersfile,
+        "queries" => queryfile,
+        "estimator" => estimatorfile,
+        "output" => "cont_results.csv",
+        "phenotype" => "continuous_phenotype",
+        "verbosity" => 0
+    )
+
+    TMLEEpistasisUKBB(parsed_args)
     
-    results = CSV.File(outfile) |> DataFrame
+    results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERY == ["QUERY_1", "QUERY_2"]
     @test names(results) == ["QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
     @test size(results) == (2, 6)
-    rm(outfile)
-    rm(queryfile)
+
+    # Clean
+    rm(parsed_args["output"])
+    rm(parsed_args["queries"])
 end
 
 
 @testset "Test TMLEEpistasisUKBB with categorical target" begin
     estimatorfile = joinpath("config", "tmle_categorical.toml")
     build_query_file()
-    outfile = "cat_results.csv"
-    TMLEEpistasisUKBB(categorical_phenotype_file, 
-                      confoundersfile, 
-                      queryfile, 
-                      estimatorfile,
-                      outfile;
-                      verbosity=0)
+    parsed_args = Dict(
+        "phenotypes" => phenotypefile,
+        "confounders" => confoundersfile,
+        "queries" => queryfile,
+        "estimator" => estimatorfile,
+        "output" => "cat_results.csv",
+        "phenotype" => "categorical_phenotype",
+        "verbosity" => 0
+    )
+
+    TMLEEpistasisUKBB(parsed_args)
     
-    results = CSV.File(outfile) |> DataFrame
+    results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERY == ["QUERY_1", "QUERY_2"]
     @test names(results) == ["QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
     @test size(results) == (2, 6)
-    rm(outfile)
-    rm(queryfile)
+
+    # Clean
+    rm(parsed_args["output"])
+    rm(parsed_args["queries"])
 end
 
 
