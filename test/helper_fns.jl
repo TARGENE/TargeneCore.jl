@@ -1,9 +1,7 @@
 
-continuous_phenotype_file = joinpath("data", "phenotype_continuous.csv")
-categorical_phenotype_file = joinpath("data", "phenotype_categorical.csv")
 confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")
-
+phenotypefile = joinpath("data", "phenotypes.csv")
 
 function build_query_file(;path=queryfile, threshold=0.9, het="AG")
     queries = Dict(

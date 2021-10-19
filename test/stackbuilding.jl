@@ -20,7 +20,8 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
 @testset "Categorical target TMLE built from configuration file" begin
     tmle_config = joinpath("config", "tmle_categorical.toml")
-    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config))
+    y = categorical([true, false])
+    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
     @test tmle.fluctuation.glm isa GLMClassifier
 
     # Checking Qstack
@@ -62,7 +63,8 @@ end
 
 @testset "Continuous target TMLE built from configuration file" begin
     tmle_config = joinpath("config", "tmle_continuous.toml")
-    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config))
+    y = rand(100)
+    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
     @test tmle.fluctuation.glm isa GLMRegressor
 
     # Checking Qstack

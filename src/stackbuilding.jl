@@ -2,9 +2,9 @@
 # BUILD TMLE FROM .TOML
 
 
-function stack_from_config(config)
+function stack_from_config(config::Dict, y)
     # Define the metalearner
-    metalearner = config["outcome"]["type"] in("binary", "categorical") ? 
+    metalearner =  autotype(y) <: Finite ? 
         LogisticClassifier(fit_intercept=false) : LinearRegressor(fit_intercept=false)
 
     # Define the resampling strategy
@@ -31,20 +31,12 @@ function stack_from_config(config)
 end
 
 
-function tmle_from_toml(config::Dict)
+function tmle_from_toml(config::Dict, y)
 
-    ytype = config["Q"]["outcome"]["type"]
-    F = nothing
-    if ytype == "binary"
-        F = BinaryFluctuation()
-    elseif ytype == "continuous"
-        F = ContinuousFluctuation()
-    else
-        error("The type of y should be either continuous or categorical")
-    end
-
-    Q̅ = stack_from_config(config["Q"])
-    G = FullCategoricalJoint(stack_from_config(config["G"]))
+    F = autotype(y) <: Finite ? BinaryFluctuation() : ContinuousFluctuation()
+    Q̅ = stack_from_config(config["Q"], y)
+    # For now the Treatment is always categorical only
+    G = FullCategoricalJoint(stack_from_config(config["G"], [0]))
 
     return TMLEstimator(Q̅, G, F)
 

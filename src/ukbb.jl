@@ -92,7 +92,6 @@ end
 
 
 function preprocess(genotypes, confounders, phenotypes;
-                    typeoftarget=nothing,
                     verbosity=1)
     
     # Make sure data SAMPLE_ID types coincide
@@ -132,42 +131,39 @@ function preprocess(genotypes, confounders, phenotypes;
     # Retrieve y which is assumed to be the first column after SAMPLE_ID
     # and convert to categorical array if needed
     y = filtered_data[!, filter(!=("eid"), names(phenotypes))][!, 1]
-    typeoftarget == "binary" ? y = categorical(convert(Vector{Bool}, y)) : nothing
+    
+    # Only support binary and continuous traits for now
+    autotype(y) <: Finite ? y = categorical(convert(Vector{Bool}, y)) : nothing
 
     return T, W, y
 end
 
 
-function TMLEEpistasisUKBB(phenotypefile, 
-    confoundersfile, 
-    queryfile, 
-    estimatorfile,
-    outfile;
-    verbosity=1)
-    
-    # Build tmle
-    tmle_config = TOML.parsefile(estimatorfile)
-    tmle = tmle_from_toml(tmle_config)
+function TMLEEpistasisUKBB(parsed_args)
+    v = parsed_args["verbosity"]
+    # Read Target
+    phenotype = CSV.File(parsed_args["phenotypes"], select=["eid", parsed_args["phenotype"]]) |> DataFrame
 
     # Parse queries
-    queries = parse_queries(queryfile)
+    queries = parse_queries(parsed_args["queries"])
 
-    verbosity >= 1 && @info "Loading Genotypes, Confounders and Phenotypes."
+    v >= 1 && @info "Loading Genotypes, Confounders and Phenotypes."
     # Build Genotypes
-    genotypes = UKBBGenotypes(queryfile, queries)
+    genotypes = UKBBGenotypes(parsed_args["queries"], queries)
 
     # Read Confounders
-    confounders = CSV.File(confoundersfile) |> DataFrame
+    confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
 
-    # Read Target
-    phenotype = CSV.File(phenotypefile) |> DataFrame
-    verbosity >= 1 && @info "Preprocessing."
+    v >= 1 && @info "Preprocessing."
     # Filter data based on missingness
     T, W, y = preprocess(genotypes, 
                          confounders, 
                          phenotype;
-                         typeoftarget=tmle_config["Q"]["outcome"]["type"],
-                         verbosity=verbosity)
+                         verbosity=v)
+
+    # Build tmle
+    tmle_config = TOML.parsefile(parsed_args["estimator"])
+    tmle = tmle_from_toml(tmle_config, y)
 
     # Run TMLE over potential epistatic SNPS
     mach = machine(tmle, T, W, y)
@@ -180,11 +176,11 @@ function TMLEEpistasisUKBB(phenotypefile,
         STD_ERROR=Float64[]
         )
     for (queryname, query) in queries
-        verbosity >= 1 && @info "Estimation for query: $queryname."
+        v >= 1 && @info "Estimation for query: $queryname."
         # Update the query
         mach.model.fluctuation.query = query
 
-        fit!(mach; verbosity=verbosity-1)
+        fit!(mach; verbosity=v-1)
 
         estimate = mach.fitresult.estimate
         stderror = mach.fitresult.stderror
@@ -194,7 +190,7 @@ function TMLEEpistasisUKBB(phenotypefile,
         push!(results, (queryname, estimate, pval, upb, lwb, stderror))
     end
 
-    CSV.write(outfile, results)
+    CSV.write(parsed_args["output"], results)
     
-    verbosity >= 1 && @info "Done."
+    v >= 1 && @info "Done."
 end

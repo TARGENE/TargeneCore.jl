@@ -1,9 +1,5 @@
 # For the estimation of E[Y|W, T]
 [Q]
-    # Description of the outcome
-    [Q.outcome]
-    type = "binary"
-
     # Description of the resampling strategy
     [Q.resampling]
     type = "StratifiedCV"
@@ -18,9 +14,6 @@
     
 # For the estimation of p(T| W)
 [G]
-    # Description of the outcome
-    [G.outcome]
-    type = "categorical"
     # Description of the resampling strategy
     [G.resampling]
     type = "CV"
