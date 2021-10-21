@@ -187,7 +187,7 @@ function TMLEEpistasisUKBB(parsed_args)
         pval = pvalue(mach.model, estimate, stderror)
         lwb, upb = confint(mach.model, estimate, stderror)
 
-        push!(results, (queryname, estimate, pval, upb, lwb, stderror))
+        push!(results, (queryname, estimate, pval, lwb, upb, stderror))
     end
 
     CSV.write(parsed_args["output"], results)
