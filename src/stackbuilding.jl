@@ -4,7 +4,7 @@
 
 function stack_from_config(config::Dict, y)
     # Define the metalearner
-    metalearner =  autotype(y) <: Finite ? 
+    metalearner =  is_binary(y) ? 
         LogisticClassifier(fit_intercept=false) : LinearRegressor(fit_intercept=false)
 
     # Define the resampling strategy
@@ -33,10 +33,10 @@ end
 
 function tmle_from_toml(config::Dict, y)
 
-    F = autotype(y) <: Finite ? BinaryFluctuation() : ContinuousFluctuation()
+    F = is_binary(y) ? BinaryFluctuation() : ContinuousFluctuation()
     Q̅ = stack_from_config(config["Q"], y)
     # For now the Treatment is always categorical only
-    G = FullCategoricalJoint(stack_from_config(config["G"], [0]))
+    G = FullCategoricalJoint(stack_from_config(config["G"], [0, 1]))
 
     return TMLEstimator(Q̅, G, F)
 

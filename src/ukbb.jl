@@ -133,7 +133,7 @@ function preprocess(genotypes, confounders, phenotypes;
     y = filtered_data[!, filter(!=("eid"), names(phenotypes))][!, 1]
     
     # Only support binary and continuous traits for now
-    autotype(y) <: Finite ? y = categorical(convert(Vector{Bool}, y)) : nothing
+    is_binary(y) ? y = categorical(convert(Vector{Bool}, y)) : nothing
 
     return T, W, y
 end
