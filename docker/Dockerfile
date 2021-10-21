@@ -4,4 +4,4 @@ COPY . /GenesInteraction.jl
 
 WORKDIR /GenesInteraction.jl 
 
-RUN julia --project -e"using Pkg; Pkg.instantiate(); Pkg.test()"
+RUN julia --project -e"using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.test();"
