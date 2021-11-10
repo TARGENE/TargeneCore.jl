@@ -16,4 +16,4 @@ WORKDIR /GenesInteraction.jl
 
 RUN alias julia='julia -Jtest/GenesInteractionSysimage.so'
 
-RUN julia -e"using GenesInteraction"
+RUN julia -q --project -e"using GenesInteraction"
