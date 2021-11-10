@@ -1,4 +1,6 @@
-FROM julia:1.6.3
+FROM julia:1.6.3-buster
+
+RUN apt-get update && apt-get install -y clang
 
 COPY . /GenesInteraction.jl 
 
