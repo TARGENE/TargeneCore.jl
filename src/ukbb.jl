@@ -178,14 +178,15 @@ function TMLEEpistasisUKBB(parsed_args)
     for (queryname, query) in queries
         v >= 1 && @info "Estimation for query: $queryname."
         # Update the query
-        mach.model.fluctuation.query = query
+        mach.model.F.query = query
 
         fit!(mach; verbosity=v-1)
 
-        estimate = mach.fitresult.estimate
-        stderror = mach.fitresult.stderror
-        pval = pvalue(mach.model, estimate, stderror)
-        lwb, upb = confint(mach.model, estimate, stderror)
+        report = briefreport(mach)
+        estimate = report.estimate
+        stderror = report.stderror
+        pval = pvalue(mach)
+        lwb, upb = confinterval(mach)
 
         push!(results, (queryname, estimate, pval, lwb, upb, stderror))
     end

@@ -22,7 +22,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     tmle_config = joinpath("config", "tmle_categorical.toml")
     y = categorical([true, false])
     tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
-    @test tmle.fluctuation.glm isa GLMClassifier
+    @test tmle.F.glm isa GLMClassifier
 
     # Checking Qstack
     ## Checking Qstack.metalearner
@@ -65,7 +65,7 @@ end
     tmle_config = joinpath("config", "tmle_continuous.toml")
     y = rand(100)
     tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
-    @test tmle.fluctuation.glm isa GLMRegressor
+    @test tmle.F.glm isa GLMRegressor
 
     # Checking Qstack
     ## Checking Qstack.metalearner

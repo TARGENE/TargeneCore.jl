@@ -33,7 +33,7 @@ end
 
 function tmle_from_toml(config::Dict, y)
 
-    F = is_binary(y) ? BinaryFluctuation() : ContinuousFluctuation()
+    F = is_binary(y) ? binaryfluctuation() : continuousfluctuation()
     Q̅ = stack_from_config(config["Q"], y)
     # For now the Treatment is always categorical only
     G = FullCategoricalJoint(stack_from_config(config["G"], [0, 1]))
