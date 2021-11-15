@@ -10,23 +10,25 @@ using Distributions
 
 
 GLMClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
-GLMRegressor = @load LinearRegressor pkg=GLM verbosity=0
-
+SKLogisticClassifier = @load LogisticClassifier pkg=ScikitLearn verbosity=0
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
+
+GLMRegressor = @load LinearRegressor pkg=GLM verbosity=0
+SKLinearRegressor = @load LinearRegressor pkg=ScikitLearn verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
 KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
 
 @testset "Categorical target TMLE built from configuration file" begin
-    tmle_config = joinpath("config", "tmle_categorical.toml")
-    y = categorical([true, false])
-    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
-    @test tmle.F.glm isa GLMClassifier
+    tmle_config = joinpath("config", "tmle_config.toml")
 
-    # Checking Qstack
+    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config))
+    # Test binary target TMLE's Qstack
+    tmle = tmles["binary"]
+    @test tmle.F.glm isa GLMClassifier
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa LogisticClassifier
+    @test tmle.Q̅.metalearner isa SKLogisticClassifier
     @test tmle.Q̅.metalearner.fit_intercept == false
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa StratifiedCV
@@ -45,32 +47,13 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     @test tmle.Q̅.LogisticClassifier_4.lambda == 10
     @test tmle.Q̅.LogisticClassifier_4.fit_intercept == false
 
-    # Checking Gstack
-    ## Checking Gstack.metalearner
-    @test tmle.G.model.metalearner isa LogisticClassifier
-    @test tmle.G.model.metalearner.fit_intercept == false
-    ## Checking Gstack.resampling
-    @test tmle.G.model.resampling isa CV
-    @test tmle.G.model.resampling.nfolds == 2
-    ## Checking Gstack KNN models
-    @test tmle.G.model.KNNClassifier_1.K == 3
-    ## Checking Gstack Logistic models
-    @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
-    @test tmle.G.model.LogisticClassifier_1.fit_intercept == true
-    @test tmle.G.model.LogisticClassifier_2.lambda == 1.0
-    @test tmle.G.model.LogisticClassifier_2.fit_intercept == false
-end
-
-@testset "Continuous target TMLE built from configuration file" begin
-    tmle_config = joinpath("config", "tmle_continuous.toml")
-    y = rand(100)
-    tmle =  GenesInteraction.tmle_from_toml(TOML.parsefile(tmle_config), y)
+    # Test binary target TMLE Qstack
+    tmle = tmles["continuous"]
     @test tmle.F.glm isa GLMRegressor
-
-    # Checking Qstack
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa LinearRegressor
+    @test tmle.Q̅.metalearner isa SKLinearRegressor
     @test tmle.Q̅.metalearner.fit_intercept == false
+
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa CV
     @test tmle.Q̅.resampling.nfolds == 3
@@ -82,20 +65,23 @@ end
     ## Checking Qstack Linear model
     @test tmle.Q̅.LinearRegressor_1.fit_intercept == true
 
-    # Checking Gstack
-    ## Checking Gstack.metalearner
-    @test tmle.G.model.metalearner isa LogisticClassifier
-    @test tmle.G.model.metalearner.fit_intercept == false
-    ## Checking Gstack.resampling
-    @test tmle.G.model.resampling isa StratifiedCV
-    @test tmle.G.model.resampling.nfolds == 2
-    ## Checking Gstack KNN models
-    @test tmle.G.model.KNNClassifier_1.K == 3
-    ## Checking Gstack Logistic models
-    @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
-    @test tmle.G.model.LogisticClassifier_1.fit_intercept == true
-    @test tmle.G.model.LogisticClassifier_2.lambda == 1.0
-    @test tmle.G.model.LogisticClassifier_2.fit_intercept == false
+    # Both TMLE have the same G Stack
+    for (type, tmle) in tmles
+        # Checking Gstack
+        ## Checking Gstack.metalearner
+        @test tmle.G.model.metalearner isa SKLogisticClassifier
+        @test tmle.G.model.metalearner.fit_intercept == false
+        ## Checking Gstack.resampling
+        @test tmle.G.model.resampling isa CV
+        @test tmle.G.model.resampling.nfolds == 2
+        ## Checking Gstack KNN models
+        @test tmle.G.model.KNNClassifier_1.K == 3
+        ## Checking Gstack Logistic models
+        @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
+        @test tmle.G.model.LogisticClassifier_1.fit_intercept == true
+        @test tmle.G.model.LogisticClassifier_2.lambda == 1.0
+        @test tmle.G.model.LogisticClassifier_2.fit_intercept == false
+    end
 end
 
 
