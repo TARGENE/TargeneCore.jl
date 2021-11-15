@@ -14,7 +14,8 @@ function parse_commandline()
 
     @add_arg_table s begin
         "phenotypes"
-            help = "A file (.csv format). The first row contains the column names with `eid` the sample ID"
+            help = "A file (.csv format). The first row contains the column names with `eid` the sample ID."*
+                   " All phenotypes in this file should have the same scientific type (ie cotinuous or categorical)"
             required = true
         "confounders"
             help = "A file (.csv format) containing the confounding variables values and the sample ids associated"*
@@ -31,9 +32,9 @@ function parse_commandline()
         "output"
             help = "A path where the results will be saved (.csv format)"
             required = true
-        "--phenotype", "-p"
-            help = "The phenotype to consider for the analysis"
-            required = true
+        "--phenotypes-list", "-p"
+            help = "A file, one line for each phenotype, containing a restrictions of the phenotypes to consider for the analysis."*
+            required = false
             arg_type = String
         "--verbosity", "-v"
             help = "Verbosity level"
@@ -45,6 +46,5 @@ function parse_commandline()
 end
 
 parsed_args = parse_commandline()
-
 
 TMLEEpistasisUKBB(parsed_args)
