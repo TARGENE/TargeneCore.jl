@@ -13,6 +13,20 @@ function parse_queries(queryfile::String)
 end
 
 
+phenotypesnames(phenotypefile::String) = 
+    keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
+
+
+phenotypes_list(phenotype_listfile::Nothing, names) = names
+
+function phenotypes_list(phenotype_listfile::String, allnames)
+    phenotypes_list = CSV.File(phenotype_listfile, 
+                               header=[:PHENOTYPES], 
+                               type=Symbol)
+    filter(x -> x ∈ phenotypes_list.PHENOTYPES, allnames)
+end
+
+
 function read_bgen(bgen_file::String)
     kwargs = Dict{Symbol, Any}(:sample_path => nothing, :idx_path => nothing)
     if bgen_file[end-3:end] == "bgen"
@@ -175,6 +189,7 @@ function TMLEEpistasisUKBB(parsed_args)
         UPPER_BOUND=Float64[],
         STD_ERROR=Float64[]
         )
+
     for (queryname, query) in queries
         v >= 1 && @info "Estimation for query: $queryname."
         # Update the query

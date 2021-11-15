@@ -14,8 +14,7 @@ function parse_commandline()
 
     @add_arg_table s begin
         "phenotypes"
-            help = "A file (.csv format). The first row contains the column names with `eid` the sample ID."*
-                   " All phenotypes in this file should have the same scientific type (ie cotinuous or categorical)"
+            help = "A file (.csv format). The first row contains the column names with `eid` the sample ID."
             required = true
         "confounders"
             help = "A file (.csv format) containing the confounding variables values and the sample ids associated"*
@@ -33,7 +32,8 @@ function parse_commandline()
             help = "A path where the results will be saved (.csv format)"
             required = true
         "--phenotypes-list", "-p"
-            help = "A file, one line for each phenotype, containing a restrictions of the phenotypes to consider for the analysis."*
+            help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
+                   "to consider for the analysis."
             required = false
             arg_type = String
         "--verbosity", "-v"

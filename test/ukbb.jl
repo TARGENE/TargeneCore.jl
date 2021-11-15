@@ -176,6 +176,16 @@ end
     rm(parsed_args["queries"])
 end
 
+@testset "Test phenotypes parsing" begin
+    allnames = GenesInteraction.phenotypesnames(phenotypefile)
+    @test allnames == [:categorical_phenotype, :continuous_phenotype]
+
+    @test GenesInteraction.phenotypes_list(nothing, allnames) == allnames
+
+    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", allnames) == [:continuous_phenotype]
+    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", allnames) == [:categorical_phenotype, :continuous_phenotype]
+end
+
 
 end;
 
