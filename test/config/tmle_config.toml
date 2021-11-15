@@ -16,6 +16,12 @@
     [Qcat.XGBoostClassifier]
     num_round = 3
 
+    [Qcat.HALClassifier]
+    cv_select = false
+    smoothness_orders = 2
+    lambda = 10
+    num_knots = [[10, 5]]
+
 # For the estimation of E[Y|W, T] where Y is continuous
 [Qcont]
     # Description of the resampling strategy
@@ -32,6 +38,13 @@
 
     [Qcont.XGBoostRegressor]
     num_round = 3
+
+    [Qcont.HALRegressor]
+    cv_select = false
+    smoothness_orders = 2
+    lambda = 10
+    num_knots = [[10, 5]]
+
 
 # For the estimation of p(T| W), that, for now needs to be categorical
 [G]

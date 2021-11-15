@@ -46,6 +46,11 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     @test tmle.Q̅.LogisticClassifier_3.fit_intercept == true
     @test tmle.Q̅.LogisticClassifier_4.lambda == 10
     @test tmle.Q̅.LogisticClassifier_4.fit_intercept == false
+    ## Checking Qstack HAL model
+    @test tmle.Q̅.HALClassifier_1.lambda == 10
+    @test tmle.Q̅.HALClassifier_1.smoothness_orders == 2
+    @test tmle.Q̅.HALClassifier_1.cv_select == false
+    @test tmle.Q̅.HALClassifier_1.num_knots == [10, 5]
 
     # Test binary target TMLE Qstack
     tmle = tmles["continuous"]
@@ -64,7 +69,12 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     @test tmle.Q̅.KNNRegressor_2.leafsize == 20
     ## Checking Qstack Linear model
     @test tmle.Q̅.LinearRegressor_1.fit_intercept == true
-
+    ## Checking Qstack HAL model
+    @test tmle.Q̅.HALRegressor_1.lambda == 10
+    @test tmle.Q̅.HALRegressor_1.smoothness_orders == 2
+    @test tmle.Q̅.HALRegressor_1.cv_select == false
+    @test tmle.Q̅.HALRegressor_1.num_knots == [10, 5]
+    
     # Both TMLE have the same G Stack
     for (type, tmle) in tmles
         # Checking Gstack
