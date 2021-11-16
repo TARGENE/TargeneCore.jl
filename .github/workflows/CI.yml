@@ -18,6 +18,19 @@ jobs:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: ${{ matrix.R }}
+      - name: Install R dependencies
+        run: |
+          install.packages("devtools", repos="http://cran.us.r-project.org")
+          require(devtools)
+          install_version("hal9001", version = "0.4.1", repos = "http://cran.us.r-project.org")
+        shell: Rscript {0}
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
