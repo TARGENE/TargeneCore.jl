@@ -12,12 +12,13 @@ jobs:
         version:
           - '1'
         os:
-          - macos-latest
           - ubuntu-latest
         arch:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - name: Install curl
+        run: sudo apt-get install -y libcurl-dev
       - uses: actions/setup-python@v2
         with:
           python-version: '3.9'
