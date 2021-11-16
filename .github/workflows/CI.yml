@@ -32,6 +32,10 @@ jobs:
           require(devtools)
           install_version("hal9001", version = "0.4.1", repos = "http://cran.us.r-project.org")
         shell: Rscript {0}
+      - name: Set R_HOME
+        run: echo "R_HOME=$(R RHOME)" >> $GITHUB_ENV
+      - name: Set LD_LIBRARY
+        run: echo "LD_LIBRARY_PATH=$R_HOME/lib" >> $GITHUB_ENV
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
@@ -46,8 +50,6 @@ jobs:
             ${{ runner.os }}-test-${{ env.cache-name }}-
             ${{ runner.os }}-test-
             ${{ runner.os }}-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
