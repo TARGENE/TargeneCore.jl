@@ -8,7 +8,7 @@ function parse_commandline()
                       "Here is a list of the arguments that should be provided, you can also have a look at the "*
                       "test/data and test/config folders to see some examples.",
         commands_are_required = false,
-        version = "0.1.6",
+        version = "0.2",
         add_version = true)
 
 
