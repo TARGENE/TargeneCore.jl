@@ -12,12 +12,34 @@ jobs:
         version:
           - '1'
         os:
-          - macos-latest
           - ubuntu-latest
         arch:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - name: Install curl
+        run: sudo apt-get install -y libcurl4-openssl-dev
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install ScikitLearn
+        run: |
+          python -m pip install --upgrade pip
+          pip install scikit-learn
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v1
+        with:
+          r-version: ${{ matrix.R }}
+      - name: Install R dependencies
+        run: |
+          install.packages("devtools", repos="http://cran.us.r-project.org")
+          require(devtools)
+          install_version("hal9001", version = "0.4.1", repos = "http://cran.us.r-project.org")
+        shell: Rscript {0}
+      - name: Set R_HOME
+        run: echo "R_HOME=$(R RHOME)" >> $GITHUB_ENV
+      - name: Set LD_LIBRARY
+        run: echo "LD_LIBRARY_PATH=$R_HOME/lib" >> $GITHUB_ENV
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}

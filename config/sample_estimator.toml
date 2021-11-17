@@ -1,14 +1,28 @@
 # For the estimation of E[Y|W, T]
-[Q]
+[Qcont]
     # Description of the outcome
-    [Q.outcome]
+    [Qcont.outcome]
     type = "continuous"
     # Description of the resampling strategy
-    [Q.resampling]
+    [Qcont.resampling]
     type = "CV"
     nfolds = 2
     # List all models and hyperparameters
-    [Q.LinearRegressor]
+    [Qcont.LinearRegressor]
+    fit_intercept = true
+
+# For the estimation of E[Y|W, T]
+[Qcat]
+    # Description of the outcome
+    [Qcat.outcome]
+    type = "binary"
+
+    # Description of the resampling strategy
+    [Qcat.resampling]
+    type = "StratifiedCV"
+    nfolds = 2
+    # List all models and hyperparameters
+    [Qcat.LogisticClassifier]
     fit_intercept = true
 
 # For the estimation of p(T| W)

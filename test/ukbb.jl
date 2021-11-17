@@ -126,7 +126,8 @@ end
 
 
 @testset "Test TMLEEpistasisUKBB with continuous target" begin
-    estimatorfile = joinpath("config", "tmle_continuous.toml")
+    # Only one continuous phenotype
+    estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
         "phenotypes" => phenotypefile,
@@ -134,7 +135,7 @@ end
         "queries" => queryfile,
         "estimator" => estimatorfile,
         "output" => "cont_results.csv",
-        "phenotype" => "continuous_phenotype",
+        "phenotypes-list" => "data/phen_list_1.csv",
         "verbosity" => 0
     )
 
@@ -142,8 +143,8 @@ end
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERY == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (2, 6)
+    @test names(results) == ["PHENOTYPE", "QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
+    @test size(results) == (2, 7)
 
     # Clean
     rm(parsed_args["output"])
@@ -152,28 +153,38 @@ end
 
 
 @testset "Test TMLEEpistasisUKBB with categorical target" begin
-    estimatorfile = joinpath("config", "tmle_categorical.toml")
+    estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
         "phenotypes" => phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "cat_results.csv",
-        "phenotype" => "categorical_phenotype",
+        "output" => "full_results.csv",
+        "phenotypes-list" => "data/phen_list_2.csv",
         "verbosity" => 0
     )
 
     TMLEEpistasisUKBB(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
-    @test results.QUERY == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (2, 6)
+    @test results.QUERY == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
+    @test names(results) == ["PHENOTYPE", "QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
+    @test size(results) == (4, 7)
 
     # Clean
     rm(parsed_args["output"])
     rm(parsed_args["queries"])
+end
+
+@testset "Test phenotypes parsing" begin
+    allnames = GenesInteraction.phenotypesnames(phenotypefile)
+    @test allnames == [:categorical_phenotype, :continuous_phenotype]
+
+    @test GenesInteraction.phenotypes_list(nothing, allnames) == allnames
+
+    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", allnames) == [:continuous_phenotype]
+    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", allnames) == [:categorical_phenotype, :continuous_phenotype]
 end
 
 

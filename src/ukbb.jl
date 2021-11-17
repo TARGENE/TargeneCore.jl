@@ -13,6 +13,20 @@ function parse_queries(queryfile::String)
 end
 
 
+phenotypesnames(phenotypefile::String) = 
+    keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
+
+
+phenotypes_list(phenotype_listfile::Nothing, names) = names
+
+function phenotypes_list(phenotype_listfile::String, allnames)
+    phenotypes_list = CSV.File(phenotype_listfile, 
+                               header=[:PHENOTYPES], 
+                               type=Symbol)
+    filter(x -> x ∈ phenotypes_list.PHENOTYPES, allnames)
+end
+
+
 function read_bgen(bgen_file::String)
     kwargs = Dict{Symbol, Any}(:sample_path => nothing, :idx_path => nothing)
     if bgen_file[end-3:end] == "bgen"
@@ -141,33 +155,26 @@ end
 
 function TMLEEpistasisUKBB(parsed_args)
     v = parsed_args["verbosity"]
-    # Read Target
-    phenotype = CSV.File(parsed_args["phenotypes"], select=["eid", parsed_args["phenotype"]]) |> DataFrame
+
+    # Build tmle
+    tmle_config = TOML.parsefile(parsed_args["estimator"])
+    tmles = tmles_from_toml(tmle_config)
 
     # Parse queries
     queries = parse_queries(parsed_args["queries"])
 
-    v >= 1 && @info "Loading Genotypes, Confounders and Phenotypes."
+    v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes
     genotypes = UKBBGenotypes(parsed_args["queries"], queries)
 
     # Read Confounders
     confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
 
-    v >= 1 && @info "Preprocessing."
-    # Filter data based on missingness
-    T, W, y = preprocess(genotypes, 
-                         confounders, 
-                         phenotype;
-                         verbosity=v)
-
-    # Build tmle
-    tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmle = tmle_from_toml(tmle_config, y)
-
-    # Run TMLE over potential epistatic SNPS
-    mach = machine(tmle, T, W, y)
+    # Loop over requested phenotypes
+    all_phenotype_names = phenotypesnames(parsed_args["phenotypes"])
+    phenotypes_range = phenotypes_list(parsed_args["phenotypes-list"], all_phenotype_names)
     results = DataFrame(
+        PHENOTYPE=Symbol[],
         QUERY=String[], 
         ESTIMATE=Float64[], 
         PVALUE=Float64[],
@@ -175,22 +182,41 @@ function TMLEEpistasisUKBB(parsed_args)
         UPPER_BOUND=Float64[],
         STD_ERROR=Float64[]
         )
-    for (queryname, query) in queries
-        v >= 1 && @info "Estimation for query: $queryname."
-        # Update the query
-        mach.model.fluctuation.query = query
+        
+    for phenotypename in phenotypes_range
+        # Read Target
+        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
 
-        fit!(mach; verbosity=v-1)
+        v >= 1 && @info "Preprocessing with phenotype: $phenotypename."
+        # Preprocess all data together
+        T, W, y = preprocess(genotypes, 
+                            confounders, 
+                            phenotype;
+                            verbosity=v)
+        
+        # Build TMLE machine, can I update Y withoug altering the machine state
+        # so that only the Q mach is fit again?
+        tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
+        mach = machine(tmle, T, W, y)
 
-        estimate = mach.fitresult.estimate
-        stderror = mach.fitresult.stderror
-        pval = pvalue(mach.model, estimate, stderror)
-        lwb, upb = confint(mach.model, estimate, stderror)
+        for (queryname, query) in queries
+            v >= 1 && @info "Estimation for query: $queryname."
+            # Update the query, only the fluctuation will need to be fitted again
+            mach.model.F.query = query
 
-        push!(results, (queryname, estimate, pval, upb, lwb, stderror))
+            # Run TMLE 
+            fit!(mach; verbosity=v-1)
+
+            report = briefreport(mach)
+            estimate = report.estimate
+            stderror = report.stderror
+            pval = pvalue(mach)
+            lwb, upb = confinterval(mach)
+
+            push!(results, (phenotypename, queryname, estimate, pval, lwb, upb, stderror))
+        end
     end
 
     CSV.write(parsed_args["output"], results)
-    
     v >= 1 && @info "Done."
 end
