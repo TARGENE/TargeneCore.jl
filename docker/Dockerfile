@@ -1,8 +1,16 @@
-FROM ubuntu:20.04
+FROM amd64/ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV TZ=Europe/Amsterdam
+
+# Install Julia
+
+RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.6/julia-1.6.3-linux-x86_64.tar.gz
+
+RUN tar zxvf julia-1.6.3-linux-x86_64.tar.gz
+
+RUN ln -s julia-1.6.3/bin/julia /usr/local/bin/julia
 
 # Installing R and hal9001
 RUN apt update && apt install -y r-base \
@@ -13,8 +21,7 @@ RUN apt update && apt install -y r-base \
 RUN apt install -y libssl-dev \
                 libxml2-dev \
                 libcurl4-openssl-dev \
-                libgit2-dev \
-                wget
+                libgit2-dev 
 
 RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
          require(devtools);\
@@ -24,14 +31,6 @@ RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
 RUN apt install -y python3-pip
 
 RUN pip install scikit-learn
-
-# Install Julia
-
-RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.6/julia-1.6.3-linux-x86_64.tar.gz
-
-RUN tar zxvf julia-1.6.3-linux-x86_64.tar.gz
-
-RUN ln -s julia-1.6.3/bin/julia /usr/local/bin/julia
 
 #Import project, build and precompile
 COPY . /GenesInteraction.jl 
