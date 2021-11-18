@@ -4,6 +4,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 ENV TZ=Europe/Amsterdam
 
+ENV JULIA_DEPOT_PATH=/opt
+
 # Install Julia
 
 RUN apt-get update && apt-get install -y wget
