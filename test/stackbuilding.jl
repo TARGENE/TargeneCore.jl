@@ -6,6 +6,7 @@ using CSV
 using GenesInteraction
 using MLJ
 using TOML
+using TMLE
 using Distributions
 
 
@@ -23,7 +24,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 @testset "Categorical target TMLE built from configuration file" begin
     tmle_config = joinpath("config", "tmle_config.toml")
 
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config))
+    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), true)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
     @test tmle.F.glm isa GLMClassifier
@@ -78,6 +79,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     # Both TMLE have the same G Stack
     for (type, tmle) in tmles
         # Checking Gstack
+        @test tmle.G isa FullCategoricalJoint 
         ## Checking Gstack.metalearner
         @test tmle.G.model.metalearner isa SKLogisticClassifier
         @test tmle.G.model.metalearner.fit_intercept == false
@@ -94,6 +96,14 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     end
 end
 
+@testset "Test standard ATE TMLE build" begin
+    tmle_config = joinpath("config", "tmle_config.toml")
+    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), false)
+    for (type, tmle) in tmles
+        # Checking Gstack
+        @test tmle.G isa Stack
+    end
+end
 
 end;
 
