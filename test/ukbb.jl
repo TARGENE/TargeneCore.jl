@@ -70,6 +70,8 @@ end
         "QUERY_2" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
     )
     rm(queryfile)
+
+    @test GenesInteraction.querystring(queries["QUERY_1"]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
 end
 
 
@@ -142,9 +144,9 @@ end
     TMLEEpistasisUKBB(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
-    @test results.QUERY == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (2, 7)
+    @test results.QUERYNAME == ["QUERY_1", "QUERY_2"]
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
+    @test size(results) == (2, 8)
 
     # Clean
     rm(parsed_args["output"])
@@ -168,9 +170,9 @@ end
     TMLEEpistasisUKBB(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
-    @test results.QUERY == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERY", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (4, 7)
+    @test results.QUERYNAME == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
+    @test size(results) == (4, 8)
 
     # Clean
     rm(parsed_args["output"])

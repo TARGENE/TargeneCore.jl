@@ -13,6 +13,15 @@ function parse_queries(queryfile::String)
 end
 
 
+function querystring(query)
+    querystring_ = ""
+    for (key, val) in pairs(query)
+        querystring_ *= string(key, ": ", join(val, " -> "),  " & ")
+    end
+    return querystring_[1:length(querystring_) - 3]
+end
+
+
 phenotypesnames(phenotypefile::String) = 
     keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
 
@@ -175,7 +184,8 @@ function TMLEEpistasisUKBB(parsed_args)
     phenotypes_range = phenotypes_list(parsed_args["phenotypes-list"], all_phenotype_names)
     results = DataFrame(
         PHENOTYPE=Symbol[],
-        QUERY=String[], 
+        QUERYNAME=String[],
+        QUERYSTRING=String[],
         ESTIMATE=Float64[], 
         PVALUE=Float64[],
         LOWER_BOUND=Float64[],
@@ -212,8 +222,9 @@ function TMLEEpistasisUKBB(parsed_args)
             stderror = report.stderror
             pval = pvalue(mach)
             lwb, upb = confinterval(mach)
+            querystring_ = querystring(query)
 
-            push!(results, (phenotypename, queryname, estimate, pval, lwb, upb, stderror))
+            push!(results, (phenotypename, queryname, querystring_, estimate, pval, lwb, upb, stderror))
         end
     end
 
