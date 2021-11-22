@@ -165,12 +165,13 @@ end
 function TMLEEpistasisUKBB(parsed_args)
     v = parsed_args["verbosity"]
 
-    # Build tmle
-    tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmles = tmles_from_toml(tmle_config)
-
     # Parse queries
     queries = parse_queries(parsed_args["queries"])
+    isinteraction = length(first(queries)[2]) > 1
+
+    # Build tmle
+    tmle_config = TOML.parsefile(parsed_args["estimator"])
+    tmles = tmles_from_toml(tmle_config, isinteraction)
 
     v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes

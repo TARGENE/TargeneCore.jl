@@ -27,12 +27,17 @@ function stack_from_config(config::Dict, metalearner)
 end
 
 
-function tmles_from_toml(config::Dict)
+function tmles_from_toml(config::Dict, isinteraction::Bool)
     tmles = Dict()
     # Parse estimator for the propensity score
     metalearner = SKLogisticClassifier(fit_intercept=false)
-    G = FullCategoricalJoint(stack_from_config(config["G"], metalearner))
-
+    if isinteraction
+        G = FullCategoricalJoint(stack_from_config(config["G"], metalearner))
+    else
+        G = stack_from_config(config["G"], metalearner)
+    end
+    
+    # Parse estimator for the outcome regression
     if haskey(config, "Qcont")
         metalearner =  SKLinearRegressor(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcont"], metalearner)
