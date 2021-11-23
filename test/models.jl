@@ -23,6 +23,33 @@ using MLJ
 
 end
 
-@testset "InteractionLM pipeline" begin
-    model = GenesInteraction.InteractionLM()
+@testset "Test InteractionLM" begin
+    n = 100
+    X = (rs1234=rand(n), rs455=rand(n), rstoto=rand(n))
+    # Classifier
+    y = categorical(rand([0,1], n))
+    mach = machine(
+        GenesInteraction.InteractionLMClassifier(),
+        X,
+        y
+    )
+    fit!(mach)
+    fp = fitted_params(mach)
+    @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
+    @test predict(mach) isa MLJ.UnivariateFiniteVector{Multiclass{2}, Int64, UInt32, Float64}
+    # Regressor 
+    y = rand(n)
+    mach = machine(
+        GenesInteraction.InteractionLMRegressor(),
+        X,
+        y
+    )
+    fit!(mach)
+    fp = fitted_params(mach)
+    @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
+    @test predict(mach) isa Vector{Float64}
+
+    @test target_scitype(GenesInteraction.InteractionLMRegressor()) == Vector{<:MLJ.Continuous}
+    @test target_scitype(GenesInteraction.InteractionLMClassifier()) == Vector{<:MLJ.Finite}
+
 end

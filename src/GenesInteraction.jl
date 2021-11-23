@@ -10,7 +10,7 @@ using TOML
 using BGEN
 using HighlyAdaptiveLasso
 
-import MLJ: fit, transform
+import MLJ: fit, transform, target_scitype
 
 ###############################################################################
 # GENERIC FUNCTIONS

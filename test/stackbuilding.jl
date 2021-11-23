@@ -33,23 +33,15 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     @test tmle.Q̅.metalearner.fit_intercept == false
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa StratifiedCV
-    @test tmle.Q̅.resampling.nfolds == 3
-    ## Checking Qstack KNN models
-    @test tmle.Q̅.KNNClassifier_1.K == 3
-    @test tmle.Q̅.KNNClassifier_2.K == 5
-    @test tmle.Q̅.KNNClassifier_3.K == 10
-    ## Checking Qstack Logistic models
-    @test tmle.Q̅.LogisticClassifier_1.lambda == 1.0
-    @test tmle.Q̅.LogisticClassifier_1.fit_intercept == true
-    @test tmle.Q̅.LogisticClassifier_2.lambda == 1.0
-    @test tmle.Q̅.LogisticClassifier_2.fit_intercept == false
-    @test tmle.Q̅.LogisticClassifier_3.lambda == 10
-    @test tmle.Q̅.LogisticClassifier_3.fit_intercept == true
-    @test tmle.Q̅.LogisticClassifier_4.lambda == 10
-    @test tmle.Q̅.LogisticClassifier_4.fit_intercept == false
+    @test tmle.Q̅.resampling.nfolds == 2
+    ## Checking Qstack XGBoost models
+    @test tmle.Q̅.XGBoostClassifier_1.num_round == 10
+    ## Checking Qstack  Interaction Logistic models
+    @test tmle.Q̅.InteractionLMClassifier_1 isa GenesInteraction.InteractionLMClassifier
+    @test tmle.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
     @test tmle.Q̅.HALClassifier_1.lambda == 10
-    @test tmle.Q̅.HALClassifier_1.smoothness_orders == 2
+    @test tmle.Q̅.HALClassifier_1.smoothness_orders == 1
     @test tmle.Q̅.HALClassifier_1.cv_select == false
     @test tmle.Q̅.HALClassifier_1.num_knots == [10, 5]
 
@@ -62,17 +54,15 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa CV
-    @test tmle.Q̅.resampling.nfolds == 3
-    ## Checking Qstack KNN models
-    @test tmle.Q̅.KNNRegressor_1.K == 3
-    @test tmle.Q̅.KNNRegressor_1.leafsize == 20
-    @test tmle.Q̅.KNNRegressor_2.K == 5
-    @test tmle.Q̅.KNNRegressor_2.leafsize == 20
-    ## Checking Qstack Linear model
-    @test tmle.Q̅.LinearRegressor_1.fit_intercept == true
+    @test tmle.Q̅.resampling.nfolds == 2
+    ## Checking Qstack XGBoost models
+    @test tmle.Q̅.XGBoostRegressor_1.num_round == 10
+    @test tmle.Q̅.XGBoostRegressor_2.num_round == 20
+    ## Checking Qstack Interaction Linear model
+    @test tmle.Q̅.InteractionLMRegressor_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
     @test tmle.Q̅.HALRegressor_1.lambda == 10
-    @test tmle.Q̅.HALRegressor_1.smoothness_orders == 2
+    @test tmle.Q̅.HALRegressor_1.smoothness_orders == 1
     @test tmle.Q̅.HALRegressor_1.cv_select == false
     @test tmle.Q̅.HALRegressor_1.num_knots == [10, 5]
     
@@ -84,15 +74,11 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
         @test tmle.G.model.metalearner isa SKLogisticClassifier
         @test tmle.G.model.metalearner.fit_intercept == false
         ## Checking Gstack.resampling
-        @test tmle.G.model.resampling isa CV
+        @test tmle.G.model.resampling isa StratifiedCV
         @test tmle.G.model.resampling.nfolds == 2
-        ## Checking Gstack KNN models
-        @test tmle.G.model.KNNClassifier_1.K == 3
-        ## Checking Gstack Logistic models
-        @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
-        @test tmle.G.model.LogisticClassifier_1.fit_intercept == true
-        @test tmle.G.model.LogisticClassifier_2.lambda == 1.0
-        @test tmle.G.model.LogisticClassifier_2.fit_intercept == false
+        ## Checking Gstack models
+        @test tmle.G.model.SKLogisticClassifier_1.C == 1.0
+        @test tmle.G.model.XGBoostClassifier_1.num_round == 10
     end
 end
 

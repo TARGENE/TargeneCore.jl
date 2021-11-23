@@ -15,7 +15,7 @@ KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
 XGBoostClassifier = @load XGBoostClassifier pkg=XGBoost verbosity=0
 
 ###############################################################################
-# INTERACTIONS
+# INTERACTIONS LINEAR MODEL
 
 mutable struct InteractionTransformer <: Unsupervised 
     column_pattern
@@ -54,7 +54,43 @@ function MLJ.transform(model::InteractionTransformer, fitresult, X)
     return merge(Tables.columntable(X), interactions_ndt)
 end
 
+struct InteractionLMClassifier <: MLJ.ProbabilisticComposite
+    interaction_transformer::InteractionTransformer
+    linear_model::SKLogisticClassifier
+end
+struct InteractionLMRegressor <: MLJ.DeterministicComposite
+    interaction_transformer::InteractionTransformer
+    linear_model::SKLinearRegressor
+end
 
-@pipeline InteractionTransformer(r"^rs[0-9]+") SKLogisticClassifier() name=RSInteractionLogisticClassifier
+"""
+Unfortunately it seems the definition of a pipeline in the module poses problems.
+I thus resort to the definition of this trivial learning-network while a better API for pipelines
+if not available (Ongoing work as of now: https://github.com/JuliaAI/MLJBase.jl/pull/664).
+"""
+InteractionLM = Union{InteractionLMClassifier, InteractionLMRegressor}
 
-@pipeline InteractionTransformer(r"^rs[0-9]+") SKLinearRegressor() name=RSInteractionLinearRegressor
+InteractionLMClassifier(;column_pattern="^rs[0-9]+", kwargs...) =
+    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), SKLogisticClassifier(kwargs...))
+
+InteractionLMRegressor(;column_pattern="^rs[0-9]+", kwargs...) =
+    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), SKLinearRegressor(kwargs...))
+
+
+function MLJ.fit(model::InteractionLM, verbosity::Int, X, y)
+    Xs = source(X)
+    ys = source(y)
+
+    inter_mach = machine(model.interaction_transformer, Xs)
+    Xt = MLJ.transform(inter_mach, Xs)
+
+    pred_mach = machine(model.linear_model, Xt, ys)
+    ŷ = MLJ.predict(pred_mach, Xt)
+
+    mach = machine(supertype(supertype(typeof(model)))(), Xs, ys; predict=ŷ)
+
+	return!(mach, model, verbosity)
+end
+
+MLJ.target_scitype(model::InteractionLMRegressor) = Vector{<:MLJ.Continuous}
+MLJ.target_scitype(model::InteractionLMClassifier) = Vector{<:MLJ.Finite}
