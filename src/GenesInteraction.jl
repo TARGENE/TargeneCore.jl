@@ -10,6 +10,8 @@ using TOML
 using BGEN
 using HighlyAdaptiveLasso
 
+import MLJ: fit, transform, target_scitype
+
 ###############################################################################
 # GENERIC FUNCTIONS
 
@@ -28,6 +30,5 @@ include("stackbuilding.jl")
 # EXPORTS
 
 export TMLEEpistasisUKBB
-
 
 end

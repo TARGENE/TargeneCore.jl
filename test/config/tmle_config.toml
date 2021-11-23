@@ -1,63 +1,62 @@
-# For the estimation of E[Y|W, T] where Y is binary
-[Qcat]
-    # Description of the resampling strategy
-    [Qcat.resampling]
-    type = "StratifiedCV"
-    nfolds = 3
-
-    # List all models and hyperparameters
-    [Qcat.LogisticClassifier]
-    lambda = [1.0, 10]
-    fit_intercept = [true, false]
-
-    [Qcat.KNNClassifier]
-    K = [3, 5, 10]
-
-    [Qcat.XGBoostClassifier]
-    num_round = 3
-
-    [Qcat.HALClassifier]
-    cv_select = false
-    smoothness_orders = 2
-    lambda = 10
-    num_knots = [[10, 5]]
-
-# For the estimation of E[Y|W, T] where Y is continuous
+# For the estimation of E[Y|W, T]
 [Qcont]
+    # Description of the outcome
+    [Qcont.outcome]
+    type = "continuous"
     # Description of the resampling strategy
     [Qcont.resampling]
     type = "CV"
-    nfolds = 3
-    # List all models and hyperparameters
-    [Qcont.LinearRegressor]
-    fit_intercept = true
-
-    [Qcont.KNNRegressor]
-    K = [3, 5]
-    leafsize = 20
-
-    [Qcont.XGBoostRegressor]
-    num_round = 3
-
-    [Qcont.HALRegressor]
-    cv_select = false
-    smoothness_orders = 2
-    lambda = 10
-    num_knots = [[10, 5]]
-
-
-# For the estimation of p(T| W), that, for now needs to be categorical
-[G]
-    # Description of the resampling strategy
-    [G.resampling]
-    type = "CV"
     nfolds = 2
     # List all models and hyperparameters
-    [G.LogisticClassifier]
-    lambda = 1.0
-    fit_intercept = [true, false]
+    [Qcont.InteractionLMRegressor]
+    column_pattern = ["^RS_"]
 
-    [G.KNNClassifier]
-    K = 3
+    [Qcont.XGBoostRegressor]
+    num_round = [10, 20]
 
+    [Qcont.HALRegressor]
+    max_degree = 1
+    smoothness_orders = 1
+    num_knots = [[10, 5]]
+    lambda = 10
+    cv_select = false
 
+# For the estimation of E[Y|W, T]
+[Qcat]
+    # Description of the outcome
+    [Qcat.outcome]
+    type = "binary"
+
+    # Description of the resampling strategy
+    [Qcat.resampling]
+    type = "StratifiedCV"
+    nfolds = 2
+    # List all models and hyperparameters
+    [Qcat.InteractionLMClassifier]
+    column_pattern = ["^RS_"]
+
+    [Qcat.HALClassifier]
+    max_degree = 1
+    smoothness_orders = 1
+    num_knots = [[10, 5]]
+    lambda = 10
+    cv_select = false
+
+    [Qcat.XGBoostClassifier]
+    num_round = 10
+
+# For the estimation of p(T| W)
+[G]
+    # Description of the outcome
+    [G.outcome]
+    type = "categorical"
+    # Description of the resampling strategy
+    [G.resampling]
+    type = "StratifiedCV"
+    nfolds = 2
+    # List all models and hyperparameters
+    [G.SKLogisticClassifier]
+    fit_intercept = true
+
+    [G.XGBoostClassifier]
+    num_round = 10
