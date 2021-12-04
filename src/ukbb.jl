@@ -12,6 +12,24 @@ function parse_queries(queryfile::String)
     return queries
 end
 
+function init_or_retrieve_results(outfile)
+    if isfile(outfile)
+        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+    else
+        df = DataFrame(
+            PHENOTYPE=Symbol[],
+            QUERYNAME=String[],
+            QUERYSTRING=String[],
+            ESTIMATE=Float64[], 
+            PVALUE=Float64[],
+            LOWER_BOUND=Float64[],
+            UPPER_BOUND=Float64[],
+            STD_ERROR=Float64[]
+            )
+        CSV.write(outfile, df)
+    end
+    return Set(df.PHENOTYPE)
+end
 
 function querystring(query)
     querystring_ = ""
@@ -26,13 +44,14 @@ phenotypesnames(phenotypefile::String) =
     keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
 
 
-phenotypes_list(phenotype_listfile::Nothing, names) = names
+phenotypes_list(phenotype_listfile::Nothing, done_phenotypes, allnames) = 
+    filter(x -> x ∉ done_phenotypes, allnames)
 
-function phenotypes_list(phenotype_listfile::String, allnames)
+function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
     phenotypes_list = CSV.File(phenotype_listfile, 
                                header=[:PHENOTYPES], 
                                type=Symbol)
-    filter(x -> x ∈ phenotypes_list.PHENOTYPES, allnames)
+    filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
 end
 
 
@@ -181,18 +200,13 @@ function TMLEEpistasisUKBB(parsed_args)
 
     # Loop over requested phenotypes
     all_phenotype_names = phenotypesnames(parsed_args["phenotypes"])
-    phenotypes_range = phenotypes_list(parsed_args["phenotypes-list"], all_phenotype_names)
-    results = DataFrame(
-        PHENOTYPE=Symbol[],
-        QUERYNAME=String[],
-        QUERYSTRING=String[],
-        ESTIMATE=Float64[], 
-        PVALUE=Float64[],
-        LOWER_BOUND=Float64[],
-        UPPER_BOUND=Float64[],
-        STD_ERROR=Float64[]
+    done_phenotypes = init_or_retrieve_results(parsed_args["output"])
+    phenotypes_range = phenotypes_list(
+        parsed_args["phenotypes-list"], 
+        done_phenotypes, 
+        all_phenotype_names
         )
-        
+    
     for phenotypename in phenotypes_range
         # Read Target
         phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
@@ -212,6 +226,16 @@ function TMLEEpistasisUKBB(parsed_args)
         fit!(mach; verbosity=v-1)
 
         reports = briefreport(mach)
+        results = DataFrame(
+            PHENOTYPE=Symbol[],
+            QUERYNAME=String[],
+            QUERYSTRING=String[],
+            ESTIMATE=Float64[], 
+            PVALUE=Float64[],
+            LOWER_BOUND=Float64[],
+            UPPER_BOUND=Float64[],
+            STD_ERROR=Float64[]
+            )
         for (i, (queryname, query)) in enumerate(queries)
             querystring_ = querystring(query)
 
@@ -224,8 +248,9 @@ function TMLEEpistasisUKBB(parsed_args)
             push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror))
         end
 
+        CSV.write(parsed_args["output"], results, append=true)
+
     end
 
-    CSV.write(parsed_args["output"], results)
     v >= 1 && @info "Done."
 end
