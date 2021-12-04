@@ -21,3 +21,15 @@ function build_query_file(;path=queryfile, threshold=0.9, het="AG")
         TOML.print(io, queries)
     end
 end
+
+function build_ate_query_file(;path=queryfile, threshold=0.9)
+    queries = Dict(
+        "threshold" => threshold,
+        "SNPS" => Dict("RSID_10"  => BGEN.datadir("example.8bits.bgen")),
+        "QUERY_1" => Dict("RSID_10"  => "AG -> GG"),
+        "QUERY_2" => Dict("RSID_10"  => "AA -> GG")
+    )
+    open(path, "w") do io
+        TOML.print(io, queries)
+    end
+end

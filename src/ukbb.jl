@@ -1,12 +1,12 @@
 function parse_queries(queryfile::String)
     config = TOML.parsefile(queryfile)
-    queries = Dict()
+    queries = Pair[]
     for (queryname, querydict) in config
         if lowercase(queryname) ∉ ("threshold", "snps")
             rsids = collect(keys(querydict))
             vals = [split(filter(x->!isspace(x), querydict[rsid]), "->") for rsid in rsids]
             rsids_symbols = Tuple(Symbol(x) for x in rsids)
-            queries[queryname] = NamedTuple{rsids_symbols}(vals)
+            push!(queries, queryname => NamedTuple{rsids_symbols}(vals))
         end
     end
     return queries
@@ -71,12 +71,12 @@ A heterozygous genotype can be specified as (ALLELE₁, ALLELE₂) or (ALLELE₂
 Here we align this heterozygous specification on the query and default to 
 (ALLELE₁, ALLELE₂) provided in the BGEN file if nothing is specified in the query.
 """
-function variant_genotypes(variant::Variant, queries::Dict)
+function variant_genotypes(variant::Variant, queries)
     all₁, all₂ = alleles(variant)
     # Either (ALLELE₂, ALLELE₁) is provided in the query
     # and we return it as the heterozygous genotype. 
     # Or the other specification will do in all other cases.
-    queried_alleles = [q[Symbol(variant.rsid)] for q in values(queries)]
+    queried_alleles = [q[Symbol(variant.rsid)] for (qn, q) in queries]
     if all₂*all₁ in collect(Iterators.flatten(queried_alleles))
         return [all₁*all₁, all₂*all₁, all₂*all₂]
     end
@@ -167,11 +167,10 @@ function TMLEEpistasisUKBB(parsed_args)
 
     # Parse queries
     queries = parse_queries(parsed_args["queries"])
-    isinteraction = length(first(queries)[2]) > 1
 
     # Build tmle
     tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmles = tmles_from_toml(tmle_config, isinteraction)
+    tmles = tmles_from_toml(tmle_config, queries)
 
     v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes
@@ -209,24 +208,22 @@ function TMLEEpistasisUKBB(parsed_args)
         # so that only the Q mach is fit again?
         tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
         mach = machine(tmle, T, W, y)
+        # Run TMLE 
+        fit!(mach; verbosity=v-1)
 
-        for (queryname, query) in queries
-            v >= 1 && @info "Estimation for query: $queryname."
-            # Update the query, only the fluctuation will need to be fitted again
-            mach.model.F.query = query
-
-            # Run TMLE 
-            fit!(mach; verbosity=v-1)
-
-            report = briefreport(mach)
-            estimate = report.estimate
-            stderror = report.stderror
-            pval = pvalue(mach)
-            lwb, upb = confinterval(mach)
+        reports = briefreport(mach)
+        for (i, (queryname, query)) in enumerate(queries)
             querystring_ = querystring(query)
 
-            push!(results, (phenotypename, queryname, querystring_, estimate, pval, lwb, upb, stderror))
+            queryreport = reports[i]
+            pvalue = queryreport.pvalue
+            lwb, upb = queryreport.confint
+            estimate = queryreport.estimate
+            stderror = queryreport.stderror
+
+            push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror))
         end
+
     end
 
     CSV.write(parsed_args["output"], results)
