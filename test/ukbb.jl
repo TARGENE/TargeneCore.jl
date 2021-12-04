@@ -65,22 +65,22 @@ end
 @testset "Test parse_queries" begin
     build_query_file()
     queries = GenesInteraction.parse_queries(queryfile)
-    @test queries == Dict(
+    @test queries == [
         "QUERY_1" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AG", "GG"]),
         "QUERY_2" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
-    )
+    ]
     rm(queryfile)
 
-    @test GenesInteraction.querystring(queries["QUERY_1"]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
+    @test GenesInteraction.querystring(queries[1][2]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
 end
 
 
 @testset "Test variant_genotypes" begin
     b = GenesInteraction.read_bgen(BGEN.datadir("example.8bits.bgen"))
-    queries = Dict(
+    queries = [
         "query_1" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GG"]),
         "query_2" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GA"])
-    )
+    ]
     # Defaults to "AG"
     v = variant_by_rsid(b, "RSID_10")
     @test GenesInteraction.variant_genotypes(v, queries) == ["AA", "AG", "GG"]

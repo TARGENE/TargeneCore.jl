@@ -9,6 +9,7 @@ using TOML
 using TMLE
 using Distributions
 
+include("helper_fns.jl")
 
 GLMClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 SKLogisticClassifier = @load LogisticClassifier pkg=ScikitLearn verbosity=0
@@ -23,11 +24,12 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
 @testset "Categorical target TMLE built from configuration file" begin
     tmle_config = joinpath("config", "tmle_config.toml")
-
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), true)
+    build_query_file()
+    queries = GenesInteraction.parse_queries(queryfile)
+    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
-    @test tmle.F.glm isa GLMClassifier
+    @test tmle.F isa GLMClassifier
     ## Checking Qstack.metalearner
     @test tmle.Q̅.metalearner isa SKLogisticClassifier
     @test tmle.Q̅.metalearner.fit_intercept == false
@@ -47,7 +49,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
     # Test binary target TMLE Qstack
     tmle = tmles["continuous"]
-    @test tmle.F.glm isa GLMRegressor
+    @test tmle.F isa GLMRegressor
     ## Checking Qstack.metalearner
     @test tmle.Q̅.metalearner isa SKLinearRegressor
     @test tmle.Q̅.metalearner.fit_intercept == false
@@ -68,6 +70,10 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     
     # Both TMLE have the same G Stack
     for (type, tmle) in tmles
+        @test tmle.queries == (
+            (RSID_10 = ["AG", "GG"], RSID_100 = ["AG", "GG"]), 
+            (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
+            )
         # Checking Gstack
         @test tmle.G isa FullCategoricalJoint 
         ## Checking Gstack.metalearner
@@ -80,15 +86,23 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
         @test tmle.G.model.SKLogisticClassifier_1.C == 1.0
         @test tmle.G.model.XGBoostClassifier_1.num_round == 10
     end
+    rm(queryfile)
 end
 
 @testset "Test standard ATE TMLE build" begin
     tmle_config = joinpath("config", "tmle_config.toml")
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), false)
+    build_ate_query_file()
+    queries = GenesInteraction.parse_queries(queryfile)
+    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
     for (type, tmle) in tmles
+        @test tmle.queries == (
+            (RSID_10 = ["AG", "GG"],), 
+            (RSID_10 = ["AA", "GG"],)
+            )
         # Checking Gstack
         @test tmle.G isa Stack
     end
+    rm(queryfile)
 end
 
 end;

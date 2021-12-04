@@ -27,8 +27,10 @@ function stack_from_config(config::Dict, metalearner)
 end
 
 
-function tmles_from_toml(config::Dict, isinteraction::Bool)
+function tmles_from_toml(config::Dict, queries)
     tmles = Dict()
+    queryvals = [x[2] for x in queries]
+    isinteraction = length(queryvals[1]) > 1
     # Parse estimator for the propensity score
     metalearner = SKLogisticClassifier(fit_intercept=false)
     if isinteraction
@@ -41,13 +43,13 @@ function tmles_from_toml(config::Dict, isinteraction::Bool)
     if haskey(config, "Qcont")
         metalearner =  SKLinearRegressor(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcont"], metalearner)
-        tmles["continuous"] = TMLEstimator(Q̅, G, continuousfluctuation())
+        tmles["continuous"] = TMLEstimator(Q̅, G, queryvals...)
     end
 
     if haskey(config, "Qcat")
         metalearner = SKLogisticClassifier(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcat"], metalearner)
-        tmles["binary"] = TMLEstimator(Q̅, G, binaryfluctuation())
+        tmles["binary"] = TMLEstimator(Q̅, G, queryvals...)
     end
 
     length(tmles) == 0 && throw(ArgumentError("At least one of (Qcat, Qcont) "*
