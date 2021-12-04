@@ -154,7 +154,7 @@ end
 end
 
 
-@testset "Test TMLEEpistasisUKBB with categorical target" begin
+@testset "Test TMLEEpistasisUKBB with categorical target and recovery mode" begin
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
@@ -167,10 +167,21 @@ end
         "verbosity" => 0
     )
 
+    initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype, :continuous_phenotype],
+                    QUERYNAME=[:QUERY_DONE, :QUERY_DONE],
+                    QUERYSTRING=["QUERYSTRING_1", "QUERYSTRING_2"], 
+                    ESTIMATE=[1., 2.],
+                    PVALUE=[1., 2.],
+                    LOWER_BOUND=[1., 2.],
+                    UPPER_BOUND=[1., 2.],
+                    STD_ERROR=[1., 2.]
+                    )
+    CSV.write(parsed_args["output"], initial_results)
+
     TMLEEpistasisUKBB(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
-    @test results.QUERYNAME == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
+    @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]
     @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
     @test size(results) == (4, 8)
 
@@ -183,10 +194,18 @@ end
     allnames = GenesInteraction.phenotypesnames(phenotypefile)
     @test allnames == [:categorical_phenotype, :continuous_phenotype]
 
-    @test GenesInteraction.phenotypes_list(nothing, allnames) == allnames
+    @test GenesInteraction.phenotypes_list(nothing, [:categorical_phenotype], allnames) == [:continuous_phenotype]
+    @test GenesInteraction.phenotypes_list(nothing, [], allnames) == allnames
 
-    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", allnames) == [:continuous_phenotype]
-    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", allnames) == [:categorical_phenotype, :continuous_phenotype]
+    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
+    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
+
+    outfile = "temp_results.csv"
+    @test GenesInteraction.init_or_retrieve_results(outfile) == Set()
+    CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
+    @test GenesInteraction.init_or_retrieve_results(outfile) == Set([:toto, :tata])
+    rm(outfile)
+
 end
 
 
