@@ -4,6 +4,11 @@ using Test
 using GenesInteraction
 using MLJ
 using TOML
+using BGEN
+using CSV
+using DataFrames
+
+include("helper_fns.jl")
 
 @testset "Test retrieve coefficients" begin
     estimatorfile = joinpath("config", "tmle_config.toml")
