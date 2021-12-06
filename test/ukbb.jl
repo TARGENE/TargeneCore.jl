@@ -62,17 +62,6 @@ end
     rm(queryfile)
 end
 
-@testset "Test parse_queries" begin
-    build_query_file()
-    queries = GenesInteraction.parse_queries(queryfile)
-    @test queries == [
-        "QUERY_1" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AG", "GG"]),
-        "QUERY_2" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
-    ]
-    rm(queryfile)
-
-    @test GenesInteraction.querystring(queries[1][2]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
-end
 
 
 @testset "Test variant_genotypes" begin
@@ -145,8 +134,8 @@ end
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERYNAME == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (2, 8)
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS"]
+    @test size(results) == (2, 9)
 
     # Clean
     rm(parsed_args["output"])
@@ -174,7 +163,8 @@ end
                     PVALUE=[1., 2.],
                     LOWER_BOUND=[1., 2.],
                     UPPER_BOUND=[1., 2.],
-                    STD_ERROR=[1., 2.]
+                    STD_ERROR=[1., 2.],
+                    QSTACK_COEFS="TOTO"
                     )
     CSV.write(parsed_args["output"], initial_results)
 
@@ -182,32 +172,13 @@ end
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR"]
-    @test size(results) == (4, 8)
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS"]
+    @test size(results) == (4, 9)
 
     # Clean
     rm(parsed_args["output"])
     rm(parsed_args["queries"])
 end
-
-@testset "Test phenotypes parsing" begin
-    allnames = GenesInteraction.phenotypesnames(phenotypefile)
-    @test allnames == [:categorical_phenotype, :continuous_phenotype]
-
-    @test GenesInteraction.phenotypes_list(nothing, [:categorical_phenotype], allnames) == [:continuous_phenotype]
-    @test GenesInteraction.phenotypes_list(nothing, [], allnames) == allnames
-
-    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
-    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
-
-    outfile = "temp_results.csv"
-    @test GenesInteraction.init_or_retrieve_results(outfile) == Set()
-    CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
-    @test GenesInteraction.init_or_retrieve_results(outfile) == Set([:toto, :tata])
-    rm(outfile)
-
-end
-
 
 end;
 

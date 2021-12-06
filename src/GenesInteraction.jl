@@ -24,7 +24,7 @@ is_binary(y) = sort(unique(y)) == [0, 1]
 include("ukbb.jl")
 include("models.jl")
 include("stackbuilding.jl")
-
+include("utils.jl")
 
 ###############################################################################
 # EXPORTS
