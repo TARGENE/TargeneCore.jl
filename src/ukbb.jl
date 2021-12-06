@@ -1,16 +1,3 @@
-function parse_queries(queryfile::String)
-    config = TOML.parsefile(queryfile)
-    queries = Pair[]
-    for (queryname, querydict) in config
-        if lowercase(queryname) ∉ ("threshold", "snps")
-            rsids = collect(keys(querydict))
-            vals = [split(filter(x->!isspace(x), querydict[rsid]), "->") for rsid in rsids]
-            rsids_symbols = Tuple(Symbol(x) for x in rsids)
-            push!(queries, queryname => NamedTuple{rsids_symbols}(vals))
-        end
-    end
-    return queries
-end
 
 function init_or_retrieve_results(outfile)
     if isfile(outfile)
@@ -24,35 +11,14 @@ function init_or_retrieve_results(outfile)
             PVALUE=Float64[],
             LOWER_BOUND=Float64[],
             UPPER_BOUND=Float64[],
-            STD_ERROR=Float64[]
+            STD_ERROR=Float64[],
+            QSTACK_COEFS=String[]
             )
         CSV.write(outfile, df)
     end
     return Set(df.PHENOTYPE)
 end
 
-function querystring(query)
-    querystring_ = ""
-    for (key, val) in pairs(query)
-        querystring_ *= string(key, ": ", join(val, " -> "),  " & ")
-    end
-    return querystring_[1:length(querystring_) - 3]
-end
-
-
-phenotypesnames(phenotypefile::String) = 
-    keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
-
-
-phenotypes_list(phenotype_listfile::Nothing, done_phenotypes, allnames) = 
-    filter(x -> x ∉ done_phenotypes, allnames)
-
-function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
-    phenotypes_list = CSV.File(phenotype_listfile, 
-                               header=[:PHENOTYPES], 
-                               type=Symbol)
-    filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
-end
 
 
 function read_bgen(bgen_file::String)
@@ -234,7 +200,8 @@ function TMLEEpistasisUKBB(parsed_args)
             PVALUE=Float64[],
             LOWER_BOUND=Float64[],
             UPPER_BOUND=Float64[],
-            STD_ERROR=Float64[]
+            STD_ERROR=Float64[],
+            QSTACK_COEFS=String[]
             )
         for (i, (queryname, query)) in enumerate(queries)
             querystring_ = querystring(query)
@@ -244,8 +211,9 @@ function TMLEEpistasisUKBB(parsed_args)
             lwb, upb = queryreport.confint
             estimate = queryreport.estimate
             stderror = queryreport.stderror
+            qstack_coefs = repr_Qstack_coefs(mach)
 
-            push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror))
+            push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs))
         end
 
         CSV.write(parsed_args["output"], results, append=true)
