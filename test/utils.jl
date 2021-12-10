@@ -65,6 +65,16 @@ end
 
 end
 
+@testset "Test TMLE REPORT PARSING" begin
+    # Only one query, the reports is just a NamedTuple
+    reports = (pvalue=0.05,)
+    @test GenesInteraction.get_query_report(reports, 4) == reports
+    reports = [(pvalue=0.05,), (pvalue=0.01,)]
+    @test GenesInteraction.get_query_report(reports, 1) == reports[1]
+    @test GenesInteraction.get_query_report(reports, 2) == reports[2]
+
+end
+
 end;
 
 true
