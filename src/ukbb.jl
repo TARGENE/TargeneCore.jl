@@ -81,7 +81,7 @@ function UKBBGenotypes(queryfile, queries)
 
     genotypes = nothing
     for (path, rsids) in bgen_groups
-        b = GenesInteraction.read_bgen(path)
+        b = read_bgen(path)
         chr_genotypes = DataFrame(SAMPLE_ID=b.samples)
 
         # Iterate over variants in this chromosome
@@ -206,7 +206,7 @@ function TMLEEpistasisUKBB(parsed_args)
         for (i, (queryname, query)) in enumerate(queries)
             querystring_ = querystring(query)
 
-            queryreport = reports[i]
+            queryreport = get_query_report(reports, i)
             pvalue = queryreport.pvalue
             lwb, upb = queryreport.confint
             estimate = queryreport.estimate
