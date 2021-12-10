@@ -53,3 +53,10 @@ function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
                                type=Symbol)
     filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
 end
+
+#####################################################################
+#####                TMLE REPORT PARSING                         ####
+#####################################################################
+
+get_query_report(reports::NamedTuple, i) = reports
+get_query_report(reports::Vector, i) = reports[i]
