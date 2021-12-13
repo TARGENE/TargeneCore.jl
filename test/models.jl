@@ -1,10 +1,10 @@
 using Test
-using GenesInteraction
+using TMLEEpistasis
 using MLJ
 
 @testset "Test InteractionTransformer" begin
     X = (rs1234=[1, 2, 3], rs455=[4, 5, 6], rs4489=[7, 8, 9], rstoto=[1, 2, 3])
-    t = GenesInteraction.InteractionTransformer(r"^rs[0-9]+")
+    t = TMLEEpistasis.InteractionTransformer(r"^rs[0-9]+")
     mach = machine(t, X)
     fit!(mach)
     Xt = transform(mach, X)
@@ -29,7 +29,7 @@ end
     # Classifier
     y = categorical(rand([0,1], n))
     mach = machine(
-        GenesInteraction.InteractionLMClassifier(),
+        TMLEEpistasis.InteractionLMClassifier(),
         X,
         y
     )
@@ -40,7 +40,7 @@ end
     # Regressor 
     y = rand(n)
     mach = machine(
-        GenesInteraction.InteractionLMRegressor(),
+        TMLEEpistasis.InteractionLMRegressor(),
         X,
         y
     )
@@ -49,7 +49,7 @@ end
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
     @test predict(mach) isa Vector{Float64}
 
-    @test target_scitype(GenesInteraction.InteractionLMRegressor()) == Vector{<:MLJ.Continuous}
-    @test target_scitype(GenesInteraction.InteractionLMClassifier()) == Vector{<:MLJ.Finite}
+    @test target_scitype(TMLEEpistasis.InteractionLMRegressor()) == Vector{<:MLJ.Continuous}
+    @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == Vector{<:MLJ.Finite}
 
 end

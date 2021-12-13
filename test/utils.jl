@@ -1,7 +1,7 @@
 module TestUtils
 
 using Test
-using GenesInteraction
+using TMLEEpistasis
 using MLJ
 using TOML
 using BGEN
@@ -14,7 +14,7 @@ include("helper_fns.jl")
     estimatorfile = joinpath("config", "tmle_config.toml")
     tmle_config = TOML.parsefile(estimatorfile)
     queries = ["query_1" => (t₁=[1, 0], t₂=[1, 0]),]
-    tmle = GenesInteraction.estimators_from_toml(tmle_config, queries, GenesInteraction.PhenotypeTMLEEpistasis)
+    tmle = TMLEEpistasis.estimators_from_toml(tmle_config, queries, TMLEEpistasis.PhenotypeTMLEEpistasis)
 
     n = 1000
     T = (t₁=categorical(rand([1, 0], n)), t₂=categorical(rand([1, 0], n)))
@@ -23,11 +23,11 @@ include("helper_fns.jl")
     mach = machine(tmle["continuous"], T, W, y)
     fit!(mach, verbosity=0)
 
-    coefs = GenesInteraction.Qstack_coefs(mach)
+    coefs = TMLEEpistasis.Qstack_coefs(mach)
     @test coefs isa Vector
     @test length(coefs) == 4
 
-    repr = GenesInteraction.repr_Qstack_coefs(mach)
+    repr = TMLEEpistasis.repr_Qstack_coefs(mach)
     @test repr isa String
     str_reprs = split(repr, ", ")
     modelstr = join([split(v, " => ")[1] for v in str_reprs], ",")
@@ -37,29 +37,29 @@ end
 
 @testset "Test parse_queries" begin
     build_query_file()
-    queries = GenesInteraction.parse_queries(queryfile)
+    queries = TMLEEpistasis.parse_queries(queryfile)
     @test queries == [
         "QUERY_1" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AG", "GG"]),
         "QUERY_2" => (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
     ]
     rm(queryfile)
 
-    @test GenesInteraction.querystring(queries[1][2]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
+    @test TMLEEpistasis.querystring(queries[1][2]) == "RSID_10: AG -> GG & RSID_100: AG -> GG"
 end
 
 @testset "Test phenotypes parsing" begin
-    allnames = GenesInteraction.phenotypesnames(phenotypefile)
+    allnames = TMLEEpistasis.phenotypesnames(phenotypefile)
     @test allnames == [:categorical_phenotype, :continuous_phenotype]
 
-    @test GenesInteraction.phenotypes_list(nothing, [:categorical_phenotype], allnames) == [:continuous_phenotype]
-    @test GenesInteraction.phenotypes_list(nothing, [], allnames) == allnames
+    @test TMLEEpistasis.phenotypes_list(nothing, [:categorical_phenotype], allnames) == [:continuous_phenotype]
+    @test TMLEEpistasis.phenotypes_list(nothing, [], allnames) == allnames
 
-    @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
-    @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
+    @test TMLEEpistasis.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
+    @test TMLEEpistasis.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
 
     # Test init_or_retrieve_results for PhenotypeTMLEEpistasis
     outfile = "temp_results.csv"
-    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeTMLEEpistasis) == Set()
+    @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeTMLEEpistasis) == Set()
     init_df = CSV.File(outfile) |> DataFrame
     @test names(init_df) == ["PHENOTYPE",
                             "QUERYNAME",
@@ -72,27 +72,27 @@ end
                             "QSTACK_COEFS"]
 
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
-    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeTMLEEpistasis) == Set([:toto, :tata])
+    @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeTMLEEpistasis) == Set([:toto, :tata])
     rm(outfile)
 
     # Test init_or_retrieve_results for PhenotypeCrossValidation
-    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set()
+    @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeCrossValidation) == Set()
     init_df = CSV.File(outfile) |> DataFrame
     @test names(init_df) == ["PHENOTYPE",
                             "Q_RESULTSTRING",
                             "G_RESULTSTRING"]
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
-    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set([:toto, :tata])
+    @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeCrossValidation) == Set([:toto, :tata])
     rm(outfile)
 end
 
 @testset "Test TMLE REPORT PARSING" begin
     # Only one query, the reports is just a NamedTuple
     reports = (pvalue=0.05,)
-    @test GenesInteraction.get_query_report(reports, 4) == reports
+    @test TMLEEpistasis.get_query_report(reports, 4) == reports
     reports = [(pvalue=0.05,), (pvalue=0.01,)]
-    @test GenesInteraction.get_query_report(reports, 1) == reports[1]
-    @test GenesInteraction.get_query_report(reports, 2) == reports[2]
+    @test TMLEEpistasis.get_query_report(reports, 1) == reports[1]
+    @test TMLEEpistasis.get_query_report(reports, 2) == reports[2]
 
 end
 
@@ -104,14 +104,14 @@ end
         t₂=categorical(["CT", "CC", "TT", "CT", "CT"]),
         )
 
-    t_target = GenesInteraction.encode(T)
+    t_target = TMLEEpistasis.encode(T)
     @test levels(t_target) == [1, 2, 9, 3, 5, 6, 8, 7, 4]
     @test t_target == categorical([5, 3, 7, 4, 5])
 
     # One treatment just returned
     T = DataFrame(t₁=categorical(["AG", "GG", "AA", "AA", "AG"]))
 
-    t_target = GenesInteraction.encode(T)
+    t_target = TMLEEpistasis.encode(T)
     @test t_target == ["AG", "GG", "AA", "AA", "AG"]
 end
 

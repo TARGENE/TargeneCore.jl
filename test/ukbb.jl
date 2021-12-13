@@ -4,7 +4,7 @@ using Test
 using BGEN
 using CSV
 using DataFrames
-using GenesInteraction
+using TMLEEpistasis
 using CategoricalArrays
 using TOML
 
@@ -13,12 +13,12 @@ include("helper_fns.jl")
 @testset "Test read_bgen function" begin
     # This file as an associated .bgi
     bgen_file = BGEN.datadir("example.8bits.bgen")
-    b = GenesInteraction.read_bgen(bgen_file)
+    b = TMLEEpistasis.read_bgen(bgen_file)
     @test b.idx isa BGEN.Index
 
     # This file as no associated .bgi
     bgen_file = BGEN.datadir("example.9bits.bgen")
-    b = GenesInteraction.read_bgen(bgen_file)
+    b = TMLEEpistasis.read_bgen(bgen_file)
     @test b.idx === nothing
 end
 
@@ -29,7 +29,7 @@ end
     variant_genotypes = ["AA", "AT", "TT"]
 
     threshold = 0.9
-    genotypes = GenesInteraction.samples_genotype(
+    genotypes = TMLEEpistasis.samples_genotype(
         probabilities, 
         variant_genotypes, 
         threshold)
@@ -37,7 +37,7 @@ end
     @test genotypes[3] == "AA"
 
     threshold = 0.55
-    genotypes = GenesInteraction.samples_genotype(
+    genotypes = TMLEEpistasis.samples_genotype(
         probabilities, 
         variant_genotypes, 
         threshold)
@@ -49,8 +49,8 @@ end
 
 @testset "Test UKBBGenotypes function" begin
     build_query_file(threshold=0.95)
-    queries = GenesInteraction.parse_queries(queryfile)
-    genotypes = GenesInteraction.UKBBGenotypes(queryfile, queries)
+    queries = TMLEEpistasis.parse_queries(queryfile)
+    genotypes = TMLEEpistasis.UKBBGenotypes(queryfile, queries)
     # I only look at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -65,17 +65,17 @@ end
 
 
 @testset "Test variant_genotypes" begin
-    b = GenesInteraction.read_bgen(BGEN.datadir("example.8bits.bgen"))
+    b = TMLEEpistasis.read_bgen(BGEN.datadir("example.8bits.bgen"))
     queries = [
         "query_1" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GG"]),
         "query_2" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GA"])
     ]
     # Defaults to "AG"
     v = variant_by_rsid(b, "RSID_10")
-    @test GenesInteraction.variant_genotypes(v, queries) == ["AA", "AG", "GG"]
+    @test TMLEEpistasis.variant_genotypes(v, queries) == ["AA", "AG", "GG"]
     # "GA" is specified by user so returned
     v = variant_by_rsid(b, "RSID_100")
-    @test GenesInteraction.variant_genotypes(v, queries) == ["AA", "GA", "GG"]
+    @test TMLEEpistasis.variant_genotypes(v, queries) == ["AA", "GA", "GG"]
 
 end
 
@@ -91,7 +91,7 @@ end
 
     # Continuous phenotypes
     phenotypes = CSV.File(phenotypefile, select=["eid", "continuous_phenotype"]) |> DataFrame
-    T, W, y = GenesInteraction.preprocess(genotypes, confounders, phenotypes;verbosity=0)
+    T, W, y = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;verbosity=0)
 
     @test y == phenotypes.continuous_phenotype[11:n-10]
 
@@ -109,7 +109,7 @@ end
 
     # Binary phenotypes
     phenotypes = CSV.File(phenotypefile, select=["eid", "categorical_phenotype"]) |> DataFrame
-    T, W, y = GenesInteraction.preprocess(genotypes, confounders, phenotypes;
+    T, W, y = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;
                 verbosity=0)
 
     @test y isa CategoricalArray{Bool,1,UInt32}
@@ -200,7 +200,7 @@ end
                     )
     CSV.write(parsed_args["output"], initial_results)
 
-    UKBBVariantRun(parsed_args, run_fn=GenesInteraction.PhenotypeCrossValidation)
+    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
 
     results = CSV.File(parsed_args["output"]) |> DataFrame
     # Check Q
@@ -243,7 +243,7 @@ end
         "verbosity" => 0
     )
 
-    UKBBVariantRun(parsed_args, run_fn=GenesInteraction.PhenotypeCrossValidation)
+    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
 

@@ -1,4 +1,4 @@
-module GenesInteraction
+module TMLEEpistasis
 
 using DataFrames
 using CSV

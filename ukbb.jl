@@ -1,5 +1,5 @@
 using ArgParse
-using GenesInteraction
+using TMLEEpistasis
 
 
 function parse_commandline()
@@ -55,8 +55,8 @@ end
 parsed_args = parse_commandline()
 
 if parsed_args["%COMMAND%"] == "crossval"
-    UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeCrossValidation)
+    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeCrossValidation)
 elseif parsed_args["%COMMAND%"] == "epistasis"
-    UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeTMLEEpistasis)
+    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeTMLEEpistasis)
 end
 
