@@ -55,8 +55,8 @@ end
 parsed_args = parse_commandline()
 
 if parsed_args["%COMMAND%"] == "crossval"
-    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeCrossValidation)
+    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
 elseif parsed_args["%COMMAND%"] == "epistasis"
-    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeTMLEEpistasis)
+    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeTMLEEpistasis)
 end
 
