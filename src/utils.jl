@@ -54,6 +54,42 @@ function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
     filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
 end
 
+function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeTMLEEpistasis))
+    if isfile(outfile)
+        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+    else
+        df = DataFrame(
+            PHENOTYPE=Symbol[],
+            QUERYNAME=String[],
+            QUERYSTRING=String[],
+            ESTIMATE=Float64[], 
+            PVALUE=Float64[],
+            LOWER_BOUND=Float64[],
+            UPPER_BOUND=Float64[],
+            STD_ERROR=Float64[],
+            QSTACK_COEFS=String[]
+            )
+        CSV.write(outfile, df)
+    end
+    return Set(df.PHENOTYPE)
+end
+
+function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeCrossValidation))
+    if isfile(outfile)
+        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+    else
+        df = DataFrame(
+            PHENOTYPE=Symbol[],
+            Q_MEAN_METRIC=Float64[],
+            Q_STD_METRIC=Float64[],
+            G_MEAN_METRIC=Float64[],
+            G_STD_METRIC=Float64[],
+            )
+        CSV.write(outfile, df)
+    end
+    return Set(df.PHENOTYPE)
+end
+
 #####################################################################
 #####                TMLE REPORT PARSING                         ####
 #####################################################################

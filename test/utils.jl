@@ -57,12 +57,35 @@ end
     @test GenesInteraction.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
     @test GenesInteraction.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
 
+    # Test init_or_retrieve_results for PhenotypeTMLEEpistasis
     outfile = "temp_results.csv"
     @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeTMLEEpistasis) == Set()
+    init_df = CSV.File(outfile) |> DataFrame
+    @test names(init_df) == ["PHENOTYPE",
+                            "QUERYNAME",
+                            "QUERYSTRING",
+                            "ESTIMATE",
+                            "PVALUE",
+                            "LOWER_BOUND",
+                            "UPPER_BOUND",
+                            "STD_ERROR",
+                            "QSTACK_COEFS"]
+
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
     @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeTMLEEpistasis) == Set([:toto, :tata])
     rm(outfile)
 
+    # Test init_or_retrieve_results for PhenotypeCrossValidation
+    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set()
+    init_df = CSV.File(outfile) |> DataFrame
+    @test names(init_df) == ["PHENOTYPE",
+                            "Q_MEAN_METRIC",
+                            "Q_STD_METRIC",
+                            "G_MEAN_METRIC",
+                            "G_STD_METRIC"]
+    CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
+    @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set([:toto, :tata])
+    rm(outfile)
 end
 
 @testset "Test TMLE REPORT PARSING" begin
