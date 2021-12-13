@@ -80,6 +80,7 @@ function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeCrossValidati
     else
         df = DataFrame(
             PHENOTYPE=Symbol[],
+            VARIANTS=String[],
             Q_RESULTSTRING=String[],
             G_RESULTSTRING=String[],
             )

@@ -184,8 +184,11 @@ function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, 
         Gresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
     end
 
+    variants = join(keys(queries[1][2]), " && ")
+
     return DataFrame(
         PHENOTYPE=[phenotypename],
+        VARIANTS=[variants],
         Q_RESULTSTRING=[Qresult_string[1:length(Qresult_string)-3]],
         G_RESULTSTRING=[Gresult_string[1:length(Gresult_string)-3]]
         )

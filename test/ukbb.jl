@@ -195,6 +195,7 @@ end
     )
 
     initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype],
+                    VARIANTS=["nothing"],
                     Q_RESULTSTRING=["nothing"],
                     G_RESULTSTRING=["nothing"], 
                     )
@@ -203,6 +204,8 @@ end
     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
 
     results = CSV.File(parsed_args["output"]) |> DataFrame
+
+    @test results[2, "VARIANTS"] == "RSID_10 && RSID_100"
     # Check Q
     Qres = sort(split.(split(results[2, :Q_RESULTSTRING], " | "), ": "))
     @test Qres[1][1] == "HALClassifier_1"
@@ -247,7 +250,8 @@ end
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
 
-        # Check Q
+    @test results[1, "VARIANTS"] == "RSID_10 && RSID_100"
+    # Check Q
     Qres = sort(split.(split(results[1, :Q_RESULTSTRING], " | "), ": "))
     @test Qres[1][1] == "HALRegressor_1"
     @test Qres[2][1] == "InteractionLMRegressor_1"

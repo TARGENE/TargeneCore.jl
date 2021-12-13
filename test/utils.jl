@@ -79,6 +79,7 @@ end
     @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeCrossValidation) == Set()
     init_df = CSV.File(outfile) |> DataFrame
     @test names(init_df) == ["PHENOTYPE",
+                            "VARIANTS",
                             "Q_RESULTSTRING",
                             "G_RESULTSTRING"]
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
