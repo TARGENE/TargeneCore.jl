@@ -75,7 +75,7 @@ function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeCro
     G_resampling = config["G"]["resampling"]
     G_resampling = eval(Symbol(G_resampling["type"]))(nfolds=G_resampling["nfolds"])
     if isinteraction
-        G_models = [FullCategoricalJoint(model) for model in G_models]
+        G_models = Dict((key, FullCategoricalJoint(model)) for (key, model) in G_models)
     end
 
     # Q̅ continuous library

@@ -108,15 +108,16 @@ end
 
 @testset "Test interaction cross validation estimators build" begin
     tmle_config = joinpath("config", "tmle_config.toml")
-    build_ate_query_file()
+    build_query_file()
     queries = GenesInteraction.parse_queries(queryfile)
     libraries =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeCrossValidation)
     # G settings
     G_settings = libraries["G"]
     @test G_settings[1] isa StratifiedCV
     @test G_settings[1].nfolds == 2
-    @test G_settings[2][:XGBoostClassifier_1].num_round == 10
-    @test G_settings[2][:SKLogisticClassifier_1].fit_intercept == true
+    models = 
+    @test G_settings[2][:XGBoostClassifier_1].model.num_round == 10
+    @test G_settings[2][:SKLogisticClassifier_1].model.fit_intercept == true
 
     # Qcont settings
     Qcont_settings = libraries["Qcont"]
@@ -131,9 +132,23 @@ end
     Qcat_settings = libraries["Qcat"]
     @test Qcat_settings[1] isa StratifiedCV
     @test Qcat_settings[1].nfolds == 2
-    @test Qcat_settings[2][:HALRegressor_1].lambda == 10
+    @test Qcat_settings[2][:HALClassifier_1].lambda == 10
     @test Qcat_settings[2][:XGBoostClassifier_1].num_round == 10
     @test Qcat_settings[2][:InteractionLMClassifier_1].interaction_transformer.column_pattern == r"^RS_"
+
+    rm(queryfile)
+end
+
+
+@testset "Test standard ATE cross validation estimators build" begin
+    tmle_config = joinpath("config", "tmle_config.toml")
+    build_ate_query_file()
+    queries = GenesInteraction.parse_queries(queryfile)
+    libraries =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeCrossValidation)
+    
+    Gsettings = libraries["G"]
+    # As attribute is accessible from the model, this is not a FullCategoricalJoint
+    @test Gsettings[2][:XGBoostClassifier_1].num_round == 10
 
     rm(queryfile)
 end
