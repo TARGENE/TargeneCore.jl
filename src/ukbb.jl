@@ -160,6 +160,35 @@ function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phen
 end
 
 function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
+    # Cross validate models for Q̅
+    Qsettings = is_binary(y) ? library["Qcat"] : library["Qcont"]
+    Qmeasure = is_binary(y) ? log_loss : l2
+    hot_mach = machine(OneHotEncoder(drop_last=true), T)
+    fit!(hot_mach, verbosity=verbosity)
+    T_hot = transform(hot_mach, T)
+    X = hcat(T_hot, W)
+    Qresult_string = ""
+    for (modelname, model) in Qsettings[2]
+        mach = machine(model, X, y)
+        result = evaluate!(mach, resampling=Qsettings[1], measure=Qmeasure, verbosity=verbosity)
+        Qresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
+    end
+    
+    # Cross validate models for QG
+    Gsettings = library["G"]
+    Gresult_string = ""
+    t_target = encode(T)
+    for (modelname, model) in Gsettings[2]
+        mach = machine(model, W, t_target)
+        result = evaluate!(mach, resampling=Gsettings[1], measure=log_loss, operation=predict, verbosity=verbosity)
+        Gresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
+    end
+
+    return DataFrame(
+        PHENOTYPE=[phenotypename],
+        Q_RESULTSTRING=[Qresult_string[1:length(Qresult_string)-3]],
+        G_RESULTSTRING=[Gresult_string[1:length(Gresult_string)-3]]
+        )
 
 end
 

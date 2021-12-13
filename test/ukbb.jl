@@ -116,7 +116,7 @@ end
 end
 
 
-@testset "Test UKBBVariantRun with continuous target" begin
+@testset "Test PhenotypeTMLEEpistasis with continuous target" begin
     # Only one continuous phenotype
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
@@ -143,7 +143,7 @@ end
 end
 
 
-@testset "Test UKBBVariantRun with categorical target and recovery mode" begin
+@testset "Test PhenotypeTMLEEpistasis with categorical target and recovery mode" begin
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
@@ -174,6 +174,54 @@ end
     @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]
     @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS"]
     @test size(results) == (4, 9)
+
+    # Clean
+    rm(parsed_args["output"])
+    rm(parsed_args["queries"])
+end
+
+
+@testset "Test PhenotypeCrossValidation with categorical target and recovery mode" begin
+    estimatorfile = joinpath("config", "tmle_config.toml")
+    build_query_file()
+    parsed_args = Dict(
+        "phenotypes" => phenotypefile,
+        "confounders" => confoundersfile,
+        "queries" => queryfile,
+        "estimator" => estimatorfile,
+        "output" => "full_results.csv",
+        "phenotypes-list" => "data/phen_list_2.csv",
+        "verbosity" => 0
+    )
+
+    initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype],
+                    Q_RESULTSTRING=["nothing"],
+                    G_RESULTSTRING=["nothing"], 
+                    )
+    CSV.write(parsed_args["output"], initial_results)
+
+    UKBBVariantRun(parsed_args, run_fn=GenesInteraction.PhenotypeCrossValidation)
+
+    results = CSV.File(parsed_args["output"]) |> DataFrame
+    # Check Q
+    Qres = sort(split.(split(results[2, :Q_RESULTSTRING], " | "), ": "))
+    @test Qres[1][1] == "HALClassifier_1"
+    @test Qres[2][1] == "InteractionLMClassifier_1"
+    @test Qres[3][1] == "XGBoostClassifier_1"
+    for i in 1:3
+        m_string, std_string = split(Qres[i][2], " ")
+        parse(Float64, split(m_string, "=")[2])
+        parse(Float64, split(std_string, "=")[2])
+    end
+    # Check G
+    Gres = sort(split.(split(results[2, :G_RESULTSTRING], " | "), ": "))
+    @test Gres[1][1] == "SKLogisticClassifier_1"
+    @test Gres[2][1] == "XGBoostClassifier_1"
+    for i in 1:2
+        m_string, std_string = split(Gres[i][2], " ")
+        parse(Float64, split(m_string, "=")[2])
+        parse(Float64, split(std_string, "=")[2])
+    end
 
     # Clean
     rm(parsed_args["output"])

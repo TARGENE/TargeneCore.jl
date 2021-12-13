@@ -80,10 +80,8 @@ function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeCrossValidati
     else
         df = DataFrame(
             PHENOTYPE=Symbol[],
-            Q_MEAN_METRIC=Float64[],
-            Q_STD_METRIC=Float64[],
-            G_MEAN_METRIC=Float64[],
-            G_STD_METRIC=Float64[],
+            Q_RESULTSTRING=String[],
+            G_RESULTSTRING=String[],
             )
         CSV.write(outfile, df)
     end
@@ -96,3 +94,26 @@ end
 
 get_query_report(reports::NamedTuple, i) = reports
 get_query_report(reports::Vector, i) = reports[i]
+
+
+#####################################################################
+#####                TREATMENT ENCODING                          ####
+#####################################################################
+
+function encode(T)
+    n, p = size(T)
+    if p == 1
+        return T[:, 1]
+    end
+
+    joint_levels_it = Iterators.product((levels(T[!, name]) for name in names(T))...)
+    encoding = Dict(Tuple(jl) => i for (i, jl) in enumerate(joint_levels_it))
+
+    t_target = Vector{Int}(undef, n)
+    for i in 1:n
+        t_target[i] = encoding[values(T[i, :])]
+    end
+
+    return categorical(t_target; levels=collect(values(encoding)))
+
+end

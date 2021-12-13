@@ -79,10 +79,8 @@ end
     @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set()
     init_df = CSV.File(outfile) |> DataFrame
     @test names(init_df) == ["PHENOTYPE",
-                            "Q_MEAN_METRIC",
-                            "Q_STD_METRIC",
-                            "G_MEAN_METRIC",
-                            "G_STD_METRIC"]
+                            "Q_RESULTSTRING",
+                            "G_RESULTSTRING"]
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
     @test GenesInteraction.init_or_retrieve_results(outfile, GenesInteraction.PhenotypeCrossValidation) == Set([:toto, :tata])
     rm(outfile)
@@ -96,6 +94,25 @@ end
     @test GenesInteraction.get_query_report(reports, 1) == reports[1]
     @test GenesInteraction.get_query_report(reports, 2) == reports[2]
 
+end
+
+
+@testset "Test encode" begin
+    # Multiple treatments combined to joint treatment
+    T = DataFrame(
+        t₁=categorical(["AG", "GG", "AA", "AA", "AG"]),
+        t₂=categorical(["CT", "CC", "TT", "CT", "CT"]),
+        )
+
+    t_target = GenesInteraction.encode(T)
+    @test levels(t_target) == [1, 2, 9, 3, 5, 6, 8, 7, 4]
+    @test t_target == categorical([5, 3, 7, 4, 5])
+
+    # One treatment just returned
+    T = DataFrame(t₁=categorical(["AG", "GG", "AA", "AA", "AG"]))
+
+    t_target = GenesInteraction.encode(T)
+    @test t_target == ["AG", "GG", "AA", "AA", "AG"]
 end
 
 end;

@@ -106,7 +106,7 @@ end
 end
 
 
-@testset "Test interaction cross validation estimators build" begin
+@testset "Test cross validation estimators build" begin
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = GenesInteraction.parse_queries(queryfile)
@@ -116,8 +116,8 @@ end
     @test G_settings[1] isa StratifiedCV
     @test G_settings[1].nfolds == 2
     models = 
-    @test G_settings[2][:XGBoostClassifier_1].model.num_round == 10
-    @test G_settings[2][:SKLogisticClassifier_1].model.fit_intercept == true
+    @test G_settings[2][:XGBoostClassifier_1].num_round == 10
+    @test G_settings[2][:SKLogisticClassifier_1].fit_intercept == true
 
     # Qcont settings
     Qcont_settings = libraries["Qcont"]
@@ -139,19 +139,6 @@ end
     rm(queryfile)
 end
 
-
-@testset "Test standard ATE cross validation estimators build" begin
-    tmle_config = joinpath("config", "tmle_config.toml")
-    build_ate_query_file()
-    queries = GenesInteraction.parse_queries(queryfile)
-    libraries =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeCrossValidation)
-    
-    Gsettings = libraries["G"]
-    # As attribute is accessible from the model, this is not a FullCategoricalJoint
-    @test Gsettings[2][:XGBoostClassifier_1].num_round == 10
-
-    rm(queryfile)
-end
 
 end;
 
