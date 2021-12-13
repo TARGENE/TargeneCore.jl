@@ -1,13 +1,7 @@
 ###############################################################################
 # BUILD TMLE FROM .TOML
 
-
-function stack_from_config(config::Dict, metalearner)
-    # Define the resampling strategy
-    resampling = config["resampling"]
-    resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
-
-    # Define the models library
+function buildmodels(config)
     models = Dict()
     for (modelname, hyperparams) in config
         if !(modelname in ("resampling", "outcome"))
@@ -21,6 +15,17 @@ function stack_from_config(config::Dict, metalearner)
             end
         end
     end
+    return models
+end
+
+
+function stack_from_config(config::Dict, metalearner)
+    # Define the resampling strategy
+    resampling = config["resampling"]
+    resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
+
+    # Define the models library
+    models = buildmodels(config)
 
     # Define the Stack
     Stack(;metalearner=metalearner, resampling=resampling, models...)
@@ -57,5 +62,36 @@ function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTML
                                                " configuration file"))
     
     return tmles
+
+end
+
+
+function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeCrossValidation))
+    queryvals = [x[2] for x in queries]
+    isinteraction = length(queryvals[1]) > 1
+
+    # G library
+    G_models = buildmodels(config["G"])
+    G_resampling = config["G"]["resampling"]
+    G_resampling = eval(Symbol(G_resampling["type"]))(nfolds=G_resampling["nfolds"])
+    if isinteraction
+        G_models = [FullCategoricalJoint(model) for model in G_models]
+    end
+
+    # Q̅ continuous library
+    Qcont_models = buildmodels(config["Qcont"])
+    Qcont_resampling = config["Qcont"]["resampling"]
+    Qcont_resampling = eval(Symbol(Qcont_resampling["type"]))(nfolds=Qcont_resampling["nfolds"])
+
+    # Q̅ binary library
+    Qcat_models = buildmodels(config["Qcat"])
+    Qcat_resampling = config["Qcat"]["resampling"]
+    Qcat_resampling = eval(Symbol(Qcat_resampling["type"]))(nfolds=Qcat_resampling["nfolds"])
+
+    return Dict(
+        "G" => (G_resampling, G_models),
+        "Qcont" => (Qcont_resampling, Qcont_models),
+        "Qcat" => (Qcat_resampling, Qcat_models)
+    )
 
 end

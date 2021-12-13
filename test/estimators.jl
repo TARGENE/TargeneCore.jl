@@ -105,6 +105,39 @@ end
     rm(queryfile)
 end
 
+
+@testset "Test interaction cross validation estimators build" begin
+    tmle_config = joinpath("config", "tmle_config.toml")
+    build_ate_query_file()
+    queries = GenesInteraction.parse_queries(queryfile)
+    libraries =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeCrossValidation)
+    # G settings
+    G_settings = libraries["G"]
+    @test G_settings[1] isa StratifiedCV
+    @test G_settings[1].nfolds == 2
+    @test G_settings[2][:XGBoostClassifier_1].num_round == 10
+    @test G_settings[2][:SKLogisticClassifier_1].fit_intercept == true
+
+    # Qcont settings
+    Qcont_settings = libraries["Qcont"]
+    @test Qcont_settings[1] isa CV
+    @test Qcont_settings[1].nfolds == 2
+    @test Qcont_settings[2][:HALRegressor_1].lambda == 10
+    @test Qcont_settings[2][:XGBoostRegressor_1].num_round == 10
+    @test Qcont_settings[2][:XGBoostRegressor_2].num_round == 20
+    @test Qcont_settings[2][:InteractionLMRegressor_1].interaction_transformer.column_pattern == r"^RS_"
+
+    # Qcat settings
+    Qcat_settings = libraries["Qcat"]
+    @test Qcat_settings[1] isa StratifiedCV
+    @test Qcat_settings[1].nfolds == 2
+    @test Qcat_settings[2][:HALRegressor_1].lambda == 10
+    @test Qcat_settings[2][:XGBoostClassifier_1].num_round == 10
+    @test Qcat_settings[2][:InteractionLMClassifier_1].interaction_transformer.column_pattern == r"^RS_"
+
+    rm(queryfile)
+end
+
 end;
 
 true
