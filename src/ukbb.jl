@@ -174,7 +174,7 @@ function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, 
         Qresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
     end
     
-    # Cross validate models for QG
+    # Cross validate models for G
     Gsettings = library["G"]
     Gresult_string = ""
     t_target = encode(T)

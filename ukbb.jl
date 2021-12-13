@@ -41,6 +41,12 @@ function parse_commandline()
             help = "Verbosity level"
             arg_type = Int
             default = 1
+        "epistasis"
+            help = "Run the Epistasis effect size estimation procedure"
+            action = :command
+        "crossval"
+            help = "Run the Cross validation procedure"
+            action = :command
     end
 
     return parse_args(s)
@@ -48,4 +54,9 @@ end
 
 parsed_args = parse_commandline()
 
-UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeTMLEEpistasis)
+if parsed_args["%COMMAND%"] == "crossval"
+    UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeCrossValidation)
+elseif parsed_args["%COMMAND%"] == "epistasis"
+    UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeTMLEEpistasis)
+end
+
