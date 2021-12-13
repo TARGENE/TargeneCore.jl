@@ -27,7 +27,7 @@ function stack_from_config(config::Dict, metalearner)
 end
 
 
-function tmles_from_toml(config::Dict, queries)
+function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTMLEEpistasis))
     tmles = Dict()
     queryvals = [x[2] for x in queries]
     isinteraction = length(queryvals[1]) > 1

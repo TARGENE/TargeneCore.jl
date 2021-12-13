@@ -116,7 +116,7 @@ end
 end
 
 
-@testset "Test TMLEEpistasisUKBB with continuous target" begin
+@testset "Test UKBBVariantRun with continuous target" begin
     # Only one continuous phenotype
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
@@ -130,7 +130,7 @@ end
         "verbosity" => 0
     )
 
-    TMLEEpistasisUKBB(parsed_args)
+    UKBBVariantRun(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERYNAME == ["QUERY_1", "QUERY_2"]
@@ -143,7 +143,7 @@ end
 end
 
 
-@testset "Test TMLEEpistasisUKBB with categorical target and recovery mode" begin
+@testset "Test UKBBVariantRun with categorical target and recovery mode" begin
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
@@ -168,7 +168,7 @@ end
                     )
     CSV.write(parsed_args["output"], initial_results)
 
-    TMLEEpistasisUKBB(parsed_args)
+    UKBBVariantRun(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]

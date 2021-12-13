@@ -26,7 +26,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = GenesInteraction.parse_queries(queryfile)
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
+    tmles =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeTMLEEpistasis)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
     @test tmle.F isa GLMClassifier
@@ -93,7 +93,7 @@ end
     tmle_config = joinpath("config", "tmle_config.toml")
     build_ate_query_file()
     queries = GenesInteraction.parse_queries(queryfile)
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
+    tmles =  GenesInteraction.estimators_from_toml(TOML.parsefile(tmle_config), queries, GenesInteraction.PhenotypeTMLEEpistasis)
     for (type, tmle) in tmles
         @test tmle.queries == (
             (RSID_10 = ["AG", "GG"],), 

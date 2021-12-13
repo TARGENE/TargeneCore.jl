@@ -48,4 +48,4 @@ end
 
 parsed_args = parse_commandline()
 
-TMLEEpistasisUKBB(parsed_args)
+UKBBVariantRun(parsed_args, GenesInteraction.PhenotypeTMLEEpistasis)

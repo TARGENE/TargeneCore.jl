@@ -1,26 +1,3 @@
-
-function init_or_retrieve_results(outfile)
-    if isfile(outfile)
-        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
-    else
-        df = DataFrame(
-            PHENOTYPE=Symbol[],
-            QUERYNAME=String[],
-            QUERYSTRING=String[],
-            ESTIMATE=Float64[], 
-            PVALUE=Float64[],
-            LOWER_BOUND=Float64[],
-            UPPER_BOUND=Float64[],
-            STD_ERROR=Float64[],
-            QSTACK_COEFS=String[]
-            )
-        CSV.write(outfile, df)
-    end
-    return Set(df.PHENOTYPE)
-end
-
-
-
 function read_bgen(bgen_file::String)
     kwargs = Dict{Symbol, Any}(:sample_path => nothing, :idx_path => nothing)
     if bgen_file[end-3:end] == "bgen"
@@ -147,52 +124,50 @@ function preprocess(genotypes, confounders, phenotypes;
 end
 
 
-function TMLEEpistasisUKBB(parsed_args)
-    v = parsed_args["verbosity"]
+function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
+    # Build TMLE machine, can I update Y withoug altering the machine state
+    # so that only the Q mach is fit again?
+    tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
+    mach = machine(tmle, T, W, y)
+    # Run TMLE 
+    fit!(mach; verbosity=verbosity-1)
 
-    # Parse queries
-    queries = parse_queries(parsed_args["queries"])
-
-    # Build tmle
-    tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmles = tmles_from_toml(tmle_config, queries)
-
-    v >= 1 && @info "Loading Genotypes and Confounders."
-    # Build Genotypes
-    genotypes = UKBBGenotypes(parsed_args["queries"], queries)
-
-    # Read Confounders
-    confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
-
-    # Loop over requested phenotypes
-    all_phenotype_names = phenotypesnames(parsed_args["phenotypes"])
-    done_phenotypes = init_or_retrieve_results(parsed_args["output"])
-    phenotypes_range = phenotypes_list(
-        parsed_args["phenotypes-list"], 
-        done_phenotypes, 
-        all_phenotype_names
+    reports = briefreport(mach)
+    results = DataFrame(
+        PHENOTYPE=Symbol[],
+        QUERYNAME=String[],
+        QUERYSTRING=String[],
+        ESTIMATE=Float64[], 
+        PVALUE=Float64[],
+        LOWER_BOUND=Float64[],
+        UPPER_BOUND=Float64[],
+        STD_ERROR=Float64[],
+        QSTACK_COEFS=String[]
         )
-    
-    for phenotypename in phenotypes_range
-        # Read Target
-        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
+    for (i, (queryname, query)) in enumerate(queries)
+        querystring_ = querystring(query)
 
-        v >= 1 && @info "Preprocessing with phenotype: $phenotypename."
-        # Preprocess all data together
-        T, W, y = preprocess(genotypes, 
-                            confounders, 
-                            phenotype;
-                            verbosity=v)
-        
-        # Build TMLE machine, can I update Y withoug altering the machine state
-        # so that only the Q mach is fit again?
-        tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
-        mach = machine(tmle, T, W, y)
-        # Run TMLE 
-        fit!(mach; verbosity=v-1)
+        queryreport = get_query_report(reports, i)
+        pvalue = queryreport.pvalue
+        lwb, upb = queryreport.confint
+        estimate = queryreport.estimate
+        stderror = queryreport.stderror
+        qstack_coefs = repr_Qstack_coefs(mach)
 
-        reports = briefreport(mach)
-        results = DataFrame(
+        push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs))
+    end
+    return results
+end
+
+function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
+
+end
+
+function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeTMLEEpistasis))
+    if isfile(outfile)
+        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+    else
+        df = DataFrame(
             PHENOTYPE=Symbol[],
             QUERYNAME=String[],
             QUERYSTRING=String[],
@@ -203,22 +178,67 @@ function TMLEEpistasisUKBB(parsed_args)
             STD_ERROR=Float64[],
             QSTACK_COEFS=String[]
             )
-        for (i, (queryname, query)) in enumerate(queries)
-            querystring_ = querystring(query)
+        CSV.write(outfile, df)
+    end
+    return Set(df.PHENOTYPE)
+end
 
-            queryreport = get_query_report(reports, i)
-            pvalue = queryreport.pvalue
-            lwb, upb = queryreport.confint
-            estimate = queryreport.estimate
-            stderror = queryreport.stderror
-            qstack_coefs = repr_Qstack_coefs(mach)
+function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeCrossValidation))
+    if isfile(outfile)
+        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+    else
+        df = DataFrame(
+            PHENOTYPE=Symbol[],
+            Q_METRIC=Float64[], 
+            G_METRIC=Float64[],
+            )
+        CSV.write(outfile, df)
+    end
+    return Set(df.PHENOTYPE)
+end
 
-            push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs))
-        end
+function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
+    v = parsed_args["verbosity"]
 
+    # Parse queries
+    queries = parse_queries(parsed_args["queries"])
+
+    # Build estimators
+    tmle_config = TOML.parsefile(parsed_args["estimator"])
+    estimators = estimators_from_toml(tmle_config, queries, run_fn)
+
+    v >= 1 && @info "Loading Genotypes and Confounders."
+    # Build Genotypes
+    genotypes = UKBBGenotypes(parsed_args["queries"], queries)
+
+    # Read Confounders
+    confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
+
+    # Generate phenotypes range
+    all_phenotype_names = phenotypesnames(parsed_args["phenotypes"])
+    done_phenotypes = init_or_retrieve_results(parsed_args["output"], run_fn)
+    phenotypes_range = phenotypes_list(
+        parsed_args["phenotypes-list"], 
+        done_phenotypes, 
+        all_phenotype_names
+        )
+    
+    for phenotypename in phenotypes_range
+        v >= 1 && @info "Running procedure with phenotype: $phenotypename."
+        # Read Target
+        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
+        # Preprocess all data together
+        T, W, y = preprocess(genotypes, 
+                            confounders, 
+                            phenotype;
+                            verbosity=v)
+        # Run the estimation procedure
+        results = run_fn(estimators, T, W, y, queries; verbosity=v, phenotypename=phenotypename)
+        # Update the results
         CSV.write(parsed_args["output"], results, append=true)
 
     end
 
     v >= 1 && @info "Done."
 end
+
