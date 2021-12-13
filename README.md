@@ -6,16 +6,16 @@
 [![Coverage](https://codecov.io/gh/olivierlabayle/TMLEEpistasis.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/olivierlabayle/TMLEEpistasis.jl)
 
 
-Find genetic variant interactions causaly responsible of diseases in the UKBB.
+The purpose of this project is to provide a mean for the estimation of effect sizes of potentially interacting variants using the Targeted Learning framework.
+
+## Prerequisites
+
+This project has important non Julia dependencies that may be difficult to install. The easiest way to use the facilities offered here is to use the dedicated [docker image](https://hub.docker.com/repository/docker/olivierlabayle/tmle-epistasis).
 
 ## Description of the command line interface
 
 From the project's root directory:
 
 ```bash
-julia --project ukbb_epistasis.jl --help
+julia --project ukbb.jl --help
 ```
-
-## Docker image
-
-The application is not delivered as a standalone script yet but a docker image is provided and can be found [here](https://hub.docker.com/repository/docker/olivierlabayle/tmle-epistasis)
