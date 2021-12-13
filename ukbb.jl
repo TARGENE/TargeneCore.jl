@@ -1,5 +1,5 @@
 using ArgParse
-using GenesInteraction
+using TMLEEpistasis
 
 
 function parse_commandline()
@@ -41,6 +41,12 @@ function parse_commandline()
             help = "Verbosity level"
             arg_type = Int
             default = 1
+        "epistasis"
+            help = "Run the Epistasis effect size estimation procedure"
+            action = :command
+        "crossval"
+            help = "Run the Cross validation procedure"
+            action = :command
     end
 
     return parse_args(s)
@@ -48,4 +54,9 @@ end
 
 parsed_args = parse_commandline()
 
-TMLEEpistasisUKBB(parsed_args)
+if parsed_args["%COMMAND%"] == "crossval"
+    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeCrossValidation)
+elseif parsed_args["%COMMAND%"] == "epistasis"
+    UKBBVariantRun(parsed_args, TMLEEpistasis.PhenotypeTMLEEpistasis)
+end
+

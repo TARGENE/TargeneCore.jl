@@ -1,4 +1,4 @@
 include("ukbb.jl")
-include("stackbuilding.jl")
+include("estimators.jl")
 include("utils.jl")
 include("models.jl")

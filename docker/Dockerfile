@@ -37,19 +37,19 @@ RUN apt-get install -y python3-pip
 RUN pip install scikit-learn
 
 #Import project, build and precompile
-COPY . /GenesInteraction.jl 
+COPY . /TMLEEpistasis.jl 
 
-WORKDIR /GenesInteraction.jl
+WORKDIR /TMLEEpistasis.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
 # Build the sysimage for faster startup
-WORKDIR /GenesInteraction.jl/test
+WORKDIR /TMLEEpistasis.jl/test
 
 RUN julia -q --project=.. ../build_sysimage.jl
 
-WORKDIR /GenesInteraction.jl
+WORKDIR /TMLEEpistasis.jl
 
-RUN alias julia='julia -Jtest/GenesInteractionSysimage.so'
+RUN alias julia='julia -Jtest/TMLEEpistasisSysimage.so'
 
-RUN julia -q --project -e"using GenesInteraction"
+RUN julia -q --project -e"using TMLEEpistasis"

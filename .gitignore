@@ -27,7 +27,7 @@ test/Manifest.toml
 dev/
 
 # My personal trash file
-src/sandbox.jl
+sandbox.jl
 
 # Jupyter
 *checkpoints

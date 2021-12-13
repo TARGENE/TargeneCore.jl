@@ -1,3 +1,3 @@
-using GenesInteraction
+using TMLEEpistasis
 
-include(joinpath(pkgdir(GenesInteraction), "test", "runtests.jl"))
+include(joinpath(pkgdir(TMLEEpistasis), "test", "runtests.jl"))

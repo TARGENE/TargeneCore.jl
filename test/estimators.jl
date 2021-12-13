@@ -3,7 +3,7 @@ module TestsStackBuilding
 using Test
 using BGEN
 using CSV
-using GenesInteraction
+using TMLEEpistasis
 using MLJ
 using TOML
 using TMLE
@@ -25,8 +25,8 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 @testset "Categorical target TMLE built from configuration file" begin
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
-    queries = GenesInteraction.parse_queries(queryfile)
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
+    queries = TMLEEpistasis.parse_queries(queryfile)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, TMLEEpistasis.PhenotypeTMLEEpistasis)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
     @test tmle.F isa GLMClassifier
@@ -39,7 +39,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     ## Checking Qstack XGBoost models
     @test tmle.Q̅.XGBoostClassifier_1.num_round == 10
     ## Checking Qstack  Interaction Logistic models
-    @test tmle.Q̅.InteractionLMClassifier_1 isa GenesInteraction.InteractionLMClassifier
+    @test tmle.Q̅.InteractionLMClassifier_1 isa TMLEEpistasis.InteractionLMClassifier
     @test tmle.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
     @test tmle.Q̅.HALClassifier_1.lambda == 10
@@ -92,8 +92,8 @@ end
 @testset "Test standard ATE TMLE build" begin
     tmle_config = joinpath("config", "tmle_config.toml")
     build_ate_query_file()
-    queries = GenesInteraction.parse_queries(queryfile)
-    tmles =  GenesInteraction.tmles_from_toml(TOML.parsefile(tmle_config), queries)
+    queries = TMLEEpistasis.parse_queries(queryfile)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, TMLEEpistasis.PhenotypeTMLEEpistasis)
     for (type, tmle) in tmles
         @test tmle.queries == (
             (RSID_10 = ["AG", "GG"],), 
@@ -104,6 +104,41 @@ end
     end
     rm(queryfile)
 end
+
+
+@testset "Test cross validation estimators build" begin
+    tmle_config = joinpath("config", "tmle_config.toml")
+    build_query_file()
+    queries = TMLEEpistasis.parse_queries(queryfile)
+    libraries =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, TMLEEpistasis.PhenotypeCrossValidation)
+    # G settings
+    G_settings = libraries["G"]
+    @test G_settings[1] isa StratifiedCV
+    @test G_settings[1].nfolds == 2
+    models = 
+    @test G_settings[2][:XGBoostClassifier_1].num_round == 10
+    @test G_settings[2][:SKLogisticClassifier_1].fit_intercept == true
+
+    # Qcont settings
+    Qcont_settings = libraries["Qcont"]
+    @test Qcont_settings[1] isa CV
+    @test Qcont_settings[1].nfolds == 2
+    @test Qcont_settings[2][:HALRegressor_1].lambda == 10
+    @test Qcont_settings[2][:XGBoostRegressor_1].num_round == 10
+    @test Qcont_settings[2][:XGBoostRegressor_2].num_round == 20
+    @test Qcont_settings[2][:InteractionLMRegressor_1].interaction_transformer.column_pattern == r"^RS_"
+
+    # Qcat settings
+    Qcat_settings = libraries["Qcat"]
+    @test Qcat_settings[1] isa StratifiedCV
+    @test Qcat_settings[1].nfolds == 2
+    @test Qcat_settings[2][:HALClassifier_1].lambda == 10
+    @test Qcat_settings[2][:XGBoostClassifier_1].num_round == 10
+    @test Qcat_settings[2][:InteractionLMClassifier_1].interaction_transformer.column_pattern == r"^RS_"
+
+    rm(queryfile)
+end
+
 
 end;
 

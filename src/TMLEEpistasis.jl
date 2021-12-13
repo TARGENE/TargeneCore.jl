@@ -1,4 +1,4 @@
-module GenesInteraction
+module TMLEEpistasis
 
 using DataFrames
 using CSV
@@ -23,12 +23,12 @@ is_binary(y) = sort(unique(y)) == [0, 1]
 
 include("ukbb.jl")
 include("models.jl")
-include("stackbuilding.jl")
+include("estimators.jl")
 include("utils.jl")
 
 ###############################################################################
 # EXPORTS
 
-export TMLEEpistasisUKBB
+export UKBBVariantRun
 
 end
