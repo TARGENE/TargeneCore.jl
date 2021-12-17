@@ -1,3 +1,5 @@
+module TestModels
+
 using Test
 using TMLEEpistasis
 using MLJ
@@ -53,3 +55,6 @@ end
     @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == Vector{<:MLJ.Finite}
 
 end
+
+end
+true
