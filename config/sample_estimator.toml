@@ -55,7 +55,7 @@
     type = "StratifiedCV"
     nfolds = 2
     # List all models and hyperparameters
-    [G.SKLogisticClassifier]
+    [G.LogisticClassifier]
     fit_intercept = true
 
     [G.XGBoostClassifier]

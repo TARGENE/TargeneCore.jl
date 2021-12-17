@@ -4,7 +4,7 @@
 
 function Qstack_coefs(mach)
     models = getfield(mach.model.Q̅, :models)
-    coeffs = fitted_params(mach).Q̅.metalearner.coef
+    coeffs = [p[2] for p in fitted_params(mach).Q̅.metalearner.coefs]
     return [m => c for (m,c) in zip(models, coeffs)]
 end
 

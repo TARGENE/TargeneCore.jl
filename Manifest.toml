@@ -634,12 +634,6 @@ git-tree-sha1 = "a0d6e25ec042ab84505733a62a2b2894fbcf260c"
 uuid = "cbea4545-8c96-4583-ad3a-44078d60d369"
 version = "1.1.0"
 
-[[MLJScikitLearnInterface]]
-deps = ["MLJModelInterface", "PyCall", "ScikitLearn"]
-git-tree-sha1 = "1a30a63d77c7dc858ae32e7450bd05ba1e1f85fd"
-uuid = "5ae90465-5518-4432-b9d2-8a1def2f0cab"
-version = "0.1.10"
-
 [[MLJSerialization]]
 deps = ["IterationControl", "JLSO", "MLJBase", "MLJModelInterface"]
 git-tree-sha1 = "cd6285f95948fe1047b7d6fd346c172e247c1188"
@@ -828,12 +822,6 @@ git-tree-sha1 = "afadeba63d90ff223a6a48d2009434ecee2ec9e8"
 uuid = "92933f4c-e287-5a05-a399-4b506db050ca"
 version = "1.7.1"
 
-[[PyCall]]
-deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
-git-tree-sha1 = "4ba3651d33ef76e24fef6a598b63ffd1c5e1cd17"
-uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
-version = "1.92.5"
-
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
 git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
@@ -953,12 +941,6 @@ version = "2.3.3"
 git-tree-sha1 = "185e373beaf6b381c1e7151ce2c2a722351d6637"
 uuid = "30f210dd-8aff-4c5f-94ba-8e64358c1161"
 version = "2.3.0"
-
-[[ScikitLearn]]
-deps = ["Compat", "Conda", "DataFrames", "Distributed", "IterTools", "LinearAlgebra", "MacroTools", "Parameters", "Printf", "PyCall", "Random", "ScikitLearnBase", "SparseArrays", "StatsBase", "VersionParsing"]
-git-tree-sha1 = "ccb822ff4222fcf6ff43bbdbd7b80332690f168e"
-uuid = "3646fa90-6ef7-5e7e-9f22-8aca16db6324"
-version = "0.6.4"
 
 [[ScikitLearnBase]]
 deps = ["LinearAlgebra", "Random", "Statistics"]

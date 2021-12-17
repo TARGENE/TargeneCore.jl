@@ -218,7 +218,7 @@ end
     end
     # Check G
     Gres = sort(split.(split(results[2, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "SKLogisticClassifier_1"
+    @test Gres[1][1] == "LogisticClassifier_1"
     @test Gres[2][1] == "XGBoostClassifier_1"
     for i in 1:2
         m_string, std_string = split(Gres[i][2], " ")
@@ -264,7 +264,7 @@ end
     end
     # Check G
     Gres = sort(split.(split(results[1, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "SKLogisticClassifier_1"
+    @test Gres[1][1] == "LogisticClassifier_1"
     @test Gres[2][1] == "XGBoostClassifier_1"
     for i in 1:2
         m_string, std_string = split(Gres[i][2], " ")

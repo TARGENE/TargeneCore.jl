@@ -9,7 +9,7 @@ using MLJ
     t = TMLEEpistasis.InteractionTransformer(r"^rs[0-9]+")
     mach = machine(t, X)
     fit!(mach)
-    Xt = transform(mach, X)
+    Xt = MLJ.transform(mach, X)
 
     @test Xt == (
         rs1234 = [1, 2, 3],
@@ -51,8 +51,8 @@ end
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
     @test predict(mach) isa Vector{Float64}
 
-    @test target_scitype(TMLEEpistasis.InteractionLMRegressor()) == Vector{<:MLJ.Continuous}
-    @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == Vector{<:MLJ.Finite}
+    @test target_scitype(TMLEEpistasis.InteractionLMRegressor()) == AbstractVector{<:MLJ.Continuous}
+    @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == AbstractVector{<:MLJ.Finite}
 
 end
 
