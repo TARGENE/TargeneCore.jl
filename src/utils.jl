@@ -4,7 +4,7 @@
 
 function Qstack_coefs(mach)
     models = getfield(mach.model.Q̅, :models)
-    coeffs = fitted_params(mach).Q̅.metalearner.coef
+    coeffs = [p[2] for p in fitted_params(mach).Q̅.metalearner.coefs]
     return [m => c for (m,c) in zip(models, coeffs)]
 end
 
@@ -67,7 +67,9 @@ function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeTMLEEpistasis
             LOWER_BOUND=Float64[],
             UPPER_BOUND=Float64[],
             STD_ERROR=Float64[],
-            QSTACK_COEFS=String[]
+            QSTACK_COEFS=String[],
+            NROWS=Int[],
+            TCOUNTS=String[]
             )
         CSV.write(outfile, df)
     end
@@ -117,4 +119,16 @@ function encode(T)
 
     return categorical(t_target; levels=collect(values(encoding)))
 
+end
+
+#####################################################################
+#####                 TREATMENT COUNTS                           ####
+#####################################################################
+
+function TreatmentCountsRepr(T)
+    countrepr = join(names(T), " & ") * ": "
+    for row in eachrow(combine(groupby(T, names(T)), nrow))
+        countrepr *= "$(row[1]) $(row[2]) $(row[3]) | "
+    end
+    return countrepr[1:end-3]
 end

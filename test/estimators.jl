@@ -12,12 +12,10 @@ using Distributions
 include("helper_fns.jl")
 
 GLMClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
-SKLogisticClassifier = @load LogisticClassifier pkg=ScikitLearn verbosity=0
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
 
 GLMRegressor = @load LinearRegressor pkg=GLM verbosity=0
-SKLinearRegressor = @load LinearRegressor pkg=ScikitLearn verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
 KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
@@ -31,7 +29,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     tmle = tmles["binary"]
     @test tmle.F isa GLMClassifier
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa SKLogisticClassifier
+    @test tmle.Q̅.metalearner isa LogisticClassifier
     @test tmle.Q̅.metalearner.fit_intercept == false
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa StratifiedCV
@@ -51,7 +49,7 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
     tmle = tmles["continuous"]
     @test tmle.F isa GLMRegressor
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa SKLinearRegressor
+    @test tmle.Q̅.metalearner isa LinearRegressor
     @test tmle.Q̅.metalearner.fit_intercept == false
 
     ## Checking Qstack.resampling
@@ -77,13 +75,13 @@ KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
         # Checking Gstack
         @test tmle.G isa FullCategoricalJoint 
         ## Checking Gstack.metalearner
-        @test tmle.G.model.metalearner isa SKLogisticClassifier
+        @test tmle.G.model.metalearner isa LogisticClassifier
         @test tmle.G.model.metalearner.fit_intercept == false
         ## Checking Gstack.resampling
         @test tmle.G.model.resampling isa StratifiedCV
         @test tmle.G.model.resampling.nfolds == 2
         ## Checking Gstack models
-        @test tmle.G.model.SKLogisticClassifier_1.C == 1.0
+        @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
         @test tmle.G.model.XGBoostClassifier_1.num_round == 10
     end
     rm(queryfile)
@@ -117,7 +115,7 @@ end
     @test G_settings[1].nfolds == 2
     models = 
     @test G_settings[2][:XGBoostClassifier_1].num_round == 10
-    @test G_settings[2][:SKLogisticClassifier_1].fit_intercept == true
+    @test G_settings[2][:LogisticClassifier_1].fit_intercept == true
 
     # Qcont settings
     Qcont_settings = libraries["Qcont"]

@@ -69,7 +69,9 @@ end
                             "LOWER_BOUND",
                             "UPPER_BOUND",
                             "STD_ERROR",
-                            "QSTACK_COEFS"]
+                            "QSTACK_COEFS",
+                            "NROWS",
+                            "TCOUNTS"]
 
     CSV.write(outfile, DataFrame(PHENOTYPE=["toto", "tata", "toto"]))
     @test TMLEEpistasis.init_or_retrieve_results(outfile, TMLEEpistasis.PhenotypeTMLEEpistasis) == Set([:toto, :tata])
@@ -114,6 +116,17 @@ end
 
     t_target = TMLEEpistasis.encode(T)
     @test t_target == ["AG", "GG", "AA", "AA", "AG"]
+end
+
+@testset "Test TreatmentCountsRepr" begin
+    T = DataFrame(
+        RS_100=categorical(["AA", "AG", "GG", "AA", "AG"]),
+        RS_10=categorical(["CC", "CG", "CG", "CC", "GG"])
+        )
+    
+    @test TMLEEpistasis.TreatmentCountsRepr(T) ==
+        "RS_100 & RS_10: AA CC 2 | AG CG 1 | AG GG 1 | GG CG 1"
+
 end
 
 end;

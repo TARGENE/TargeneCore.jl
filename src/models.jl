@@ -1,7 +1,6 @@
 ###############################################################################
 # REGRESSORS
 
-SKLinearRegressor = @load LinearRegressor pkg=ScikitLearn verbosity=0
 KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
 XGBoostRegressor = @load XGBoostRegressor pkg=XGBoost verbosity=0
@@ -9,7 +8,6 @@ XGBoostRegressor = @load XGBoostRegressor pkg=XGBoost verbosity=0
 ###############################################################################
 # CLASSIFIERS
 
-SKLogisticClassifier = @load LogisticClassifier pkg=ScikitLearn verbosity=0
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
 XGBoostClassifier = @load XGBoostClassifier pkg=XGBoost verbosity=0
@@ -56,11 +54,11 @@ end
 
 struct InteractionLMClassifier <: MLJ.ProbabilisticComposite
     interaction_transformer::InteractionTransformer
-    linear_model::SKLogisticClassifier
+    linear_model
 end
 struct InteractionLMRegressor <: MLJ.DeterministicComposite
     interaction_transformer::InteractionTransformer
-    linear_model::SKLinearRegressor
+    linear_model
 end
 
 """
@@ -71,10 +69,10 @@ if not available (Ongoing work as of now: https://github.com/JuliaAI/MLJBase.jl/
 InteractionLM = Union{InteractionLMClassifier, InteractionLMRegressor}
 
 InteractionLMClassifier(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), SKLogisticClassifier(kwargs...))
+    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), LogisticClassifier(kwargs...))
 
 InteractionLMRegressor(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), SKLinearRegressor(kwargs...))
+    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), LinearRegressor(kwargs...))
 
 
 function MLJ.fit(model::InteractionLM, verbosity::Int, X, y)
@@ -92,5 +90,5 @@ function MLJ.fit(model::InteractionLM, verbosity::Int, X, y)
 	return!(mach, model, verbosity)
 end
 
-MLJ.target_scitype(model::InteractionLMRegressor) = Vector{<:MLJ.Continuous}
-MLJ.target_scitype(model::InteractionLMClassifier) = Vector{<:MLJ.Finite}
+MLJ.target_scitype(model::InteractionLMRegressor) = AbstractVector{<:MLJ.Continuous}
+MLJ.target_scitype(model::InteractionLMClassifier) = AbstractVector{<:Finite}

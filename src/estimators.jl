@@ -37,7 +37,7 @@ function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTML
     queryvals = [x[2] for x in queries]
     isinteraction = length(queryvals[1]) > 1
     # Parse estimator for the propensity score
-    metalearner = SKLogisticClassifier(fit_intercept=false)
+    metalearner = LogisticClassifier(fit_intercept=false)
     if isinteraction
         G = FullCategoricalJoint(stack_from_config(config["G"], metalearner))
     else
@@ -46,13 +46,13 @@ function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTML
     
     # Parse estimator for the outcome regression
     if haskey(config, "Qcont")
-        metalearner =  SKLinearRegressor(fit_intercept=false)
+        metalearner =  LinearRegressor(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcont"], metalearner)
         tmles["continuous"] = TMLEstimator(Q̅, G, queryvals...)
     end
 
     if haskey(config, "Qcat")
-        metalearner = SKLogisticClassifier(fit_intercept=false)
+        metalearner = LogisticClassifier(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcat"], metalearner)
         tmles["binary"] = TMLEstimator(Q̅, G, queryvals...)
     end

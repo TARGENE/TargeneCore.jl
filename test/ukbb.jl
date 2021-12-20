@@ -134,8 +134,8 @@ end
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
     @test results.QUERYNAME == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS"]
-    @test size(results) == (2, 9)
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS", "NROWS", "TCOUNTS"]
+    @test size(results) == (2, 11)
 
     # Clean
     rm(parsed_args["output"])
@@ -164,16 +164,21 @@ end
                     LOWER_BOUND=[1., 2.],
                     UPPER_BOUND=[1., 2.],
                     STD_ERROR=[1., 2.],
-                    QSTACK_COEFS="TOTO"
+                    QSTACK_COEFS=["TOTO", "TOTO"],
+                    NROWS=[0, 0],
+                    TCOUNTS=["TOTO", "TOTO"]
                     )
     CSV.write(parsed_args["output"], initial_results)
 
     UKBBVariantRun(parsed_args)
     
     results = CSV.File(parsed_args["output"]) |> DataFrame
+
+    @test results[!, :NROWS] == [0, 0, 477, 477]
+    @test results[!, :TCOUNTS] == ["TOTO", "TOTO", "RSID_10 & RSID_100: AG AA 65 | AG AG 248 | AG GG 145 | GG AA 7 | GG AG 4 | GG GG 8", "RSID_10 & RSID_100: AG AA 65 | AG AG 248 | AG GG 145 | GG AA 7 | GG AG 4 | GG GG 8"]
     @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS"]
-    @test size(results) == (4, 9)
+    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS", "NROWS", "TCOUNTS"]
+    @test size(results) == (4, 11)
 
     # Clean
     rm(parsed_args["output"])
@@ -218,7 +223,7 @@ end
     end
     # Check G
     Gres = sort(split.(split(results[2, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "SKLogisticClassifier_1"
+    @test Gres[1][1] == "LogisticClassifier_1"
     @test Gres[2][1] == "XGBoostClassifier_1"
     for i in 1:2
         m_string, std_string = split(Gres[i][2], " ")
@@ -264,7 +269,7 @@ end
     end
     # Check G
     Gres = sort(split.(split(results[1, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "SKLogisticClassifier_1"
+    @test Gres[1][1] == "LogisticClassifier_1"
     @test Gres[2][1] == "XGBoostClassifier_1"
     for i in 1:2
         m_string, std_string = split(Gres[i][2], " ")
