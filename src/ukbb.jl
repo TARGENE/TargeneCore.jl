@@ -142,8 +142,13 @@ function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phen
         LOWER_BOUND=Float64[],
         UPPER_BOUND=Float64[],
         STD_ERROR=Float64[],
-        QSTACK_COEFS=String[]
+        QSTACK_COEFS=String[],
+        NROWS=Int[],
+        TCOUNTS=String[]
         )
+    
+    tcounts = TreatmentCountsRepr(T)
+    n = nrows(y)
     for (i, (queryname, query)) in enumerate(queries)
         querystring_ = querystring(query)
 
@@ -154,7 +159,7 @@ function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phen
         stderror = queryreport.stderror
         qstack_coefs = repr_Qstack_coefs(mach)
 
-        push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs))
+        push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs, n, tcounts))
     end
     return results
 end
