@@ -128,7 +128,7 @@ end
 function TreatmentCountsRepr(T)
     countrepr = join(names(T), " & ") * ": "
     for row in eachrow(combine(groupby(T, names(T)), nrow))
-        countrepr *= "$(row[1]) $(row[2]) $(row[3]) | "
+        countrepr *= join(row, " ") * " | "
     end
     return countrepr[1:end-3]
 end

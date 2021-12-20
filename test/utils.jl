@@ -127,6 +127,11 @@ end
     @test TMLEEpistasis.TreatmentCountsRepr(T) ==
         "RS_100 & RS_10: AA CC 2 | AG CG 1 | AG GG 1 | GG CG 1"
 
+    T = DataFrame(
+        RS_100=categorical(["AA", "AG", "GG", "AA", "AG"]),
+    )
+    @test TMLEEpistasis.TreatmentCountsRepr(T) == "RS_100: AA 2 | AG 2 | GG 1"
+
 end
 
 end;
