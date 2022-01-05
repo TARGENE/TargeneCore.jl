@@ -8,7 +8,7 @@ using MLJ
     X = (rs1234=[1, 2, 3], rs455=[4, 5, 6], rs4489=[7, 8, 9], rstoto=[1, 2, 3])
     t = TMLEEpistasis.InteractionTransformer(r"^rs[0-9]+")
     mach = machine(t, X)
-    fit!(mach)
+    fit!(mach, verbosity=0)
     Xt = MLJ.transform(mach, X)
 
     @test Xt == (
@@ -35,7 +35,7 @@ end
         X,
         y
     )
-    fit!(mach)
+    fit!(mach, verbosity=0)
     fp = fitted_params(mach)
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
     @test predict(mach) isa MLJ.UnivariateFiniteVector{Multiclass{2}, Int64, UInt32, Float64}
@@ -46,7 +46,7 @@ end
         X,
         y
     )
-    fit!(mach)
+    fit!(mach, verbosity=0)
     fp = fitted_params(mach)
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
     @test predict(mach) isa Vector{Float64}
