@@ -213,19 +213,21 @@ end
     @test results[2, "VARIANTS"] == "RSID_10 && RSID_100"
     # Check Q
     Qres = sort(split.(split(results[2, :Q_RESULTSTRING], " | "), ": "))
-    @test Qres[1][1] == "HALClassifier_1"
-    @test Qres[2][1] == "InteractionLMClassifier_1"
-    @test Qres[3][1] == "XGBoostClassifier_1"
-    for i in 1:3
+    @test Qres[1][1] == "ConstantClassifier_1"
+    @test Qres[2][1] == "HALClassifier_1"
+    @test Qres[3][1] == "InteractionLMClassifier_1"
+    @test Qres[4][1] == "XGBoostClassifier_1"
+    for i in 1:4
         m_string, std_string = split(Qres[i][2], " ")
         parse(Float64, split(m_string, "=")[2])
         parse(Float64, split(std_string, "=")[2])
     end
     # Check G
     Gres = sort(split.(split(results[2, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "LogisticClassifier_1"
-    @test Gres[2][1] == "XGBoostClassifier_1"
-    for i in 1:2
+    @test Gres[1][1] == "ConstantClassifier_1"
+    @test Gres[2][1] == "LogisticClassifier_1"
+    @test Gres[3][1] == "XGBoostClassifier_1"
+    for i in 1:3
         m_string, std_string = split(Gres[i][2], " ")
         parse(Float64, split(m_string, "=")[2])
         parse(Float64, split(std_string, "=")[2])
@@ -258,20 +260,22 @@ end
     @test results[1, "VARIANTS"] == "RSID_10 && RSID_100"
     # Check Q
     Qres = sort(split.(split(results[1, :Q_RESULTSTRING], " | "), ": "))
-    @test Qres[1][1] == "HALRegressor_1"
-    @test Qres[2][1] == "InteractionLMRegressor_1"
-    @test Qres[3][1] == "XGBoostRegressor_1"
-    @test Qres[4][1] == "XGBoostRegressor_2"
-    for i in 1:4
+    @test Qres[1][1] == "ConstantRegressor_1"
+    @test Qres[2][1] == "HALRegressor_1"
+    @test Qres[3][1] == "InteractionLMRegressor_1"
+    @test Qres[4][1] == "XGBoostRegressor_1"
+    @test Qres[5][1] == "XGBoostRegressor_2"
+    for i in 1:5
         m_string, std_string = split(Qres[i][2], " ")
         parse(Float64, split(m_string, "=")[2])
         parse(Float64, split(std_string, "=")[2])
     end
     # Check G
     Gres = sort(split.(split(results[1, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "LogisticClassifier_1"
-    @test Gres[2][1] == "XGBoostClassifier_1"
-    for i in 1:2
+    @test Gres[1][1] == "ConstantClassifier_1"
+    @test Gres[2][1] == "LogisticClassifier_1"
+    @test Gres[3][1] == "XGBoostClassifier_1"
+    for i in 1:3
         m_string, std_string = split(Gres[i][2], " ")
         parse(Float64, split(m_string, "=")[2])
         parse(Float64, split(std_string, "=")[2])

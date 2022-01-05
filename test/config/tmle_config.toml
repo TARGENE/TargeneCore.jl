@@ -14,6 +14,8 @@
     [Qcont.XGBoostRegressor]
     num_round = [10, 20]
 
+    [Qcont.ConstantRegressor]
+
     [Qcont.HALRegressor]
     max_degree = 1
     smoothness_orders = 1
@@ -34,6 +36,8 @@
     # List all models and hyperparameters
     [Qcat.InteractionLMClassifier]
     column_pattern = ["^RS_"]
+
+    [Qcat.ConstantClassifier]
 
     [Qcat.HALClassifier]
     max_degree = 1
@@ -57,6 +61,8 @@
     # List all models and hyperparameters
     [G.LogisticClassifier]
     fit_intercept = true
+
+    [G.ConstantClassifier]
 
     [G.XGBoostClassifier]
     num_round = 10

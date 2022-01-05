@@ -25,13 +25,13 @@ include("helper_fns.jl")
 
     coefs = TMLEEpistasis.Qstack_coefs(mach)
     @test coefs isa Vector
-    @test length(coefs) == 4
+    @test length(coefs) == 5
 
     repr = TMLEEpistasis.repr_Qstack_coefs(mach)
     @test repr isa String
     str_reprs = split(repr, ", ")
     modelstr = join([split(v, " => ")[1] for v in str_reprs], ",")
-    @test modelstr == "HALRegressor,XGBoostRegressor,XGBoostRegressor,InteractionLMRegressor"
+    @test modelstr == "HALRegressor,XGBoostRegressor,XGBoostRegressor,InteractionLMRegressor,ConstantRegressor"
 
 end
 
