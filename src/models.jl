@@ -92,3 +92,5 @@ end
 
 MLJ.target_scitype(model::InteractionLMRegressor) = AbstractVector{<:MLJ.Continuous}
 MLJ.target_scitype(model::InteractionLMClassifier) = AbstractVector{<:Finite}
+
+MLJ.input_scitype(model::InteractionLM) = Table
