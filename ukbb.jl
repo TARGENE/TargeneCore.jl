@@ -49,6 +49,13 @@ function parse_commandline()
             action = :command
     end
 
+    @add_arg_table s["epistasis"] begin
+        "--model-out", "-m"
+            help = "Specify a folder to save models as .jlso files"
+            arg_type = String
+            required = false
+    end
+
     return parse_args(s)
 end
 
