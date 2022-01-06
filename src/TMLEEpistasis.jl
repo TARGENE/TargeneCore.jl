@@ -9,6 +9,7 @@ using TMLE
 using TOML
 using BGEN
 using HighlyAdaptiveLasso
+using Serialization
 
 import MLJ: fit, transform, target_scitype
 

@@ -132,3 +132,27 @@ function TreatmentCountsRepr(T)
     end
     return countrepr[1:end-3]
 end
+
+#####################################################################
+#####                  SAVING MODELS                             ####
+#####################################################################
+
+"""
+    forget!(mach)
+
+This is a recursive function to erase all the data in a machine prior to saving.
+"""
+function forget!(mach)
+    if mach isa Machine{<:Composite}
+        for submach in fitted_params(mach).machines
+            forget!(submach)
+        end
+    end
+    # Erase the data in base field and cache
+    mach.data = ()
+    # It is not possible to change the cache.data field directly as there is a type mismatch
+    if mach.cache !== nothing
+        mach.cache = Base.structdiff(mach.cache, NamedTuple{(:data,)})
+    end
+    return mach
+end
