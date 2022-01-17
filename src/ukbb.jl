@@ -132,36 +132,7 @@ function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phen
     # Run TMLE 
     fit!(mach; verbosity=verbosity-1)
 
-    reports = briefreport(mach)
-    results = DataFrame(
-        PHENOTYPE=Symbol[],
-        QUERYNAME=String[],
-        QUERYSTRING=String[],
-        ESTIMATE=Float64[], 
-        PVALUE=Float64[],
-        LOWER_BOUND=Float64[],
-        UPPER_BOUND=Float64[],
-        STD_ERROR=Float64[],
-        QSTACK_COEFS=String[],
-        NROWS=Int[],
-        TCOUNTS=String[]
-        )
-    
-    tcounts = TreatmentCountsRepr(T)
-    n = nrows(y)
-    for (i, (queryname, query)) in enumerate(queries)
-        querystring_ = querystring(query)
-
-        queryreport = get_query_report(reports, i)
-        pvalue = queryreport.pvalue
-        lwb, upb = queryreport.confint
-        estimate = queryreport.estimate
-        stderror = queryreport.stderror
-        qstack_coefs = repr_Qstack_coefs(mach)
-
-        push!(results, (phenotypename, queryname, querystring_, estimate, pvalue, lwb, upb, stderror, qstack_coefs, n, tcounts))
-    end
-    return results
+    return mach
 end
 
 function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
@@ -236,6 +207,8 @@ function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
                             confounders, 
                             phenotype;
                             verbosity=v)
+        # Update Cross validation settings
+        set_cv_folds!(estimators, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"])
         # Run the estimation procedure
         results = run_fn(estimators, T, W, y, queries; verbosity=v, phenotypename=phenotypename)
         # Update the results
@@ -246,3 +219,15 @@ function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
     v >= 1 && @info "Done."
 end
 
+
+function save(mach::Machine, outfile)
+    r = report(mach)
+
+    toserialize = Dict(k => r[k] for k in keys(r) if occursin("queryreport", string(k)))
+    toserialize[:Qparams] = fitted_params(mach).Q̅
+
+    serialize(outfile, toserialize)
+end
+
+save(results::DataFrame, outfile) = 
+    

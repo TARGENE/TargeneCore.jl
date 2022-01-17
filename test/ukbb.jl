@@ -127,7 +127,8 @@ end
         "estimator" => estimatorfile,
         "output" => "cont_results.csv",
         "phenotypes-list" => "data/phen_list_1.csv",
-        "verbosity" => 0
+        "verbosity" => 0,
+        "adaptive-cv" => false
     )
 
     UKBBVariantRun(parsed_args)
@@ -153,7 +154,8 @@ end
         "estimator" => estimatorfile,
         "output" => "full_results.csv",
         "phenotypes-list" => "data/phen_list_2.csv",
-        "verbosity" => 0
+        "verbosity" => 0,
+        "adaptive-cv" => false
     )
 
     initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype, :continuous_phenotype],
@@ -196,7 +198,8 @@ end
         "estimator" => estimatorfile,
         "output" => "full_results.csv",
         "phenotypes-list" => "data/phen_list_2.csv",
-        "verbosity" => 0
+        "verbosity" => 0,
+        "adaptive-cv" => false
     )
 
     initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype],
@@ -250,7 +253,8 @@ end
         "estimator" => estimatorfile,
         "output" => "cont_results.csv",
         "phenotypes-list" => "data/phen_list_1.csv",
-        "verbosity" => 0
+        "verbosity" => 0,
+        "adaptive-cv" => false
     )
 
     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)

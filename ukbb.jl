@@ -37,6 +37,11 @@ function parse_commandline()
                    "to consider for the analysis."
             required = false
             arg_type = String
+        "--adaptive-cv", "-a"
+            help = "Adaptively selects the number of folds used in cross validation and overrides the default used in the estimator file."
+            default = true
+            required = false
+            arg_type = Bool
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
@@ -60,10 +65,11 @@ function parse_commandline()
 end
 
 parsed_args = parse_commandline()
+println(parsed_args)
 
-if parsed_args["%COMMAND%"] == "crossval"
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
-elseif parsed_args["%COMMAND%"] == "epistasis"
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeTMLEEpistasis)
-end
+# if parsed_args["%COMMAND%"] == "crossval"
+#     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
+# elseif parsed_args["%COMMAND%"] == "epistasis"
+#     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeTMLEEpistasis)
+# end
 

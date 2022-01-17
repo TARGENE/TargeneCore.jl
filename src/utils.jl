@@ -50,13 +50,13 @@ phenotypes_list(phenotype_listfile::Nothing, done_phenotypes, allnames) =
 function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
     phenotypes_list = CSV.File(phenotype_listfile, 
                                header=[:PHENOTYPES], 
-                               type=Symbol)
+                               types=Symbol)
     filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
 end
 
 function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeTMLEEpistasis))
     if isfile(outfile)
-        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+        df = CSV.File(outfile, select=[:PHENOTYPE], types=Symbol) |> DataFrame
     else
         df = DataFrame(
             PHENOTYPE=Symbol[],
@@ -78,7 +78,7 @@ end
 
 function init_or_retrieve_results(outfile, run_fn::typeof(PhenotypeCrossValidation))
     if isfile(outfile)
-        df = CSV.File(outfile, select=[:PHENOTYPE], type=Symbol) |> DataFrame
+        df = CSV.File(outfile, select=[:PHENOTYPE], types=Symbol) |> DataFrame
     else
         df = DataFrame(
             PHENOTYPE=Symbol[],
@@ -134,25 +134,53 @@ function TreatmentCountsRepr(T)
 end
 
 #####################################################################
-#####                  SAVING MODELS                             ####
+#####                 CV ADAPTIVE FOLDS                          ####
 #####################################################################
 
-"""
-    forget!(mach)
 
-This is a recursive function to erase all the data in a machine prior to saving.
 """
-function forget!(mach)
-    if mach isa Machine{<:Composite}
-        for submach in fitted_params(mach).machines
-            forget!(submach)
+    set_cv_folds!(tmle, target, learner; adaptive_cv=true)
+
+Implements the rule of thum given here: https://www.youtube.com/watch?v=WYnjja8DKPg&t=4s
+If adaptive_cv is true, it will update the number of folds in the 
+cross validation scheme based on the target variable.
+"""
+function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false)
+    # If adaptive cross validation shouldn't be used
+    adaptive_cv == false && return tmle
+
+    # Compute n-eff
+    n = nrows(target)
+    neff = 
+        if scitype(target[1]) == MLJ.Continuous
+            n
+        else
+            counts = [count(==(cat), target) for cat in levels(target)]
+            nrare = minimum(counts)
+            min(n, 5*nrare)
         end
-    end
-    # Erase the data in base field and cache
-    mach.data = ()
-    # It is not possible to change the cache.data field directly as there is a type mismatch
-    if mach.cache !== nothing
-        mach.cache = Base.structdiff(mach.cache, NamedTuple{(:data,)})
-    end
-    return mach
+
+    # Compute number of folds
+    nfolds = 
+        if neff < 30
+                neff
+        elseif neff < 500
+            20
+        elseif neff < 5000
+            10
+        elseif neff < 10_000
+            5
+        else
+            3
+        end
+
+    # Set the new number of folds
+    stack = getfield(tmle, learner)
+    stack.resampling = typeof(stack.resampling)(
+        nfolds=nfolds,
+        shuffle=stack.resampling.shuffle,
+        rng=stack.resampling.rng
+        )
+    
+    return tmle
 end

@@ -13,11 +13,9 @@ include("helper_fns.jl")
 
 GLMClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
 
 GLMRegressor = @load LinearRegressor pkg=GLM verbosity=0
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
-KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
 
 
 @testset "Categorical target TMLE built from configuration file" begin
