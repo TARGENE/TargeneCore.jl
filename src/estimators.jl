@@ -32,7 +32,7 @@ function stack_from_config(config::Dict, metalearner)
 end
 
 
-function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTMLEEpistasis))
+function estimators_from_toml(config::Dict, queries)
     tmles = Dict()
     queryvals = [x[2] for x in queries]
     isinteraction = length(queryvals[1]) > 1
@@ -62,20 +62,5 @@ function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTML
                                                " configuration file"))
     
     return tmles
-
-end
-
-
-function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeCrossValidation))
-
-    libraries = Dict()
-    for key in ["G", "Qcont", "Qcat"]
-        key_config = config[key]
-        models = buildmodels(key_config)
-        resampling = eval(Symbol(key_config["resampling"]["type"]))(nfolds=key_config["resampling"]["nfolds"])
-        libraries[key] = (resampling, models)
-    end
-
-    return libraries
 
 end
