@@ -32,18 +32,6 @@ phenotypesnames(phenotypefile::String) =
     keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
 
 
-phenotypes_list(phenotype_listfile::Nothing, done_phenotypes, allnames) = 
-    filter(x -> x ∉ done_phenotypes, allnames)
-
-function phenotypes_list(phenotype_listfile::String, done_phenotypes, allnames)
-    phenotypes_list = CSV.File(phenotype_listfile, 
-                               header=[:PHENOTYPES], 
-                               types=Symbol)
-    filter(x -> (x ∈ Set(phenotypes_list.PHENOTYPES)) & (x ∉ done_phenotypes), allnames)
-end
-
-
-
 #####################################################################
 #####                 CV ADAPTIVE FOLDS                          ####
 #####################################################################
@@ -95,3 +83,20 @@ function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false)
     
     return tmle
 end
+
+
+#####################################################################
+#####                         SAVING                             ####
+#####################################################################
+
+function writeresults(file, mach::Machine, phenotype; full=false)
+    if full === true
+        serialize(file, phenotype => serialisable(mach))
+    else
+        nqueries = length(mach.model.queries)
+        serialize(file, phenotype => [TMLE.getqueryreport(mach, i) for i in 1:nqueries])
+    end
+end
+
+
+serialisable(mach) = mach

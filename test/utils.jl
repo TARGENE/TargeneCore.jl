@@ -9,8 +9,12 @@ using CSV
 using DataFrames
 using Serialization
 using StableRNGs
+using TMLE
 
 include("helper_fns.jl")
+
+LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
+LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 
 @testset "Test parse_queries" begin
@@ -28,14 +32,7 @@ end
 @testset "Test phenotypes parsing" begin
     allnames = TMLEEpistasis.phenotypesnames(phenotypefile)
     @test allnames == [:categorical_phenotype, :continuous_phenotype]
-
-    @test TMLEEpistasis.phenotypes_list(nothing, [:categorical_phenotype], allnames) == [:continuous_phenotype]
-    @test TMLEEpistasis.phenotypes_list(nothing, [], allnames) == allnames
-
-    @test TMLEEpistasis.phenotypes_list("data/phen_list_1.csv", [], allnames) == [:continuous_phenotype]
-    @test TMLEEpistasis.phenotypes_list("data/phen_list_2.csv", [:continuous_phenotype], allnames) == [:categorical_phenotype]
 end
-
 
 @testset "Test set_cv_folds!" begin
     rng = StableRNG(123)
@@ -75,6 +72,42 @@ end
 
     rm(queryfile)
 
+end
+
+@testset "Test writeresults" begin
+    # Build a TMLEstimator
+    query = (t₁=["CG", "GG"], t₂=["TT", "TA"])
+    Q = LinearRegressor()
+    G = FullCategoricalJoint(LogisticClassifier())
+    tmle = TMLEstimator(Q, G, query)
+    # Fit with arbitrary data 
+    n = 100
+    W = (x₁=rand(n), )
+    T = (
+        t₁=categorical(rand(["CG", "GG"], n)), 
+        t₂=categorical(rand(["TT", "TA"], n))
+    )
+    y = rand(n)
+    mach = machine(tmle, T, W, y)
+    fit!(mach, verbosity=0)
+    # Save the results
+    outfile = "results.bin"
+    open(outfile, "w") do file
+        TMLEEpistasis.writeresults(file, mach, :cancer, full=false)
+        TMLEEpistasis.writeresults(file, mach, "hair_color", full=true)
+    end
+    # Load back
+    open(outfile) do file
+        phenotype, reports = deserialize(file)
+        @test phenotype == :cancer
+        @test all(qr isa TMLE.QueryReport for qr in reports)
+
+        phenotype, mach = deserialize(file)
+        @test phenotype == "hair_color"
+        @test mach isa Machine
+    end
+
+    rm(outfile)
 end
 
 end;
