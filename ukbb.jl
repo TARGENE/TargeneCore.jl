@@ -30,7 +30,8 @@ function parse_commandline()
                    " for a basic example."
             required = true
         "output"
-            help = "A path where the results will be saved (.csv format)"
+            help = "A path where the results will be serialized (.bin format). One entry will be saved"*
+                    " for each phenotype. see: --savefull."
             required = true
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
@@ -42,34 +43,22 @@ function parse_commandline()
             default = true
             required = false
             arg_type = Bool
+        "--savefull", "-f"
+            help = "To save the full machine for each phenotype. Otherwise only QueryReport(s) are saved."
+            default = false
+            required = false
+            arg_type = Bool
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
             default = 1
-        "epistasis"
-            help = "Run the Epistasis effect size estimation procedure"
-            action = :command
-        "crossval"
-            help = "Run the Cross validation procedure"
-            action = :command
-    end
-
-    @add_arg_table s["epistasis"] begin
-        "--model-out", "-m"
-            help = "Specify a folder to save models as .jlso files"
-            arg_type = String
-            required = false
     end
 
     return parse_args(s)
 end
 
 parsed_args = parse_commandline()
-println(parsed_args)
 
-# if parsed_args["%COMMAND%"] == "crossval"
-#     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
-# elseif parsed_args["%COMMAND%"] == "epistasis"
-#     UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeTMLEEpistasis)
-# end
+UKBBVariantRun(parsed_args)
+
 
