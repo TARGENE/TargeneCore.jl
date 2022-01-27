@@ -127,18 +127,6 @@ function preprocess(genotypes, confounders, phenotypes;
 end
 
 
-function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y; verbosity=1)
-    # Build TMLE machine, can I update Y withoug altering the machine state
-    # so that only the Q mach is fit again?
-    tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
-    mach = machine(tmle, T, W, y)
-    # Run TMLE 
-    fit!(mach; verbosity=verbosity-1)
-
-    return mach
-end
-
-
 function UKBBVariantRun(parsed_args)
     v = parsed_args["verbosity"]
 
@@ -147,7 +135,7 @@ function UKBBVariantRun(parsed_args)
 
     # Build estimators
     tmle_config = TOML.parsefile(parsed_args["estimator"])
-    estimators = estimators_from_toml(tmle_config, queries)
+    tmles = estimators_from_toml(tmle_config, queries)
 
     v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes
@@ -168,10 +156,15 @@ function UKBBVariantRun(parsed_args)
                                 confounders, 
                                 phenotype;
                                 verbosity=v)
+            # Get TMLE
+            tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
             # Update Cross validation settings
-            set_cv_folds!(estimators, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"])
-            # Run the estimation procedure
-            mach = PhenotypeTMLEEpistasis(estimators, T, W, y; verbosity=v)
+            set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
+            set_cv_folds!(tmle, T, learner=:G, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
+            # Run TMLE 
+            mach = machine(tmle, T, W, y)
+            fit!(mach; verbosity=v-1)
+
             # Update the results
             writeresults(file, mach, phenotypename, full=parsed_args["savefull"])
         end

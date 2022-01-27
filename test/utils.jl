@@ -53,14 +53,14 @@ end
 
     ## adaptive_cv = false
     y = rand(100)
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=false)
+    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=false, verbosity=0)
     @test tmle.Q̅.resampling.nfolds == 2
     ## neff = n = 100 => 20 folds
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true)
+    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
     @test tmle.Q̅.resampling.nfolds == 20
     ## neff = n = 20_000 => 3 folds
     y = rand(20_000)
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true)
+    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
     @test tmle.Q̅.resampling.nfolds == 3
 
 
@@ -68,14 +68,26 @@ end
     tmle = tmles["binary"]
     @test tmle.Q̅.resampling.nfolds == 2
     y = categorical(["a", "a", "a", "b", "b", "c", "c"])
+    @test TMLEEpistasis.countuniques(y) == [3, 2, 2]
     ## neff < 30 => nfolds = 5*neff = 7
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true)
+    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
     @test tmle.Q̅.resampling.nfolds == 7
     ## neff = 2500 => 10
     y = categorical(vcat(repeat([true], 50_000), repeat([false], 500)))
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true)
+    @test TMLEEpistasis.countuniques(y) == [50_000, 500]
+    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
     @test tmle.Q̅.resampling.nfolds == 10
 
+    # For G learner
+    tmle.G.model.resampling.nfolds == 2
+    T = DataFrame(
+        t₁=["AC", "AC", "AG", "GG", "GG"],
+        t₂=["CC", "CG", "CG", "GG", "GG"]
+        )
+
+    @test TMLEEpistasis.countuniques(T) == [1, 1, 1, 2]
+    TMLEEpistasis.set_cv_folds!(tmle, T, learner=:G, adaptive_cv=true, verbosity=0)
+    @test tmle.G.model.resampling.nfolds == 5
     rm(queryfile)
 
 end

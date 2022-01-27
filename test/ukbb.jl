@@ -182,7 +182,7 @@ end
         "output" => "full_results.csv",
         "phenotypes-list" => nothing,
         "verbosity" => 0,
-        "adaptive-cv" => false,
+        "adaptive-cv" => true,
         "savefull" => false
     )
 

@@ -39,7 +39,13 @@ end
 #####                 CV ADAPTIVE FOLDS                          ####
 #####################################################################
 
+getstack(model::Stack) = model
+getstack(model::FullCategoricalJoint) = model.model
 
+countuniques(v::AbstractVector) = [count(==(u), v) for u in unique(v)]
+countuniques(table) = 
+    countuniques([values(x) for x in Tables.namedtupleiterator(table)])
+    
 """
     set_cv_folds!(tmle, target, learner; adaptive_cv=true)
 
@@ -47,17 +53,17 @@ Implements the rule of thum given here: https://www.youtube.com/watch?v=WYnjja8D
 If adaptive_cv is true, it will update the number of folds in the 
 cross validation scheme based on the target variable.
 """
-function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false)
+function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false, verbosity=1)
     # If adaptive cross validation shouldn't be used
     adaptive_cv == false && return tmle
 
     # Compute n-eff
     n = nrows(target)
     neff = 
-        if scitype(target[1]) == MLJ.Continuous
+        if scitype(first(target)) == MLJ.Continuous
             n
         else
-            counts = [count(==(cat), target) for cat in levels(target)]
+            counts = countuniques(target)
             nrare = minimum(counts)
             min(n, 5*nrare)
         end
@@ -65,7 +71,7 @@ function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false)
     # Compute number of folds
     nfolds = 
         if neff < 30
-                neff
+            neff
         elseif neff < 500
             20
         elseif neff < 5000
@@ -76,8 +82,11 @@ function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false)
             3
         end
 
+    verbosity >= 1 && 
+        @info "Setting nfolds to $nfolds for learner: $learner"
+
     # Set the new number of folds
-    stack = getfield(tmle, learner)
+    stack = getstack(getfield(tmle, learner))
     stack.resampling = typeof(stack.resampling)(
         nfolds=nfolds,
         shuffle=stack.resampling.shuffle,
