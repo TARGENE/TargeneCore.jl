@@ -7,8 +7,25 @@ using DataFrames
 using TMLEEpistasis
 using CategoricalArrays
 using TOML
+using Serialization
+using TMLE
 
 include("helper_fns.jl")
+
+function test_base_serialization(queryreports)
+    queryreport = queryreports[1]
+    @test queryreport isa TMLE.QueryReport
+    test_queries((queryreport.query,),
+        (Query(name="QUERY_1", case=(RSID_10 = "AG", RSID_100 = "AG"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
+    )
+    # Check second queryreport
+    queryreport = queryreports[2]
+    @test queryreport isa TMLE.QueryReport
+    test_queries((queryreport.query,),
+        (Query(name="QUERY_2", case=(RSID_10 = "AG", RSID_100 = "AA"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
+    )
+end
+
 
 @testset "Test read_bgen function" begin
     # This file as an associated .bgi
@@ -58,6 +75,8 @@ end
     @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
     # RSID_100
     @test all(genotypes[1:10, "RSID_100"] .=== ["AG", "AA", "AG", missing, "AG", "AG", missing, "AG", "GG", "AG"])
+    # Test column order
+    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 
     rm(queryfile)
 end
@@ -67,8 +86,8 @@ end
 @testset "Test variant_genotypes" begin
     b = TMLEEpistasis.read_bgen(BGEN.datadir("example.8bits.bgen"))
     queries = [
-        "query_1" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GG"]),
-        "query_2" => (RSID_10=["AA", "GG"], RSID_100=["AA", "GA"])
+        Query(case=(RSID_10="AA", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG")),
+        Query(case=(RSID_10="AA", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GA"))
     ]
     # Defaults to "AG"
     v = variant_by_rsid(b, "RSID_10")
@@ -99,8 +118,8 @@ end
     @test size(W) == (480, 2)
     @test size(y) == (480,)
 
-    @test names(T) == ["RSID_1", "RSID_2"]
-    @test names(W) == ["PC1", "PC2"]
+    @test DataFrames.names(T) == ["RSID_1", "RSID_2"]
+    @test DataFrames.names(W) == ["PC1", "PC2"]
 
     @test T.RSID_1 == collect(1:n-20)
     @test T.RSID_1 isa CategoricalArray
@@ -125,18 +144,26 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "cont_results.csv",
-        "phenotypes-list" => "data/phen_list_1.csv",
+        "output" => "cont_results.bin",
+        "phenotypes-list" => phenotypelist_file_1,
         "verbosity" => 0,
-        "adaptive-cv" => false
+        "adaptive-cv" => false,
+        "savefull" => false
     )
 
     UKBBVariantRun(parsed_args)
-    
-    results = CSV.File(parsed_args["output"]) |> DataFrame
-    @test results.QUERYNAME == ["QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS", "NROWS", "TCOUNTS"]
-    @test size(results) == (2, 11)
+
+    file = open(parsed_args["output"])
+
+    phenotype, queryreports = deserialize(file)
+    @test phenotype == :continuous_phenotype
+    @test length(queryreports) == 2
+    # Check queryreports
+    test_base_serialization(queryreports)
+    # Only the continuous phenotype has been processed
+    @test eof(file)
+
+    close(file)
 
     # Clean
     rm(parsed_args["output"])
@@ -144,7 +171,7 @@ end
 end
 
 
-@testset "Test PhenotypeTMLEEpistasis with categorical target and recovery mode" begin
+@testset "Test PhenotypeTMLEEpistasis with all phenotypes" begin
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
@@ -153,88 +180,31 @@ end
         "queries" => queryfile,
         "estimator" => estimatorfile,
         "output" => "full_results.csv",
-        "phenotypes-list" => "data/phen_list_2.csv",
+        "phenotypes-list" => nothing,
         "verbosity" => 0,
-        "adaptive-cv" => false
+        "adaptive-cv" => false,
+        "savefull" => false
     )
-
-    initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype, :continuous_phenotype],
-                    QUERYNAME=[:QUERY_DONE, :QUERY_DONE],
-                    QUERYSTRING=["QUERYSTRING_1", "QUERYSTRING_2"], 
-                    ESTIMATE=[1., 2.],
-                    PVALUE=[1., 2.],
-                    LOWER_BOUND=[1., 2.],
-                    UPPER_BOUND=[1., 2.],
-                    STD_ERROR=[1., 2.],
-                    QSTACK_COEFS=["TOTO", "TOTO"],
-                    NROWS=[0, 0],
-                    TCOUNTS=["TOTO", "TOTO"]
-                    )
-    CSV.write(parsed_args["output"], initial_results)
 
     UKBBVariantRun(parsed_args)
     
-    results = CSV.File(parsed_args["output"]) |> DataFrame
+    file = open(parsed_args["output"])
+    # First phenotype
+    phenotype, queryreports = deserialize(file)
+    @test phenotype == :categorical_phenotype
+    @test length(queryreports) == 2
+    # Check queryreports
+    test_base_serialization(queryreports)
 
-    @test results[!, :NROWS] == [0, 0, 477, 477]
-    @test results[!, :TCOUNTS] == ["TOTO", "TOTO", "RSID_10 & RSID_100: AG AA 65 | AG AG 248 | AG GG 145 | GG AA 7 | GG AG 4 | GG GG 8", "RSID_10 & RSID_100: AG AA 65 | AG AG 248 | AG GG 145 | GG AA 7 | GG AG 4 | GG GG 8"]
-    @test results.QUERYNAME == ["QUERY_DONE", "QUERY_DONE", "QUERY_1", "QUERY_2"]
-    @test names(results) == ["PHENOTYPE", "QUERYNAME", "QUERYSTRING", "ESTIMATE", "PVALUE", "LOWER_BOUND", "UPPER_BOUND", "STD_ERROR", "QSTACK_COEFS", "NROWS", "TCOUNTS"]
-    @test size(results) == (4, 11)
+    # Second phenotype
+    phenotype, queryreports = deserialize(file)
+    @test phenotype == :continuous_phenotype
+    test_base_serialization(queryreports)
 
-    # Clean
-    rm(parsed_args["output"])
-    rm(parsed_args["queries"])
-end
+    # Only the continuous phenotype has been processed
+    @test eof(file)
 
-
-@testset "Test PhenotypeCrossValidation with categorical target and recovery mode" begin
-    estimatorfile = joinpath("config", "tmle_config.toml")
-    build_query_file()
-    parsed_args = Dict(
-        "phenotypes" => phenotypefile,
-        "confounders" => confoundersfile,
-        "queries" => queryfile,
-        "estimator" => estimatorfile,
-        "output" => "full_results.csv",
-        "phenotypes-list" => "data/phen_list_2.csv",
-        "verbosity" => 0,
-        "adaptive-cv" => false
-    )
-
-    initial_results = DataFrame(PHENOTYPE=[:continuous_phenotype],
-                    VARIANTS=["nothing"],
-                    Q_RESULTSTRING=["nothing"],
-                    G_RESULTSTRING=["nothing"], 
-                    )
-    CSV.write(parsed_args["output"], initial_results)
-
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
-
-    results = CSV.File(parsed_args["output"]) |> DataFrame
-
-    @test results[2, "VARIANTS"] == "RSID_10 && RSID_100"
-    # Check Q
-    Qres = sort(split.(split(results[2, :Q_RESULTSTRING], " | "), ": "))
-    @test Qres[1][1] == "ConstantClassifier_1"
-    @test Qres[2][1] == "HALClassifier_1"
-    @test Qres[3][1] == "InteractionLMClassifier_1"
-    @test Qres[4][1] == "XGBoostClassifier_1"
-    for i in 1:4
-        m_string, std_string = split(Qres[i][2], " ")
-        parse(Float64, split(m_string, "=")[2])
-        parse(Float64, split(std_string, "=")[2])
-    end
-    # Check G
-    Gres = sort(split.(split(results[2, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "ConstantClassifier_1"
-    @test Gres[2][1] == "LogisticClassifier_1"
-    @test Gres[3][1] == "XGBoostClassifier_1"
-    for i in 1:3
-        m_string, std_string = split(Gres[i][2], " ")
-        parse(Float64, split(m_string, "=")[2])
-        parse(Float64, split(std_string, "=")[2])
-    end
+    close(file)
 
     # Clean
     rm(parsed_args["output"])
@@ -242,53 +212,6 @@ end
 end
 
 
-@testset "Test PhenotypeCrossValidation with continuous target" begin
-    # Only one continuous phenotype
-    estimatorfile = joinpath("config", "tmle_config.toml")
-    build_query_file()
-    parsed_args = Dict(
-        "phenotypes" => phenotypefile,
-        "confounders" => confoundersfile,
-        "queries" => queryfile,
-        "estimator" => estimatorfile,
-        "output" => "cont_results.csv",
-        "phenotypes-list" => "data/phen_list_1.csv",
-        "verbosity" => 0,
-        "adaptive-cv" => false
-    )
-
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
-    
-    results = CSV.File(parsed_args["output"]) |> DataFrame
-
-    @test results[1, "VARIANTS"] == "RSID_10 && RSID_100"
-    # Check Q
-    Qres = sort(split.(split(results[1, :Q_RESULTSTRING], " | "), ": "))
-    @test Qres[1][1] == "ConstantRegressor_1"
-    @test Qres[2][1] == "HALRegressor_1"
-    @test Qres[3][1] == "InteractionLMRegressor_1"
-    @test Qres[4][1] == "XGBoostRegressor_1"
-    @test Qres[5][1] == "XGBoostRegressor_2"
-    for i in 1:5
-        m_string, std_string = split(Qres[i][2], " ")
-        parse(Float64, split(m_string, "=")[2])
-        parse(Float64, split(std_string, "=")[2])
-    end
-    # Check G
-    Gres = sort(split.(split(results[1, :G_RESULTSTRING], " | "), ": "))
-    @test Gres[1][1] == "ConstantClassifier_1"
-    @test Gres[2][1] == "LogisticClassifier_1"
-    @test Gres[3][1] == "XGBoostClassifier_1"
-    for i in 1:3
-        m_string, std_string = split(Gres[i][2], " ")
-        parse(Float64, split(m_string, "=")[2])
-        parse(Float64, split(std_string, "=")[2])
-    end
-
-    # Clean
-    rm(parsed_args["output"])
-    rm(parsed_args["queries"])
-end
 
 end;
 

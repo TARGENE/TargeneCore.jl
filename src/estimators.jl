@@ -34,11 +34,9 @@ end
 
 function estimators_from_toml(config::Dict, queries)
     tmles = Dict()
-    queryvals = [x[2] for x in queries]
-    isinteraction = length(queryvals[1]) > 1
     # Parse estimator for the propensity score
     metalearner = LogisticClassifier(fit_intercept=false)
-    if isinteraction
+    if length(first(queries).case) > 1
         G = FullCategoricalJoint(stack_from_config(config["G"], metalearner))
     else
         G = stack_from_config(config["G"], metalearner)
@@ -48,13 +46,13 @@ function estimators_from_toml(config::Dict, queries)
     if haskey(config, "Qcont")
         metalearner =  LinearRegressor(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcont"], metalearner)
-        tmles["continuous"] = TMLEstimator(Q̅, G, queryvals...)
+        tmles["continuous"] = TMLEstimator(Q̅, G, queries...)
     end
 
     if haskey(config, "Qcat")
         metalearner = LogisticClassifier(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcat"], metalearner)
-        tmles["binary"] = TMLEstimator(Q̅, G, queryvals...)
+        tmles["binary"] = TMLEstimator(Q̅, G, queries...)
     end
 
     length(tmles) == 0 && throw(ArgumentError("At least one of (Qcat, Qcont) "*

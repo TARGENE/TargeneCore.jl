@@ -4,32 +4,35 @@
 
 function parse_queries(queryfile::String)
     config = TOML.parsefile(queryfile)
-    queries = Pair[]
+    queries = Query[]
     for (queryname, querydict) in config
         if lowercase(queryname) ∉ ("threshold", "snps")
-            rsids = collect(keys(querydict))
-            vals = [split(filter(x->!isspace(x), querydict[rsid]), "->") for rsid in rsids]
-            rsids_symbols = Tuple(Symbol(x) for x in rsids)
-            push!(queries, queryname => NamedTuple{rsids_symbols}(vals))
+            rsids = keys(querydict)
+            names = Tuple(Symbol(x) for x in rsids)
+            rsid_vals = [split(filter(x->!isspace(x), querydict[rsid]), "->") for rsid in rsids]
+            case = NamedTuple{names}(rsid_val[2] for rsid_val in rsid_vals)
+            control = NamedTuple{names}(rsid_val[1] for rsid_val in rsid_vals)
+            push!(queries,  Query(case=case, control=control, name=queryname))
         end
     end
     return queries
-end
-
-function querystring(query)
-    querystring_ = ""
-    for (key, val) in pairs(query)
-        querystring_ *= string(key, ": ", join(val, " -> "),  " & ")
-    end
-    return querystring_[1:length(querystring_) - 3]
 end
 
 #####################################################################
 #####                 PHENOTYPE PARSING                          ####
 #####################################################################
 
-phenotypesnames(phenotypefile::String) = 
-    keys(only(CSV.File(phenotypefile, limit=1, drop=["eid"])))
+phenotypes_from_data(phenotype_datafile::String) = 
+    keys(only(CSV.File(phenotype_datafile, limit=1, drop=["eid"])))
+
+phenotypesnames(phenotype_datafile::String, phenotype_listfile::Nothing) =
+    phenotypes_from_data(phenotype_datafile::String)
+
+function phenotypesnames(phenotype_datafile::String, phenotype_listfile::String)
+    from_data = phenotypes_from_data(phenotype_datafile)
+    from_list = CSV.File(phenotype_listfile, header=[:PHENOTYPES], types=Symbol).PHENOTYPES
+    return filter(∈(from_list), from_data)
+end
 
 
 #####################################################################
@@ -97,6 +100,3 @@ function writeresults(file, mach::Machine, phenotype; full=false)
         serialize(file, phenotype => [TMLE.getqueryreport(mach, i) for i in 1:nqueries])
     end
 end
-
-
-serialisable(mach) = mach

@@ -58,7 +58,7 @@ function parse_commandline()
 end
 
 parsed_args = parse_commandline()
-
-UKBBVariantRun(parsed_args)
+println(parsed_args)
+# UKBBVariantRun(parsed_args)
 
 

@@ -65,11 +65,12 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
     @test tmle.Q̅.HALRegressor_1.num_knots == [10, 5]
     
     # Both TMLE have the same G Stack
+    expected_queries = [
+        Query(case=(RSID_10="AG", RSID_100="AG"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_1"),
+        Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_2")
+    ]
     for (type, tmle) in tmles
-        @test tmle.queries == (
-            (RSID_10 = ["AG", "GG"], RSID_100 = ["AG", "GG"]), 
-            (RSID_10 = ["AG", "GG"], RSID_100 = ["AA", "GG"])
-            )
+        test_queries(tmle.queries, expected_queries)
         # Checking Gstack
         @test tmle.G isa FullCategoricalJoint 
         ## Checking Gstack.metalearner
@@ -90,11 +91,12 @@ end
     build_ate_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
     tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
+    expected_queries = [
+        Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1"),
+        Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2")
+    ]
     for (type, tmle) in tmles
-        @test tmle.queries == (
-            (RSID_10 = ["AG", "GG"],), 
-            (RSID_10 = ["AA", "GG"],)
-            )
+        test_queries(tmle.queries, expected_queries)
         # Checking Gstack
         @test tmle.G isa Stack
     end

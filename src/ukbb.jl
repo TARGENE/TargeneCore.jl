@@ -35,10 +35,11 @@ Here we align this heterozygous specification on the query and default to
 """
 function variant_genotypes(variant::Variant, queries)
     all₁, all₂ = alleles(variant)
+    rsid_ = Symbol(variant.rsid)
     # Either (ALLELE₂, ALLELE₁) is provided in the query
     # and we return it as the heterozygous genotype. 
     # Or the other specification will do in all other cases.
-    queried_alleles = [q[Symbol(variant.rsid)] for (qn, q) in queries]
+    queried_alleles = [(q.case[rsid_], q.control[rsid_]) for q in queries]
     if all₂*all₁ in collect(Iterators.flatten(queried_alleles))
         return [all₁*all₁, all₂*all₁, all₂*all₂]
     end
@@ -72,7 +73,9 @@ function UKBBGenotypes(queryfile, queries)
         genotypes isa Nothing ? genotypes = chr_genotypes :
             genotypes = innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
     end
-    return genotypes
+    # Reorder the SNPs to match the order of the queries
+    ordered_snps = keys(first(queries).case)
+    return genotypes[!, [:SAMPLE_ID, ordered_snps...]]
 end
 
 
@@ -105,8 +108,8 @@ function preprocess(genotypes, confounders, phenotypes;
     verbosity >= 1 && @info "Samples size after missing removed: $(nrows(filtered_data))"
 
     # Retrieve T and convert to categorical data
-    T = filtered_data[!, filter(!=("SAMPLE_ID"), names(genotypes))]
-    for name in names(T)
+    T = filtered_data[!, filter(!=("SAMPLE_ID"), DataFrames.names(genotypes))]
+    for name in DataFrames.names(T)
         T[!, name] = categorical(T[:, name])
     end
 
@@ -124,7 +127,7 @@ function preprocess(genotypes, confounders, phenotypes;
 end
 
 
-function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
+function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y; verbosity=1)
     # Build TMLE machine, can I update Y withoug altering the machine state
     # so that only the Q mach is fit again?
     tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
@@ -135,44 +138,8 @@ function PhenotypeTMLEEpistasis(tmles::Dict, T, W, y, queries; verbosity=1, phen
     return mach
 end
 
-function PhenotypeCrossValidation(library::Dict, T, W, y, queries; verbosity=1, phenotypename=nothing)
-    # Cross validate models for Q̅
-    Qsettings = is_binary(y) ? library["Qcat"] : library["Qcont"]
-    Qmeasure = is_binary(y) ? log_loss : l2
-    hot_mach = machine(OneHotEncoder(drop_last=true), T)
-    fit!(hot_mach, verbosity=verbosity)
-    T_hot = transform(hot_mach, T)
-    X = hcat(T_hot, W)
-    Qresult_string = ""
-    for (modelname, model) in Qsettings[2]
-        mach = machine(model, X, y)
-        result = evaluate!(mach, resampling=Qsettings[1], measure=Qmeasure, verbosity=verbosity)
-        Qresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
-    end
-    
-    # Cross validate models for G
-    Gsettings = library["G"]
-    Gresult_string = ""
-    t_target = encode(T)
-    for (modelname, model) in Gsettings[2]
-        mach = machine(model, W, t_target)
-        result = evaluate!(mach, resampling=Gsettings[1], measure=log_loss, operation=predict, verbosity=verbosity)
-        Gresult_string *= "$modelname: m=$(result.measurement[1]) std=$(std(result.per_fold[1])) | "
-    end
 
-    variants = join(keys(queries[1][2]), " && ")
-
-    return DataFrame(
-        PHENOTYPE=[phenotypename],
-        VARIANTS=[variants],
-        Q_RESULTSTRING=[Qresult_string[1:length(Qresult_string)-3]],
-        G_RESULTSTRING=[Gresult_string[1:length(Gresult_string)-3]]
-        )
-
-end
-
-
-function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
+function UKBBVariantRun(parsed_args)
     v = parsed_args["verbosity"]
 
     # Parse queries
@@ -180,7 +147,7 @@ function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
 
     # Build estimators
     tmle_config = TOML.parsefile(parsed_args["estimator"])
-    estimators = estimators_from_toml(tmle_config, queries, run_fn)
+    estimators = estimators_from_toml(tmle_config, queries)
 
     v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes
@@ -190,44 +157,25 @@ function UKBBVariantRun(parsed_args; run_fn=PhenotypeTMLEEpistasis)
     confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
 
     # Generate phenotypes range
-    all_phenotype_names = phenotypesnames(parsed_args["phenotypes"])
-    done_phenotypes = init_or_retrieve_results(parsed_args["output"], run_fn)
-    phenotypes_range = phenotypes_list(
-        parsed_args["phenotypes-list"], 
-        done_phenotypes, 
-        all_phenotype_names
-        )
-    
-    for phenotypename in phenotypes_range
-        v >= 1 && @info "Running procedure with phenotype: $phenotypename."
-        # Read Target
-        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
-        # Preprocess all data together
-        T, W, y = preprocess(genotypes, 
-                            confounders, 
-                            phenotype;
-                            verbosity=v)
-        # Update Cross validation settings
-        set_cv_folds!(estimators, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"])
-        # Run the estimation procedure
-        results = run_fn(estimators, T, W, y, queries; verbosity=v, phenotypename=phenotypename)
-        # Update the results
-        CSV.write(parsed_args["output"], results, append=true)
-
+    phenotypenames_ = phenotypesnames(parsed_args["phenotypes"], parsed_args["phenotypes-list"])
+    open(parsed_args["output"], "w") do file
+        for phenotypename in phenotypenames_
+            v >= 1 && @info "Running procedure with phenotype: $phenotypename."
+            # Read Target
+            phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
+            # Preprocess all data together
+            T, W, y = preprocess(genotypes, 
+                                confounders, 
+                                phenotype;
+                                verbosity=v)
+            # Update Cross validation settings
+            set_cv_folds!(estimators, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"])
+            # Run the estimation procedure
+            mach = PhenotypeTMLEEpistasis(estimators, T, W, y; verbosity=v)
+            # Update the results
+            writeresults(file, mach, phenotypename, full=parsed_args["savefull"])
+        end
     end
 
     v >= 1 && @info "Done."
 end
-
-
-function save(mach::Machine, outfile)
-    r = report(mach)
-
-    toserialize = Dict(k => r[k] for k in keys(r) if occursin("queryreport", string(k)))
-    toserialize[:Qparams] = fitted_params(mach).Q̅
-
-    serialize(outfile, toserialize)
-end
-
-save(results::DataFrame, outfile) = 
-    
