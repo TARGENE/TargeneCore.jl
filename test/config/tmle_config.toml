@@ -11,8 +11,8 @@
     [Qcont.InteractionLMRegressor]
     column_pattern = ["^RS_"]
 
-    [Qcont.XGBoostRegressor]
-    num_round = [10, 20]
+    [Qcont.EvoTreeRegressor]
+    nrounds = [10, 20]
 
     [Qcont.ConstantRegressor]
 
@@ -46,8 +46,8 @@
     lambda = 10
     cv_select = false
 
-    [Qcat.XGBoostClassifier]
-    num_round = 10
+    [Qcat.EvoTreeClassifier]
+    nrounds = 10
 
 # For the estimation of p(T| W)
 [G]
@@ -64,5 +64,5 @@
 
     [G.ConstantClassifier]
 
-    [G.XGBoostClassifier]
-    num_round = 10
+    [G.EvoTreeClassifier]
+    nrounds = 10

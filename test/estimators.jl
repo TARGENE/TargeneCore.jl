@@ -32,8 +32,8 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa StratifiedCV
     @test tmle.Q̅.resampling.nfolds == 2
-    ## Checking Qstack XGBoost models
-    @test tmle.Q̅.XGBoostClassifier_1.num_round == 10
+    ## Checking Qstack EvoTree models
+    @test tmle.Q̅.EvoTreeClassifier_1.nrounds == 10
     ## Checking Qstack  Interaction Logistic models
     @test tmle.Q̅.InteractionLMClassifier_1 isa TMLEEpistasis.InteractionLMClassifier
     @test tmle.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
@@ -53,9 +53,9 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
     ## Checking Qstack.resampling
     @test tmle.Q̅.resampling isa CV
     @test tmle.Q̅.resampling.nfolds == 2
-    ## Checking Qstack XGBoost models
-    @test tmle.Q̅.XGBoostRegressor_1.num_round == 10
-    @test tmle.Q̅.XGBoostRegressor_2.num_round == 20
+    ## Checking Qstack EvoTree models
+    @test tmle.Q̅.EvoTreeRegressor_1.nrounds == 10
+    @test tmle.Q̅.EvoTreeRegressor_2.nrounds == 20
     ## Checking Qstack Interaction Linear model
     @test tmle.Q̅.InteractionLMRegressor_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
@@ -81,7 +81,7 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
         @test tmle.G.model.resampling.nfolds == 2
         ## Checking Gstack models
         @test tmle.G.model.LogisticClassifier_1.lambda == 1.0
-        @test tmle.G.model.XGBoostClassifier_1.num_round == 10
+        @test tmle.G.model.EvoTreeClassifier_1.nrounds == 10
     end
     rm(queryfile)
 end

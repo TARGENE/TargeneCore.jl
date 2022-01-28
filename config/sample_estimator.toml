@@ -11,8 +11,8 @@
     [Qcont.RSInteractionLinearRegressor]
     fit_intercept = true
 
-    [Qcont.XGBoostRegressor]
-    num_rounds = 10
+    [Qcont.EvoTreeRegressor]
+    nrounds = 10
 
     [Qcont.HALRegressor]
     max_degree = 1
@@ -42,8 +42,8 @@
     lambda = 10
     cv_select = false
 
-    [Qcat.XGBoostClassifier]
-    num_rounds = 10
+    [Qcat.EvoTreeClassifier]
+    nrounds = 10
 
 # For the estimation of p(T| W)
 [G]
@@ -58,8 +58,8 @@
     [G.LogisticClassifier]
     fit_intercept = true
 
-    [G.XGBoostClassifier]
-    num_rounds = 10
+    [G.EvoTreeClassifier]
+    nrounds = 10
 
 
 

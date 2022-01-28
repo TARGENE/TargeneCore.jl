@@ -2,13 +2,13 @@
 # REGRESSORS
 
 LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
-XGBoostRegressor = @load XGBoostRegressor pkg=XGBoost verbosity=0
+EvoTreeRegressor = @load EvoTreeRegressor pkg=EvoTrees verbosity=0
 
 ###############################################################################
 # CLASSIFIERS
 
 LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-XGBoostClassifier = @load XGBoostClassifier pkg=XGBoost verbosity=0
+EvoTreeClassifier = @load EvoTreeClassifier pkg=EvoTrees verbosity=0
 
 ###############################################################################
 # INTERACTIONS LINEAR MODEL
