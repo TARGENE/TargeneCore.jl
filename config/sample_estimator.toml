@@ -1,8 +1,6 @@
 # For the estimation of E[Y|W, T]
 [Qcont]
-    # Description of the outcome
-    [Qcont.outcome]
-    type = "continuous"
+    measures = []
     # Description of the resampling strategy
     [Qcont.resampling]
     type = "CV"
@@ -24,8 +22,7 @@
 # For the estimation of E[Y|W, T]
 [Qcat]
     # Description of the outcome
-    [Qcat.outcome]
-    type = "binary"
+    measures = []
 
     # Description of the resampling strategy
     [Qcat.resampling]
@@ -47,9 +44,6 @@
 
 # For the estimation of p(T| W)
 [G]
-    # Description of the outcome
-    [G.outcome]
-    type = "categorical"
     # Description of the resampling strategy
     [G.resampling]
     type = "StratifiedCV"

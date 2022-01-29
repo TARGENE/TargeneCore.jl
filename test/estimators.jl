@@ -1,21 +1,16 @@
 module TestsStackBuilding
 
 using Test
-using BGEN
-using CSV
 using TMLEEpistasis
-using MLJ
+using MLJBase
 using TOML
 using TMLE
-using Distributions
+using MLJGLMInterface
+using MLJLinearModels
+using MLJModels
+
 
 include("helper_fns.jl")
-
-GLMClassifier = @load LinearBinaryClassifier pkg=GLM verbosity=0
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-
-GLMRegressor = @load LinearRegressor pkg=GLM verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
 
 
 @testset "Categorical target TMLE built from configuration file" begin
@@ -25,7 +20,7 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
     tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
-    @test tmle.F isa GLMClassifier
+    @test tmle.F isa LinearBinaryClassifier
     ## Checking Qstack.metalearner
     @test tmle.Q̅.metalearner isa LogisticClassifier
     @test tmle.Q̅.metalearner.fit_intercept == false
@@ -45,9 +40,9 @@ LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
 
     # Test binary target TMLE Qstack
     tmle = tmles["continuous"]
-    @test tmle.F isa GLMRegressor
+    @test tmle.F isa MLJGLMInterface.LinearRegressor
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa LinearRegressor
+    @test tmle.Q̅.metalearner isa MLJLinearModels.LinearRegressor
     @test tmle.Q̅.metalearner.fit_intercept == false
 
     ## Checking Qstack.resampling

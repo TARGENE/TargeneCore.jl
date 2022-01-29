@@ -1,3 +1,4 @@
+using BGEN
 
 confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")

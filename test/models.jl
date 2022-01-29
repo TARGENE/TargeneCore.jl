@@ -2,15 +2,16 @@ module TestModels
 
 using Test
 using TMLEEpistasis
-using MLJ
+using MLJBase
 using CategoricalDistributions
+
 
 @testset "Test InteractionTransformer" begin
     X = (rs1234=[1, 2, 3], rs455=[4, 5, 6], rs4489=[7, 8, 9], rstoto=[1, 2, 3])
     t = TMLEEpistasis.InteractionTransformer(r"^rs[0-9]+")
     mach = machine(t, X)
     fit!(mach, verbosity=0)
-    Xt = MLJ.transform(mach, X)
+    Xt = MLJBase.transform(mach, X)
 
     @test Xt == (
         rs1234 = [1, 2, 3],
@@ -52,8 +53,8 @@ end
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
     @test predict(mach) isa Vector{Float64}
 
-    @test target_scitype(TMLEEpistasis.InteractionLMRegressor()) == AbstractVector{<:MLJ.Continuous}
-    @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == AbstractVector{<:MLJ.Finite}
+    @test target_scitype(TMLEEpistasis.InteractionLMRegressor()) == AbstractVector{<:MLJBase.Continuous}
+    @test target_scitype(TMLEEpistasis.InteractionLMClassifier()) == AbstractVector{<:MLJBase.Finite}
 
 end
 

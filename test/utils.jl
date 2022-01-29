@@ -2,19 +2,16 @@ module TestUtils
 
 using Test
 using TMLEEpistasis
-using MLJ
+using MLJBase
 using TOML
 using BGEN
-using CSV
 using DataFrames
 using Serialization
-using StableRNGs
 using TMLE
+using MLJLinearModels
+
 
 include("helper_fns.jl")
-
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
 
 
 @testset "Test parse_queries" begin
@@ -41,7 +38,6 @@ end
 end
 
 @testset "Test set_cv_folds!" begin
-    rng = StableRNG(123)
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)

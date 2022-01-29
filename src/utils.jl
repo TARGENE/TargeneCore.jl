@@ -1,4 +1,10 @@
 #####################################################################
+##### GENERIC FUNCTIONS                                         #####
+#####################################################################
+
+is_binary(y) = sort(unique(y)) == [0, 1]
+
+#####################################################################
 #####                     QUERY PARSING                          ####
 #####################################################################
 
@@ -60,7 +66,7 @@ function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false, verbosity=
     # Compute n-eff
     n = nrows(target)
     neff = 
-        if scitype(first(target)) == MLJ.Continuous
+        if scitype(first(target)) == MLJBase.Continuous
             n
         else
             counts = countuniques(target)

@@ -4,7 +4,7 @@
 function buildmodels(config)
     models = Dict()
     for (modelname, hyperparams) in config
-        if !(modelname in ("resampling", "outcome"))
+        if !(modelname in ("resampling", "measures"))
             modeltype = eval(Symbol(modelname))
             paramnames = Tuple(Symbol(x[1]) for x in hyperparams)
             counter = 1
@@ -24,11 +24,15 @@ function stack_from_config(config::Dict, metalearner)
     resampling = config["resampling"]
     resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
 
+    # Define the internal cross validation measures to report
+    measures = config["measures"]
+    measures = (measures === nothing || size(measures, 1) == 0) ? nothing : measures
+
     # Define the models library
     models = buildmodels(config)
 
     # Define the Stack
-    Stack(;metalearner=metalearner, resampling=resampling, models...)
+    Stack(;metalearner=metalearner, resampling=resampling, measures=measures, models...)
 end
 
 

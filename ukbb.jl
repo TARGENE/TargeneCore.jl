@@ -40,14 +40,13 @@ function parse_commandline()
             arg_type = String
         "--adaptive-cv", "-a"
             help = "Adaptively selects the number of folds used in cross validation and overrides the default used in the estimator file."
-            default = true
-            required = false
-            arg_type = Bool
+            action = :store_true
         "--savefull", "-f"
             help = "To save the full machine for each phenotype. Otherwise only QueryReport(s) are saved."
-            default = false
-            required = false
-            arg_type = Bool
+            action = :store_true
+        "--internal-cv-report", "-r"
+            help = "Report cross-validation measures: rmse for continuous variables, log-loss for binary variables."
+            action = :store_true
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int

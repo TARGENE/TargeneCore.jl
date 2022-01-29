@@ -1,22 +1,19 @@
 module TMLEEpistasis
 
 using DataFrames
+using MLJBase
 using CSV
-using SnpArrays
-using MLJ
-using Distributions
+# using Distributions
 using TMLE
 using TOML
 using BGEN
 using HighlyAdaptiveLasso
+using EvoTrees
+using MLJModels
+using MLJLinearModels
 using Serialization
 
-import MLJ: fit, transform, target_scitype
-
-###############################################################################
-# GENERIC FUNCTIONS
-
-is_binary(y) = sort(unique(y)) == [0, 1]
+import MLJBase: fit, transform, target_scitype, input_scitype
 
 
 ###############################################################################
