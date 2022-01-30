@@ -3,8 +3,6 @@ module TestModels
 using Test
 using TMLEEpistasis
 using MLJBase
-using CategoricalDistributions
-
 
 @testset "Test InteractionTransformer" begin
     X = (rs1234=[1, 2, 3], rs455=[4, 5, 6], rs4489=[7, 8, 9], rstoto=[1, 2, 3])
@@ -40,7 +38,7 @@ end
     fit!(mach, verbosity=0)
     fp = fitted_params(mach)
     @test fp.interaction_transformer.fitresult.interaction_pairs == [:rs1234 => :rs455]
-    @test predict(mach) isa UnivariateFiniteArray{Multiclass{2}, Int64, UInt32, Float64, 1}
+    @test size(predict(mach), 1) == n 
     # Regressor 
     y = rand(n)
     mach = machine(
