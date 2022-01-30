@@ -109,9 +109,14 @@ end
 
 function writeresults(file, mach::Machine, phenotype; full=false)
     if full === true
-        serialize(file, phenotype => serialisable(mach))
+        serialize(file, phenotype => serializable(mach))
     else
         nqueries = length(mach.model.queries)
         serialize(file, phenotype => [TMLE.getqueryreport(mach, i) for i in 1:nqueries])
     end
 end
+
+"""
+To be removed as soon as serialization is ready from MLJBase.
+"""
+serializable(mach::Machine) = mach

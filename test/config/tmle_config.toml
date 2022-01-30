@@ -1,6 +1,6 @@
 # For the estimation of E[Y|W, T]
 [Qcont]
-    measures = []
+    measures = ["rmse"]
     # Description of the resampling strategy
     [Qcont.resampling]
     type = "CV"
@@ -23,7 +23,7 @@
 
 # For the estimation of E[Y|W, T]
 [Qcat]
-    measures = []
+    measures = ["log_loss"]
 
     # Description of the resampling strategy
     [Qcat.resampling]
@@ -47,7 +47,7 @@
 
 # For the estimation of p(T| W)
 [G]
-    measures = []
+    measures = ["log_loss"]
     # Description of the resampling strategy
     [G.resampling]
     type = "StratifiedCV"

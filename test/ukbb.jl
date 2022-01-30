@@ -9,7 +9,7 @@ using CategoricalArrays
 using TOML
 using Serialization
 using TMLE
-
+using MLJBase
 
 include("helper_fns.jl")
 
@@ -149,18 +149,20 @@ end
         "phenotypes-list" => phenotypelist_file_1,
         "verbosity" => 0,
         "adaptive-cv" => false,
-        "savefull" => false
+        "savefull" => true
     )
 
     UKBBVariantRun(parsed_args)
 
     file = open(parsed_args["output"])
 
-    phenotype, queryreports = deserialize(file)
+    phenotype, tmle_mach = deserialize(file)
     @test phenotype == :continuous_phenotype
-    @test length(queryreports) == 2
+    @test length(getqueryreports(tmle_mach)) == 2
+    @test length(report(tmle_mach).G.cv_report) == 3
+    @test length(report(tmle_mach).Q̅.cv_report) == 5
     # Check queryreports
-    test_base_serialization(queryreports)
+    test_base_serialization(getqueryreports(tmle_mach))
     # Only the continuous phenotype has been processed
     @test eof(file)
 

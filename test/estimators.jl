@@ -20,6 +20,7 @@ include("helper_fns.jl")
     tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
+    @test tmle.Q̅.measures == [log_loss]
     @test tmle.F isa LinearBinaryClassifier
     ## Checking Qstack.metalearner
     @test tmle.Q̅.metalearner isa LogisticClassifier
@@ -40,6 +41,7 @@ include("helper_fns.jl")
 
     # Test binary target TMLE Qstack
     tmle = tmles["continuous"]
+    @test tmle.Q̅.measures == [rmse]
     @test tmle.F isa MLJGLMInterface.LinearRegressor
     ## Checking Qstack.metalearner
     @test tmle.Q̅.metalearner isa MLJLinearModels.LinearRegressor
@@ -65,6 +67,7 @@ include("helper_fns.jl")
         Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_2")
     ]
     for (type, tmle) in tmles
+        @test tmle.G.model.measures == [log_loss]
         test_queries(tmle.queries, expected_queries)
         # Checking Gstack
         @test tmle.G isa FullCategoricalJoint 
