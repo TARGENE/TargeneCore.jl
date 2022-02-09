@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y wget
 
 RUN wget https://julialang-s3.julialang.org/bin/linux/x64/1.7/julia-1.7.2-linux-x86_64.tar.gz
 
-RUN tar zxvf julia-1.6.3-linux-x86_64.tar.gz
+RUN tar zxvf julia-1.7.2-linux-x86_64.tar.gz
 
-RUN ln -s /julia-1.6.3/bin/julia /usr/local/bin/julia
+RUN ln -s /julia-1.7.2/bin/julia /usr/local/bin/julia
 
 # Installing R and hal9001
 RUN apt-get install -y r-base \
