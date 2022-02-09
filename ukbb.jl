@@ -30,8 +30,7 @@ function parse_commandline()
                    " for a basic example."
             required = true
         "output"
-            help = "A path where the results will be serialized (.bin format). One entry will be saved"*
-                    " for each phenotype. see: --savefull."
+            help = "A path where the results will be saved as a hdf5 compatible format (JLD2.jl)"
             required = true
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
@@ -41,12 +40,10 @@ function parse_commandline()
         "--adaptive-cv", "-a"
             help = "Adaptively selects the number of folds used in cross validation and overrides the default used in the estimator file."
             action = :store_true
-        "--savefull", "-f"
-            help = "To save the full machine for each phenotype. Otherwise only QueryReport(s) are saved."
-            action = :store_true
-        "--internal-cv-report", "-r"
-            help = "Report cross-validation measures: rmse for continuous variables, log-loss for binary variables."
-            action = :store_true
+        "--mach-file", "-f"
+            help = "Provide an additional filepath if full TMLE estimators must be saved for each phenotype."
+            arg_type = String
+            required = false
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
@@ -57,7 +54,7 @@ function parse_commandline()
 end
 
 parsed_args = parse_commandline()
-println(parsed_args)
-# UKBBVariantRun(parsed_args)
+
+UKBBVariantRun(parsed_args)
 
 

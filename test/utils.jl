@@ -10,9 +10,7 @@ using Serialization
 using TMLE
 using MLJLinearModels
 
-
 include("helper_fns.jl")
-
 
 @testset "Test parse_queries" begin
     build_query_file()
@@ -88,42 +86,6 @@ end
 
 end
 
-@testset "Test writeresults" begin
-    # Build a TMLEstimator
-    query = Query(case=(t₁="CG", t₂="TT"), control=(t₁="GG", t₂="TA"))
-    Q = LinearRegressor()
-    G = FullCategoricalJoint(LogisticClassifier())
-    tmle = TMLEstimator(Q, G, query)
-    # Fit with arbitrary data 
-    n = 100
-    W = (x₁=rand(n), )
-    T = (
-        t₁=categorical(rand(["CG", "GG"], n)), 
-        t₂=categorical(rand(["TT", "TA"], n))
-    )
-    y = rand(n)
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-    # Save the results
-    outfile = "results.bin"
-    open(outfile, "w") do file
-        TMLEEpistasis.writeresults(file, mach, :cancer, full=false)
-        # Waiting for the new MLJSerialization for this to work
-        @test_broken TMLEEpistasis.writeresults(file, mach, "hair_color", full=true)
-    end
-    # Load back
-    open(outfile) do file
-        phenotype, reports = deserialize(file)
-        @test phenotype == :cancer
-        @test all(qr isa TMLE.QueryReport for qr in reports)
-        # Waiting for the new MLJSerialization for this to work
-        # phenotype, mach = deserialize(file)
-        # @test phenotype == "hair_color"
-        # @test mach isa Machine
-    end
-
-    rm(outfile)
-end
 
 end;
 

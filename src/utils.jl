@@ -107,13 +107,16 @@ end
 #####                         SAVING                             ####
 #####################################################################
 
-function writeresults(file, mach::Machine, phenotype; full=false)
-    if full === true
-        serialize(file, phenotype => serializable(mach))
-    else
-        nqueries = length(mach.model.queries)
-        serialize(file, phenotype => [TMLE.getqueryreport(mach, i) for i in 1:nqueries])
+function writeresults(file, mach::Machine, phenotypename, sample_ids; mach_file=nothing)
+    # Save essential information
+    group = JLD2.Group(file, String(phenotypename))
+    group["sample_ids"] = sample_ids
+    group["queryreports"] = TMLE.getqueryreports(mach)
+    # Optionnally save the machine
+    if mach_file !== nothing
+        serialize(mach_file, phenotypename => serializable(mach))
     end
+    
 end
 
 """

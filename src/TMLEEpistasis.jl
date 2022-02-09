@@ -3,7 +3,6 @@ module TMLEEpistasis
 using DataFrames
 using MLJBase
 using CSV
-# using Distributions
 using TMLE
 using TOML
 using BGEN
@@ -12,6 +11,7 @@ using EvoTrees
 using MLJModels
 using MLJLinearModels
 using Serialization
+using JLD2
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 

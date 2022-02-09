@@ -9,22 +9,31 @@ using CategoricalArrays
 using TOML
 using Serialization
 using TMLE
+using JLD2
 using MLJBase
 
 include("helper_fns.jl")
 
 function test_base_serialization(queryreports)
+    n_expected = 477
     queryreport = queryreports[1]
     @test queryreport isa TMLE.QueryReport
     test_queries((queryreport.query,),
         (Query(name="QUERY_1", case=(RSID_10 = "AG", RSID_100 = "AG"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
+    @test size(queryreport.influence_curve, 1) == n_expected
+    @test queryreport.estimate isa Real
+    @test queryreport.initial_estimate isa Real
+
     # Check second queryreport
     queryreport = queryreports[2]
     @test queryreport isa TMLE.QueryReport
     test_queries((queryreport.query,),
         (Query(name="QUERY_2", case=(RSID_10 = "AG", RSID_100 = "AA"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
+    @test size(queryreport.influence_curve, 1) == n_expected
+    @test queryreport.estimate isa Real
+    @test queryreport.initial_estimate isa Real
 end
 
 
@@ -111,13 +120,16 @@ end
 
     # Continuous phenotypes
     phenotypes = CSV.File(phenotypefile, select=["eid", "continuous_phenotype"]) |> DataFrame
-    T, W, y = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;verbosity=0)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;verbosity=0)
 
     @test y == phenotypes.continuous_phenotype[11:n-10]
 
+    n_expected = 480
     @test size(T) == (480, 2)
     @test size(W) == (480, 2)
-    @test size(y) == (480,)
+    @test size(y, 1) == n_expected
+    @test size(sample_ids, 1) == n_expected
+    @test all(startswith(x, "sample") for x in sample_ids)
 
     @test DataFrames.names(T) == ["RSID_1", "RSID_2"]
     @test DataFrames.names(W) == ["PC1", "PC2"]
@@ -129,7 +141,7 @@ end
 
     # Binary phenotypes
     phenotypes = CSV.File(phenotypefile, select=["eid", "categorical_phenotype"]) |> DataFrame
-    T, W, y = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;
                 verbosity=0)
 
     @test y isa CategoricalArray{Bool,1,UInt32}
@@ -145,18 +157,25 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "cont_results.bin",
+        "output" => "cont_results.hdf5",
         "phenotypes-list" => phenotypelist_file_1,
         "verbosity" => 0,
         "adaptive-cv" => false,
-        "savefull" => true
+        "mach-file" => "cont_machines.jls",
     )
 
     UKBBVariantRun(parsed_args)
 
-    file = open(parsed_args["output"])
+    # Essential results
+    file = jldopen(parsed_args["output"])
+    n_expected = 477
+    @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
+    test_base_serialization(file["continuous_phenotype"]["queryreports"])
+    close(file)
 
-    phenotype, tmle_mach = deserialize(file)
+    # Machines
+    mach_file = open(parsed_args["mach-file"])
+    phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == :continuous_phenotype
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
@@ -164,12 +183,12 @@ end
     # Check queryreports
     test_base_serialization(getqueryreports(tmle_mach))
     # Only the continuous phenotype has been processed
-    @test eof(file)
-
-    close(file)
+    @test eof(mach_file)
+    close(mach_file)
 
     # Clean
     rm(parsed_args["output"])
+    rm(parsed_args["mach-file"])
     rm(parsed_args["queries"])
 end
 
@@ -182,35 +201,47 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "full_results.csv",
+        "output" => "all_results.hdf5",
         "phenotypes-list" => nothing,
         "verbosity" => 0,
         "adaptive-cv" => true,
-        "savefull" => false
+        "mach-file" => "all_machines.jls",
     )
 
     UKBBVariantRun(parsed_args)
     
-    file = open(parsed_args["output"])
-    # First phenotype
-    phenotype, queryreports = deserialize(file)
-    @test phenotype == :categorical_phenotype
-    @test length(queryreports) == 2
-    # Check queryreports
-    test_base_serialization(queryreports)
+    # Essential results
+    file = jldopen(parsed_args["output"])
+    n_expected = 477
+    @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
+    @test size(file["categorical_phenotype"]["sample_ids"], 1) == n_expected
+    test_base_serialization(file["continuous_phenotype"]["queryreports"])
+    test_base_serialization(file["categorical_phenotype"]["queryreports"])
+    close(file)
 
+    # Machine 
+    mach_file = open(parsed_args["mach-file"])
+    # First phenotype
+    phenotype, tmle_mach = deserialize(mach_file)
+    @test phenotype == :categorical_phenotype
+    @test length(getqueryreports(tmle_mach)) == 2
+    @test length(report(tmle_mach).G.cv_report) == 3
+    @test length(report(tmle_mach).Q̅.cv_report) == 4
     # Second phenotype
-    phenotype, queryreports = deserialize(file)
+    phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == :continuous_phenotype
-    test_base_serialization(queryreports)
+    @test length(getqueryreports(tmle_mach)) == 2
+    @test length(report(tmle_mach).G.cv_report) == 3
+    @test length(report(tmle_mach).Q̅.cv_report) == 5
 
     # Only the continuous phenotype has been processed
-    @test eof(file)
+    @test eof(mach_file)
 
-    close(file)
+    close(mach_file)
 
     # Clean
     rm(parsed_args["output"])
+    rm(parsed_args["mach-file"])
     rm(parsed_args["queries"])
 end
 

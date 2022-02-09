@@ -105,7 +105,8 @@ function preprocess(genotypes, confounders, phenotypes;
 
     # Filter any line where an element is missing
     filtered_data = dropmissing(data)
-    verbosity >= 1 && @info "Samples size after missing removed: $(nrows(filtered_data))"
+    sample_ids = filtered_data[!, :SAMPLE_ID]
+    verbosity >= 1 && @info "Samples size after missing removed: $(size(sample_ids, 1))"
 
     # Retrieve T and convert to categorical data
     T = filtered_data[!, filter(!=("SAMPLE_ID"), DataFrames.names(genotypes))]
@@ -123,7 +124,7 @@ function preprocess(genotypes, confounders, phenotypes;
     # Only support binary and continuous traits for now
     is_binary(y) ? y = categorical(convert(Vector{Bool}, y)) : nothing
 
-    return T, W, y
+    return T, W, y, sample_ids
 end
 
 
@@ -146,29 +147,36 @@ function UKBBVariantRun(parsed_args)
 
     # Generate phenotypes range
     phenotypenames_ = phenotypesnames(parsed_args["phenotypes"], parsed_args["phenotypes-list"])
-    open(parsed_args["output"], "w") do file
-        for phenotypename in phenotypenames_
-            v >= 1 && @info "Running procedure with phenotype: $phenotypename."
-            # Read Target
-            phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
-            # Preprocess all data together
-            T, W, y = preprocess(genotypes, 
-                                confounders, 
-                                phenotype;
-                                verbosity=v)
-            # Get TMLE
-            tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
-            # Update Cross validation settings
-            set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
-            set_cv_folds!(tmle, T, learner=:G, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
-            # Run TMLE 
-            mach = machine(tmle, T, W, y)
-            fit!(mach; verbosity=v-1)
 
-            # Update the results
-            writeresults(file, mach, phenotypename, full=parsed_args["savefull"])
-        end
+    jld_file = jldopen(parsed_args["output"], "w")
+    mach_file = parsed_args["mach-file"] isa Nothing ? nothing : open(parsed_args["mach-file"], "w")
+
+    for phenotypename in phenotypenames_
+        v >= 1 && @info "Running procedure with phenotype: $phenotypename."
+        # Read Target
+        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
+        # Preprocess all data together
+        T, W, y, sample_ids = preprocess(
+            genotypes, 
+            confounders, 
+            phenotype;
+            verbosity=v
+        )
+        # Get TMLE
+        tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
+        # Update Cross validation settings
+        set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
+        set_cv_folds!(tmle, T, learner=:G, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
+        # Run TMLE 
+        mach = machine(tmle, T, W, y)
+        fit!(mach; verbosity=v-1)
+
+        # Update the results
+        writeresults(jld_file, mach, phenotypename, sample_ids; mach_file=mach_file)
     end
+
+    close(jld_file)
+    close(mach_file)
 
     v >= 1 && @info "Done."
 end
