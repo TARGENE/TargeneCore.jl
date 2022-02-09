@@ -29,9 +29,6 @@ function parse_commandline()
             help = "A file (.toml format) describing the tmle estimator to use, see config/sample_estimator.toml"*
                    " for a basic example."
             required = true
-        "output"
-            help = "A path where the results will be saved as a hdf5 compatible format (JLD2.jl)"
-            required = true
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
                    "to consider for the analysis."
@@ -40,10 +37,9 @@ function parse_commandline()
         "--adaptive-cv", "-a"
             help = "Adaptively selects the number of folds used in cross validation and overrides the default used in the estimator file."
             action = :store_true
-        "--mach-file", "-f"
-            help = "Provide an additional filepath if full TMLE estimators must be saved for each phenotype."
-            arg_type = String
-            required = false
+        "--save-full", "-f"
+            help = "Also save the full TMLE estimators for each phenotype."
+            action = :store_true
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int

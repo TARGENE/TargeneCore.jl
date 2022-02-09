@@ -148,8 +148,9 @@ function UKBBVariantRun(parsed_args)
     # Generate phenotypes range
     phenotypenames_ = phenotypesnames(parsed_args["phenotypes"], parsed_args["phenotypes-list"])
 
-    jld_file = jldopen(parsed_args["output"], "w")
-    mach_file = parsed_args["mach-file"] isa Nothing ? nothing : open(parsed_args["mach-file"], "w")
+    jld_file = jldopen(hdf5filename(first(queries)), "w")
+    mach_file = parsed_args["save-full"] === false ? nothing : 
+        open(jlsfilename(first(queries)), "w")
 
     for phenotypename in phenotypenames_
         v >= 1 && @info "Running procedure with phenotype: $phenotypename."

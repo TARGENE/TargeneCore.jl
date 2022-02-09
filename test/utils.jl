@@ -24,6 +24,19 @@ include("helper_fns.jl")
     rm(queryfile)
 end
 
+
+@testset "Test out filenames" begin
+    query = Query(case=(RSID_10="AG", RSID_100="AG"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_1")
+    @test TMLEEpistasis.hdf5filename(query) == "RSID_10_RSID_100.hdf5"
+    @test TMLEEpistasis.jlsfilename(query) == "RSID_10_RSID_100.jls"
+
+    query = Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1")
+    @test TMLEEpistasis.hdf5filename(query) == "RSID_10.hdf5"
+    @test TMLEEpistasis.jlsfilename(query) == "RSID_10.jls"
+
+end
+
+
 @testset "Test phenotypes parsing" begin
     allnames = TMLEEpistasis.phenotypes_from_data(phenotypefile)
     @test allnames == [:categorical_phenotype, :continuous_phenotype]

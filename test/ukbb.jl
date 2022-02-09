@@ -91,8 +91,6 @@ end
     rm(queryfile)
 end
 
-
-
 @testset "Test variant_genotypes" begin
     b = TMLEEpistasis.read_bgen(BGEN.datadir("example.8bits.bgen"))
     queries = [
@@ -157,24 +155,25 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "cont_results.hdf5",
         "phenotypes-list" => phenotypelist_file_1,
         "verbosity" => 0,
         "adaptive-cv" => false,
-        "mach-file" => "cont_machines.jls",
+        "save-full" => true
     )
 
     UKBBVariantRun(parsed_args)
 
     # Essential results
-    file = jldopen(parsed_args["output"])
+    hdf5_file = "RSID_10_RSID_100.hdf5"
+    file = jldopen(hdf5_file)
     n_expected = 477
     @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
     test_base_serialization(file["continuous_phenotype"]["queryreports"])
     close(file)
 
     # Machines
-    mach_file = open(parsed_args["mach-file"])
+    jls_file = "RSID_10_RSID_100.jls"
+    mach_file = open(jls_file)
     phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == :continuous_phenotype
     @test length(getqueryreports(tmle_mach)) == 2
@@ -187,8 +186,8 @@ end
     close(mach_file)
 
     # Clean
-    rm(parsed_args["output"])
-    rm(parsed_args["mach-file"])
+    rm(hdf5_file)
+    rm(jls_file)
     rm(parsed_args["queries"])
 end
 
@@ -201,17 +200,17 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "output" => "all_results.hdf5",
         "phenotypes-list" => nothing,
         "verbosity" => 0,
         "adaptive-cv" => true,
-        "mach-file" => "all_machines.jls",
+        "save-full" => true
     )
 
     UKBBVariantRun(parsed_args)
     
     # Essential results
-    file = jldopen(parsed_args["output"])
+    hdf5_file = "RSID_10_RSID_100.hdf5"
+    file = jldopen(hdf5_file)
     n_expected = 477
     @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
     @test size(file["categorical_phenotype"]["sample_ids"], 1) == n_expected
@@ -219,8 +218,9 @@ end
     test_base_serialization(file["categorical_phenotype"]["queryreports"])
     close(file)
 
-    # Machine 
-    mach_file = open(parsed_args["mach-file"])
+    # Machine
+    jls_file = "RSID_10_RSID_100.jls"
+    mach_file = open(jls_file)
     # First phenotype
     phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == :categorical_phenotype
@@ -240,8 +240,8 @@ end
     close(mach_file)
 
     # Clean
-    rm(parsed_args["output"])
-    rm(parsed_args["mach-file"])
+    rm(hdf5_file)
+    rm(jls_file)
     rm(parsed_args["queries"])
 end
 

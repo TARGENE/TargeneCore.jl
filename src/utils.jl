@@ -24,6 +24,13 @@ function parse_queries(queryfile::String)
     return queries
 end
 
+
+hdf5filename(::TMLE.Query{<:NamedTuple{names,}}) where names = 
+    string(join(names, "_"),  ".hdf5")
+
+jlsfilename(::TMLE.Query{<:NamedTuple{names,}}) where names = 
+    string(join(names, "_"),  ".jls")
+
 #####################################################################
 #####                 PHENOTYPE PARSING                          ####
 #####################################################################
