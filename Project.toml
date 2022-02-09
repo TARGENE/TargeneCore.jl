@@ -1,7 +1,7 @@
 name = "TMLEEpistasis"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
 authors = ["olivierlabayle"]
-version = "0.23.0"
+version = "0.3.0"
 
 [deps]
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
