@@ -177,7 +177,7 @@ function UKBBVariantRun(parsed_args)
     end
 
     close(jld_file)
-    close(mach_file)
+    mach_file !==nothing && close(mach_file)
 
     v >= 1 && @info "Done."
 end

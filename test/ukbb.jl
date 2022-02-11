@@ -147,7 +147,7 @@ end
 
 
 @testset "Test PhenotypeTMLEEpistasis with continuous target" begin
-    # Only one continuous phenotype
+    # Only one continuous phenotype / machines not saved / no adaptive cv
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
@@ -158,7 +158,7 @@ end
         "phenotypes-list" => phenotypelist_file_1,
         "verbosity" => 0,
         "adaptive-cv" => false,
-        "save-full" => true
+        "save-full" => false
     )
 
     UKBBVariantRun(parsed_args)
@@ -171,23 +171,8 @@ end
     test_base_serialization(file["continuous_phenotype"]["queryreports"])
     close(file)
 
-    # Machines
-    jls_file = "RSID_10_RSID_100.jls"
-    mach_file = open(jls_file)
-    phenotype, tmle_mach = deserialize(mach_file)
-    @test phenotype == :continuous_phenotype
-    @test length(getqueryreports(tmle_mach)) == 2
-    @test length(report(tmle_mach).G.cv_report) == 3
-    @test length(report(tmle_mach).Q̅.cv_report) == 5
-    # Check queryreports
-    test_base_serialization(getqueryreports(tmle_mach))
-    # Only the continuous phenotype has been processed
-    @test eof(mach_file)
-    close(mach_file)
-
     # Clean
     rm(hdf5_file)
-    rm(jls_file)
     rm(parsed_args["queries"])
 end
 
@@ -233,6 +218,9 @@ end
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 5
+
+    # Adaptive CV 
+    @test size(report(tmle_mach).Q̅.cv_report.HALRegressor_1.per_fold[1], 1) == 20
 
     # Only the continuous phenotype has been processed
     @test eof(mach_file)
