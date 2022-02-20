@@ -114,16 +114,19 @@ end
 #####                         SAVING                             ####
 #####################################################################
 
-function writeresults(file, mach::Machine, phenotypename, sample_ids; mach_file=nothing)
+function writeresults(jld_filename, mach::Machine, phenotypename, sample_ids; mach_filename=nothing)
     # Save essential information
-    group = JLD2.Group(file, String(phenotypename))
-    group["sample_ids"] = sample_ids
-    group["queryreports"] = TMLE.getqueryreports(mach)
-    # Optionnally save the machine
-    if mach_file !== nothing
-        serialize(mach_file, phenotypename => serializable(mach))
+    jldopen(jld_filename, "a+") do io
+        group = JLD2.Group(io, String(phenotypename))
+        group["sample_ids"] = sample_ids
+        group["queryreports"] = TMLE.getqueryreports(mach)
     end
-    
+    # Optionnally save the machine
+    if mach_filename !== nothing
+        open(mach_filename, "a+") do io
+            serialize(io, phenotypename => serializable(mach))
+        end
+    end
 end
 
 """
