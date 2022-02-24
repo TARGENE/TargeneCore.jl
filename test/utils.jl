@@ -48,6 +48,24 @@ end
 
 end
 
+@testset "Test serializable!" begin
+    tmle_config = joinpath("config", "tmle_config.toml")
+    build_query_file()
+    queries = TMLEEpistasis.parse_queries(queryfile)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
+    n = 100
+    y = categorical(rand(Bool, n))
+    T = (
+        RSID_10=categorical(rand(["AA","AG", "GG"], n)),
+        RSID_100=categorical(rand(["AA","AG", "GG"], n))
+        )
+    W = (w₁ = rand(n),)
+    mach = machine(tmles["binary"], T, W, y)
+    fit!(mach, verbosity=0)
+    TMLEEpistasis.serializable!(mach)
+    test_data_has_been_removed(mach)
+end
+
 @testset "Test set_cv_folds!" begin
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()

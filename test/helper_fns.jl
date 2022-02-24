@@ -44,3 +44,26 @@ function test_queries(queries, expected_queries)
         @test query.name == expected_queries[i].name
     end
 end
+
+function _test_wiped_data(mach)
+    @test mach.data == ()
+    @test :data ∉ mach.cache
+    @test mach.args == ()
+end
+
+
+function test_data_has_been_removed(tmle_mach)
+    _test_wiped_data(tmle_mach)
+
+    for submach in tmle_mach.report.machines
+        _test_wiped_data(submach)
+    end
+
+    for submach in report(tmle_mach).G.machines
+        _test_wiped_data(submach)
+    end
+
+    for submach in report(tmle_mach).Q̅.machines
+        _test_wiped_data(submach)
+    end
+end

@@ -36,7 +36,6 @@ function test_base_serialization(queryreports)
     @test queryreport.initial_estimate isa Real
 end
 
-
 @testset "Test read_bgen function" begin
     # This file as an associated .bgi
     bgen_file = BGEN.datadir("example.8bits.bgen")
@@ -212,13 +211,14 @@ end
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 4
+    test_data_has_been_removed(tmle_mach)
     # Second phenotype
     phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == :continuous_phenotype
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 5
-
+    test_data_has_been_removed(tmle_mach)
     # Adaptive CV 
     @test size(report(tmle_mach).Q̅.cv_report.HALRegressor_1.per_fold[1], 1) == 20
 
@@ -232,8 +232,6 @@ end
     rm(jls_file)
     rm(parsed_args["queries"])
 end
-
-
 
 end;
 
