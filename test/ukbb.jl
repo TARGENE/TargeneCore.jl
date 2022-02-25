@@ -116,10 +116,10 @@ end
         )
 
     # Continuous phenotypes
-    phenotypes = CSV.File(phenotypefile, select=["eid", "continuous_phenotype"]) |> DataFrame
+    phenotypes = CSV.File(phenotypefile, select=["eid", "continuous/phenotype"]) |> DataFrame
     T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes;verbosity=0)
 
-    @test y == phenotypes.continuous_phenotype[11:n-10]
+    @test y == phenotypes[!,"continuous/phenotype"][11:n-10]
 
     n_expected = 480
     @test size(T) == (480, 2)
@@ -166,8 +166,8 @@ end
     hdf5_file = "RSID_10_RSID_100.hdf5"
     file = jldopen(hdf5_file)
     n_expected = 477
-    @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
-    test_base_serialization(file["continuous_phenotype"]["queryreports"])
+    @test size(file["continuous_&_phenotype"]["sample_ids"], 1) == n_expected
+    test_base_serialization(file["continuous_&_phenotype"]["queryreports"])
     close(file)
 
     # Clean
@@ -196,9 +196,9 @@ end
     hdf5_file = "RSID_10_RSID_100.hdf5"
     file = jldopen(hdf5_file)
     n_expected = 477
-    @test size(file["continuous_phenotype"]["sample_ids"], 1) == n_expected
+    @test size(file["continuous_&_phenotype"]["sample_ids"], 1) == n_expected
     @test size(file["categorical_phenotype"]["sample_ids"], 1) == n_expected
-    test_base_serialization(file["continuous_phenotype"]["queryreports"])
+    test_base_serialization(file["continuous_&_phenotype"]["queryreports"])
     test_base_serialization(file["categorical_phenotype"]["queryreports"])
     close(file)
 
@@ -207,14 +207,14 @@ end
     mach_file = open(jls_file)
     # First phenotype
     phenotype, tmle_mach = deserialize(mach_file)
-    @test phenotype == :categorical_phenotype
+    @test phenotype == "categorical_phenotype"
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 4
     test_data_has_been_removed(tmle_mach)
     # Second phenotype
     phenotype, tmle_mach = deserialize(mach_file)
-    @test phenotype == :continuous_phenotype
+    @test phenotype == "continuous_&_phenotype"
     @test length(getqueryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 5

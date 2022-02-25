@@ -1,4 +1,4 @@
-eid,categorical_phenotype,continuous_phenotype
+eid,categorical_phenotype,continuous/phenotype
 sample_001,0,0.1888308779436103
 sample_002,1,0.266617991233304
 sample_003,0,0.006873464892178216

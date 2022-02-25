@@ -39,11 +39,11 @@ end
 
 @testset "Test phenotypes parsing" begin
     allnames = TMLEEpistasis.phenotypes_from_data(phenotypefile)
-    @test allnames == [:categorical_phenotype, :continuous_phenotype]
+    @test allnames == [:categorical_phenotype, Symbol("continuous/phenotype")]
 
     # Fallback when no list is specified
     @test allnames == TMLEEpistasis.phenotypesnames(phenotypefile, nothing)
-    @test [:continuous_phenotype] == TMLEEpistasis.phenotypesnames(phenotypefile, phenotypelist_file_1)
+    @test [Symbol("continuous/phenotype")] == TMLEEpistasis.phenotypesnames(phenotypefile, phenotypelist_file_1)
     @test allnames == TMLEEpistasis.phenotypesnames(phenotypefile, phenotypelist_file_2)
 
 end

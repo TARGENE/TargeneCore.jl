@@ -115,9 +115,11 @@ end
 #####################################################################
 
 function writeresults(jld_filename, mach::Machine, phenotypename, sample_ids; mach_filename=nothing)
+    # Some phenotypes names contain slashes that conflict with JLD2
+    phenotypename = replace(String(phenotypename), "/" => "_&_")
     # Save essential information
     jldopen(jld_filename, "a+") do io
-        group = JLD2.Group(io, String(phenotypename))
+        group = JLD2.Group(io, phenotypename)
         group["sample_ids"] = sample_ids
         group["queryreports"] = TMLE.getqueryreports(mach)
     end
