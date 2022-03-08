@@ -17,7 +17,7 @@ include("helper_fns.jl")
 function test_base_serialization(queryreports)
     n_expected = 477
     queryreport = queryreports[1]
-    @test queryreport isa TMLE.QueryReport
+    @test queryreport isa TMLE.Report
     test_queries((queryreport.query,),
         (Query(name="QUERY_1", case=(RSID_10 = "AG", RSID_100 = "AG"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
@@ -27,7 +27,7 @@ function test_base_serialization(queryreports)
 
     # Check second queryreport
     queryreport = queryreports[2]
-    @test queryreport isa TMLE.QueryReport
+    @test queryreport isa TMLE.Report
     test_queries((queryreport.query,),
         (Query(name="QUERY_2", case=(RSID_10 = "AG", RSID_100 = "AA"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
@@ -208,14 +208,14 @@ end
     # First phenotype
     phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == "categorical_phenotype"
-    @test length(getqueryreports(tmle_mach)) == 2
+    @test length(queryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 4
     test_data_has_been_removed(tmle_mach)
     # Second phenotype
     phenotype, tmle_mach = deserialize(mach_file)
     @test phenotype == "continuous_&_phenotype"
-    @test length(getqueryreports(tmle_mach)) == 2
+    @test length(queryreports(tmle_mach)) == 2
     @test length(report(tmle_mach).G.cv_report) == 3
     @test length(report(tmle_mach).Q̅.cv_report) == 5
     test_data_has_been_removed(tmle_mach)

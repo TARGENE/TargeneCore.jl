@@ -52,31 +52,28 @@ end
 #####                 CV ADAPTIVE FOLDS                          ####
 #####################################################################
 
-getstack(model::Stack) = model
-getstack(model::FullCategoricalJoint) = model.model
-
 countuniques(v::AbstractVector) = [count(==(u), v) for u in unique(v)]
 countuniques(table) = 
     countuniques([values(x) for x in Tables.namedtupleiterator(table)])
-    
+
 """
-    set_cv_folds!(tmle, target, learner; adaptive_cv=true)
+    AdaptiveCV(cv::Union{CV, StratifiedCV})
 
 Implements the rule of thum given here: https://www.youtube.com/watch?v=WYnjja8DKPg&t=4s
-If adaptive_cv is true, it will update the number of folds in the 
-cross validation scheme based on the target variable.
 """
-function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false, verbosity=1)
-    # If adaptive cross validation shouldn't be used
-    adaptive_cv == false && return tmle
+mutable struct AdaptiveCV <: MLJBase.ResamplingStrategy
+    cv::Union{CV, StratifiedCV}
+end
 
+
+function MLJBase.train_test_pairs(cv::AdaptiveCV, rows, y)
     # Compute n-eff
-    n = nrows(target)
+    n = nrows(y)
     neff = 
-        if scitype(first(target)) == MLJBase.Continuous
+        if scitype(first(y)) == MLJBase.Continuous
             n
         else
-            counts = countuniques(target)
+            counts = countuniques(y)
             nrare = minimum(counts)
             min(n, 5*nrare)
         end
@@ -94,19 +91,11 @@ function set_cv_folds!(tmle, target; learner=:Q̅, adaptive_cv=false, verbosity=
         else
             3
         end
-
-    verbosity >= 1 && 
-        @info "Setting nfolds to $nfolds for learner: $learner"
-
-    # Set the new number of folds
-    stack = getstack(getfield(tmle, learner))
-    stack.resampling = typeof(stack.resampling)(
-        nfolds=nfolds,
-        shuffle=stack.resampling.shuffle,
-        rng=stack.resampling.rng
-        )
     
-    return tmle
+    # Update the underlying n_folds
+    adapted_cv = typeof(cv.cv)(nfolds=nfolds, shuffle=cv.cv.shuffle, rng=cv.cv.rng)
+    
+    return MLJBase.train_test_pairs(adapted_cv, rows, y)
 end
 
 
@@ -121,7 +110,7 @@ function writeresults(jld_filename, mach::Machine, phenotypename, sample_ids; ma
     jldopen(jld_filename, "a+") do io
         group = JLD2.Group(io, phenotypename)
         group["sample_ids"] = sample_ids
-        group["queryreports"] = TMLE.getqueryreports(mach)
+        group["queryreports"] = TMLE.queryreports(mach)
     end
     # Optionnally save the machine
     if mach_filename !== nothing

@@ -136,7 +136,7 @@ function UKBBVariantRun(parsed_args)
 
     # Build estimators
     tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmles = estimators_from_toml(tmle_config, queries)
+    tmles = estimators_from_toml(tmle_config, queries, adaptive_cv=parsed_args["adaptive-cv"])
 
     v >= 1 && @info "Loading Genotypes and Confounders."
     # Build Genotypes
@@ -164,9 +164,6 @@ function UKBBVariantRun(parsed_args)
         )
         # Get TMLE
         tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
-        # Update Cross validation settings
-        set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
-        set_cv_folds!(tmle, T, learner=:G, adaptive_cv=parsed_args["adaptive-cv"], verbosity=v)
         # Run TMLE 
         mach = machine(tmle, T, W, y)
         fit!(mach; verbosity=v-1)

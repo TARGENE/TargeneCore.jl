@@ -52,7 +52,7 @@ end
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries; adaptive_cv=false)
     n = 100
     y = categorical(rand(Bool, n))
     T = (
@@ -66,57 +66,35 @@ end
     test_data_has_been_removed(mach)
 end
 
-@testset "Test set_cv_folds!" begin
-    tmle_config = joinpath("config", "tmle_config.toml")
-    build_query_file()
-    queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
 
-    # Continuous y
-    tmle = tmles["continuous"]
-    @test tmle.Q̅.resampling.nfolds == 2
-
-    ## adaptive_cv = false
-    y = rand(100)
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=false, verbosity=0)
-    @test tmle.Q̅.resampling.nfolds == 2
-    ## neff = n = 100 => 20 folds
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
-    @test tmle.Q̅.resampling.nfolds == 20
-    ## neff = n = 20_000 => 3 folds
-    y = rand(20_000)
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
-    @test tmle.Q̅.resampling.nfolds == 3
-
-
-    # Categorical y
-    tmle = tmles["binary"]
-    @test tmle.Q̅.resampling.nfolds == 2
+@testset "Test AdaptiveCV" begin
+    # Continuous target
+    cv = TMLEEpistasis.AdaptiveCV(CV())
+    n_sample_to_nfolds = ((10, 10), (200, 20), (1000, 10), (5000, 5), (20000, 3))
+    for (n, expected_nfolds) in n_sample_to_nfolds
+        y = rand(n)
+        ttp = MLJBase.train_test_pairs(cv, 1:n, y)
+        @test length(ttp) == expected_nfolds
+        @test ttp == MLJBase.train_test_pairs(CV(nfolds=expected_nfolds), 1:n, y)
+    end
+    # Categorical target
+    cv = TMLEEpistasis.AdaptiveCV(StratifiedCV(nfolds=2))
     y = categorical(["a", "a", "a", "b", "b", "c", "c"])
     @test TMLEEpistasis.countuniques(y) == [3, 2, 2]
     ## neff < 30 => nfolds = 5*neff = 7
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
-    @test tmle.Q̅.resampling.nfolds == 7
+    ttp = MLJBase.train_test_pairs(cv, 1:7, y)
+    @test length(ttp) == 7
+    @test ttp == MLJBase.train_test_pairs(StratifiedCV(nfolds=7), 1:7, y)
+    
     ## neff = 2500 => 10
+    n = 50_500
     y = categorical(vcat(repeat([true], 50_000), repeat([false], 500)))
     @test TMLEEpistasis.countuniques(y) == [50_000, 500]
-    TMLEEpistasis.set_cv_folds!(tmle, y, learner=:Q̅, adaptive_cv=true, verbosity=0)
-    @test tmle.Q̅.resampling.nfolds == 10
-
-    # For G learner
-    tmle.G.model.resampling.nfolds == 2
-    T = DataFrame(
-        t₁=["AC", "AC", "AG", "GG", "GG"],
-        t₂=["CC", "CG", "CG", "GG", "GG"]
-        )
-
-    @test TMLEEpistasis.countuniques(T) == [1, 1, 1, 2]
-    TMLEEpistasis.set_cv_folds!(tmle, T, learner=:G, adaptive_cv=true, verbosity=0)
-    @test tmle.G.model.resampling.nfolds == 5
-    rm(queryfile)
+    ttp = MLJBase.train_test_pairs(cv, 1:n, y)
+    @test length(ttp)== 10
+    @test ttp == MLJBase.train_test_pairs(StratifiedCV(nfolds=10), 1:n, y)
 
 end
-
 
 end;
 

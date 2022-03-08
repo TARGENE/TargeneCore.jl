@@ -17,7 +17,7 @@ include("helper_fns.jl")
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, adaptive_cv=false)
     # Test binary target TMLE's Qstack
     tmle = tmles["binary"]
     @test tmle.Q̅.measures == [log_loss]
@@ -88,7 +88,7 @@ end
     tmle_config = joinpath("config", "tmle_config.toml")
     build_ate_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries)
+    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, adaptive_cv=true)
     expected_queries = [
         Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1"),
         Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2")
@@ -97,6 +97,15 @@ end
         test_queries(tmle.queries, expected_queries)
         # Checking Gstack
         @test tmle.G isa Stack
+        @test tmle.G.resampling isa TMLEEpistasis.AdaptiveCV
+        @test tmle.G.resampling.cv isa StratifiedCV
+
+        @test tmle.Q̅.resampling isa TMLEEpistasis.AdaptiveCV
+        if type =="binary"
+            @test tmle.Q̅.resampling.cv isa StratifiedCV
+        else
+            @test tmle.Q̅.resampling.cv isa CV
+        end
     end
     rm(queryfile)
 end
