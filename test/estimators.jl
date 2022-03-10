@@ -17,56 +17,55 @@ include("helper_fns.jl")
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, adaptive_cv=false)
+    tmle_bin = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=false)
     # Test binary target TMLE's Qstack
-    tmle = tmles["binary"]
-    @test tmle.Q̅.measures == [log_loss]
-    @test tmle.F isa LinearBinaryClassifier
+    @test tmle_bin.Q̅.measures == [log_loss]
+    @test tmle_bin.F isa LinearBinaryClassifier
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa LogisticClassifier
-    @test tmle.Q̅.metalearner.fit_intercept == false
+    @test tmle_bin.Q̅.metalearner isa LogisticClassifier
+    @test tmle_bin.Q̅.metalearner.fit_intercept == false
     ## Checking Qstack.resampling
-    @test tmle.Q̅.resampling isa StratifiedCV
-    @test tmle.Q̅.resampling.nfolds == 2
+    @test tmle_bin.Q̅.resampling isa StratifiedCV
+    @test tmle_bin.Q̅.resampling.nfolds == 2
     ## Checking Qstack EvoTree models
-    @test tmle.Q̅.EvoTreeClassifier_1.nrounds == 10
+    @test tmle_bin.Q̅.EvoTreeClassifier_1.nrounds == 10
     ## Checking Qstack  Interaction Logistic models
-    @test tmle.Q̅.InteractionLMClassifier_1 isa TMLEEpistasis.InteractionLMClassifier
+    @test tmle_bin.Q̅.InteractionLMClassifier_1 isa TMLEEpistasis.InteractionLMClassifier
     @test tmle.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
-    @test tmle.Q̅.HALClassifier_1.lambda == 10
-    @test tmle.Q̅.HALClassifier_1.smoothness_orders == 1
-    @test tmle.Q̅.HALClassifier_1.cv_select == false
-    @test tmle.Q̅.HALClassifier_1.num_knots == [10, 5]
+    @test tmle_bin.Q̅.HALClassifier_1.lambda == 10
+    @test tmle_bin.Q̅.HALClassifier_1.smoothness_orders == 1
+    @test tmle_bin.Q̅.HALClassifier_1.cv_select == false
+    @test tmle_bin.Q̅.HALClassifier_1.num_knots == [10, 5]
 
     # Test binary target TMLE Qstack
-    tmle = tmles["continuous"]
-    @test tmle.Q̅.measures == [rmse]
-    @test tmle.F isa MLJGLMInterface.LinearRegressor
+    tmle_cont = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Float32, adaptive_cv=false)
+    @test tmle_cont.Q̅.measures == [rmse]
+    @test tmle_cont.F isa MLJGLMInterface.LinearRegressor
     ## Checking Qstack.metalearner
-    @test tmle.Q̅.metalearner isa MLJLinearModels.LinearRegressor
-    @test tmle.Q̅.metalearner.fit_intercept == false
+    @test tmle_cont.Q̅.metalearner isa MLJLinearModels.LinearRegressor
+    @test tmle_cont.Q̅.metalearner.fit_intercept == false
 
     ## Checking Qstack.resampling
-    @test tmle.Q̅.resampling isa CV
-    @test tmle.Q̅.resampling.nfolds == 2
+    @test tmle_cont.Q̅.resampling isa CV
+    @test tmle_cont.Q̅.resampling.nfolds == 2
     ## Checking Qstack EvoTree models
-    @test tmle.Q̅.EvoTreeRegressor_1.nrounds == 10
-    @test tmle.Q̅.EvoTreeRegressor_2.nrounds == 20
+    @test tmle_cont.Q̅.EvoTreeRegressor_1.nrounds == 10
+    @test tmle_cont.Q̅.EvoTreeRegressor_2.nrounds == 20
     ## Checking Qstack Interaction Linear model
-    @test tmle.Q̅.InteractionLMRegressor_1.interaction_transformer.column_pattern == r"^RS_"
+    @test tmle_cont.Q̅.InteractionLMRegressor_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
-    @test tmle.Q̅.HALRegressor_1.lambda == 10
-    @test tmle.Q̅.HALRegressor_1.smoothness_orders == 1
-    @test tmle.Q̅.HALRegressor_1.cv_select == false
-    @test tmle.Q̅.HALRegressor_1.num_knots == [10, 5]
+    @test tmle_cont.Q̅.HALRegressor_1.lambda == 10
+    @test tmle_cont.Q̅.HALRegressor_1.smoothness_orders == 1
+    @test tmle_cont.Q̅.HALRegressor_1.cv_select == false
+    @test tmle_cont.Q̅.HALRegressor_1.num_knots == [10, 5]
     
     # Both TMLE have the same G Stack
     expected_queries = [
         Query(case=(RSID_10="AG", RSID_100="AG"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_1"),
         Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_2")
     ]
-    for (type, tmle) in tmles
+    for tmle in [tmle_bin, tmle_cont]
         @test tmle.G.model.measures == [log_loss]
         test_queries(tmle.queries, expected_queries)
         # Checking Gstack
@@ -88,12 +87,13 @@ end
     tmle_config = joinpath("config", "tmle_config.toml")
     build_ate_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, adaptive_cv=true)
+    tmle_bin = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=true)
+    tmle_cont = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Float64, adaptive_cv=true)
     expected_queries = [
         Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1"),
         Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2")
     ]
-    for (type, tmle) in tmles
+    for (type, tmle) in [("binary", tmle_bin), ("continuous", tmle_cont)]
         test_queries(tmle.queries, expected_queries)
         # Checking Gstack
         @test tmle.G isa Stack
