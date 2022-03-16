@@ -2,7 +2,7 @@
 ##### GENERIC FUNCTIONS                                         #####
 #####################################################################
 
-is_binary(y) = sort(unique(y)) == [0, 1]
+isbinary(y) = sort(unique(y)) == [0, 1]
 
 #####################################################################
 #####                     QUERY PARSING                          ####
@@ -35,18 +35,17 @@ jlsfilename(::TMLE.Query{<:NamedTuple{names,}}) where names =
 #####                 PHENOTYPE PARSING                          ####
 #####################################################################
 
-phenotypes_from_data(phenotype_datafile::String) = 
-    keys(only(CSV.File(phenotype_datafile, limit=1, drop=["eid"])))
+phenotypesnames(phenotype_listfile::Nothing) = nothing
 
-phenotypesnames(phenotype_datafile::String, phenotype_listfile::Nothing) =
-    phenotypes_from_data(phenotype_datafile::String)
-
-function phenotypesnames(phenotype_datafile::String, phenotype_listfile::String)
-    from_data = phenotypes_from_data(phenotype_datafile)
-    from_list = CSV.File(phenotype_listfile, header=[:PHENOTYPES], types=Symbol).PHENOTYPES
-    return filter(∈(from_list), from_data)
+function phenotypesnames(phenotype_listfile::String)
+    phenotypeslist = open(readlines, phenotype_listfile)
+    return vcat(["FID", "SAMPLE_ID"], phenotypeslist)
 end
 
+function load_phenotypes(phenotypes_datafile, phenotypes_listfile)
+    columns = phenotypesnames(phenotypes_listfile)
+    return CSV.File(phenotypes_datafile, select=columns) |> DataFrame
+end
 
 #####################################################################
 #####                 CV ADAPTIVE FOLDS                          ####
@@ -103,20 +102,15 @@ end
 #####                         SAVING                             ####
 #####################################################################
 
-function writeresults(jld_filename, mach::Machine, phenotypename, sample_ids; mach_filename=nothing)
-    # Some phenotypes names contain slashes that conflict with JLD2
-    phenotypename = replace(String(phenotypename), "/" => "_&_")
+function writeresults(outfilename, mach, sample_ids; save_full=false)
     # Save essential information
-    jldopen(jld_filename, "a+") do io
-        group = JLD2.Group(io, phenotypename)
-        group["sample_ids"] = sample_ids
-        group["queryreports"] = TMLE.queryreports(mach)
-    end
-    # Optionnally save the machine
-    if mach_filename !== nothing
-        serializable!(mach)
-        open(mach_filename, "a+") do io
-            serialize(io, phenotypename => mach)
+    jldopen(outfilename, "a+") do io
+        io["SAMPLE_IDS"] = sample_ids
+        if save_full
+            serializable!(mach)
+            io["MACHINE"] = mach
+        else
+            io["QUERYREPORTS"] = queryreports(mach)
         end
     end
 end

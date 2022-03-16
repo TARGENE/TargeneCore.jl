@@ -17,7 +17,7 @@ include("helper_fns.jl")
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmle_bin = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=false)
+    tmle_bin = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=false)
     # Test binary target TMLE's Qstack
     @test tmle_bin.Q̅.measures == [log_loss]
     @test tmle_bin.F isa LinearBinaryClassifier
@@ -31,7 +31,7 @@ include("helper_fns.jl")
     @test tmle_bin.Q̅.EvoTreeClassifier_1.nrounds == 10
     ## Checking Qstack  Interaction Logistic models
     @test tmle_bin.Q̅.InteractionLMClassifier_1 isa TMLEEpistasis.InteractionLMClassifier
-    @test tmle.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
+    @test tmle_bin.Q̅.InteractionLMClassifier_1.interaction_transformer.column_pattern == r"^RS_"
     ## Checking Qstack HAL model
     @test tmle_bin.Q̅.HALClassifier_1.lambda == 10
     @test tmle_bin.Q̅.HALClassifier_1.smoothness_orders == 1
@@ -39,7 +39,7 @@ include("helper_fns.jl")
     @test tmle_bin.Q̅.HALClassifier_1.num_knots == [10, 5]
 
     # Test binary target TMLE Qstack
-    tmle_cont = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Float32, adaptive_cv=false)
+    tmle_cont = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Real, adaptive_cv=false)
     @test tmle_cont.Q̅.measures == [rmse]
     @test tmle_cont.F isa MLJGLMInterface.LinearRegressor
     ## Checking Qstack.metalearner
@@ -87,8 +87,8 @@ end
     tmle_config = joinpath("config", "tmle_config.toml")
     build_ate_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmle_bin = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=true)
-    tmle_cont = TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries, Float64, adaptive_cv=true)
+    tmle_bin = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=true)
+    tmle_cont = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Real, adaptive_cv=true)
     expected_queries = [
         Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1"),
         Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2")

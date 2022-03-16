@@ -29,6 +29,10 @@ function parse_commandline()
             help = "A file (.toml format) describing the tmle estimator to use, see config/sample_estimator.toml"*
                    " for a basic example."
             required = true
+        "--target-type", "-t"
+            help = "The type of the target variable: Real or Bool"
+            arg_type = String
+            default = "Bool"
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
                    "to consider for the analysis."

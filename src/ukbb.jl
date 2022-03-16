@@ -79,98 +79,99 @@ function UKBBGenotypes(queryfile, queries)
 end
 
 
-function preprocess(genotypes, confounders, phenotypes;
-                    verbosity=1)
-    
+function sample_ids_per_phenotype(data, phenotypes_columns)
+    sample_ids = Dict()
+    for colname in  phenotypes_columns
+        sample_ids[colname] =
+            dropmissing(data[!, ["SAMPLE_ID", colname]]).SAMPLE_ID
+        
+    end
+    return sample_ids
+end
+
+convert_target(x, ::Type{Bool}) = categorical(x)
+convert_target(x, ::Type{Real}) = x
+
+function preprocess(genotypes, confounders, phenotypes, target_type)
     # Make sure data SAMPLE_ID types coincide
     genotypes.SAMPLE_ID = string.(genotypes.SAMPLE_ID)
     confounders.SAMPLE_ID = string.(confounders.SAMPLE_ID)
-    phenotypes.eid = string.(phenotypes.eid)
+    phenotypes.SAMPLE_ID = string.(phenotypes.SAMPLE_ID)
     
-    # Join all elements together
+    # columns names 
+    col_filter = ("FID", "SAMPLE_ID")
+    genotypes_columns = filter(x -> x ∉ col_filter, names(genotypes))
+    confounders_columns = filter(x -> x ∉ col_filter, names(confounders))
+    phenotypes_columns = filter(x -> x ∉ col_filter, names(phenotypes))
+
+    # Join all elements together by SAMPLE_ID
     data = innerjoin(
             innerjoin(genotypes, confounders, on=:SAMPLE_ID),
             phenotypes,
-            on = :SAMPLE_ID =>:eid
+            on=:SAMPLE_ID
             )
 
-    # Check no data has been lost at this stage
-    any(nrows(array) != nrows(data) for array in (genotypes, confounders, phenotypes)) &&
-        @warn """The number of matching samples is different in data sources: \n 
-            - Genotypes: $(nrows(genotypes)) \n
-            - Confounders: $(nrows(confounders)) \n
-            - Phenotypes: $(nrows(phenotypes)) \n
-            - After Join: $(nrows(data)) \n
-        """
+    # Drop missing values from genotypes 
+    dropmissing!(data, genotypes_columns)
 
-    # Filter any line where an element is missing
-    filtered_data = dropmissing(data)
-    sample_ids = filtered_data[!, :SAMPLE_ID]
-    verbosity >= 1 && @info "Samples size after missing removed: $(size(sample_ids, 1))"
+    # Retrive sample_ids per phenotype
+    sample_ids = sample_ids_per_phenotype(data, phenotypes_columns)
 
     # Retrieve T and convert to categorical data
-    T = filtered_data[!, filter(!=("SAMPLE_ID"), DataFrames.names(genotypes))]
-    for name in DataFrames.names(T)
-        T[!, name] = categorical(T[:, name])
+    T = DataFrame()
+    for name in genotypes_columns
+        T[:, name] = categorical(data[!, name])
     end
 
     # Retrieve W
-    W = filtered_data[!, filter(!=("SAMPLE_ID"), names(confounders))]
+    W = data[!, confounders_columns]
 
-    # Retrieve y which is assumed to be the first column after SAMPLE_ID
-    # and convert to categorical array if needed
-    y = filtered_data[!, filter(!=("eid"), names(phenotypes))][!, 1]
-    
-    # Only support binary and continuous traits for now
-    is_binary(y) ? y = categorical(convert(Vector{Bool}, y)) : nothing
+    # Retrieve Y and convert to categorical if needed
+    Y = DataFrame()
+    for name in phenotypes_columns
+        Y[:, name] = convert_target(data[!, name], target_type)
+    end
 
-    return T, W, y, sample_ids
+    return T, W, Y, sample_ids
 end
 
 
 function UKBBVariantRun(parsed_args)
     v = parsed_args["verbosity"]
+    target_type = parsed_args["target-type"] == "Real" ? Real : Bool
 
     # Parse queries
     queries = parse_queries(parsed_args["queries"])
 
-    # Build estimators
-    tmle_config = TOML.parsefile(parsed_args["estimator"])
-    tmles = estimators_from_toml(tmle_config, queries, adaptive_cv=parsed_args["adaptive-cv"])
+    # Output filename
+    outfilename = hdf5filename(first(queries))
 
-    v >= 1 && @info "Loading Genotypes and Confounders."
+    v >= 1 && @info "Loading data."
     # Build Genotypes
     genotypes = UKBBGenotypes(parsed_args["queries"], queries)
 
     # Read Confounders
     confounders = CSV.File(parsed_args["confounders"]) |> DataFrame
 
-    # Generate phenotypes range
-    phenotypenames_ = phenotypesnames(parsed_args["phenotypes"], parsed_args["phenotypes-list"])
+    # Load phenotypes
+    phenotypes = load_phenotypes(parsed_args["phenotypes"], parsed_args["phenotypes-list"])
 
-    jld_filename = hdf5filename(first(queries))
-    mach_filename = parsed_args["save-full"] === false ? nothing : jlsfilename(first(queries))
+    # Preprocessing
+    v >= 1 && @info "Preprocessing data."
+    genotypes, confounders, phenotypes, sample_ids = 
+        preprocess(genotypes, confounders, phenotypes, target_type)
 
-    for phenotypename in phenotypenames_
-        v >= 1 && @info "Running procedure with phenotype: $phenotypename."
-        # Read Target
-        phenotype = CSV.File(parsed_args["phenotypes"], select=[:eid, phenotypename]) |> DataFrame
-        # Preprocess all data together
-        T, W, y, sample_ids = preprocess(
-            genotypes, 
-            confounders, 
-            phenotype;
-            verbosity=v
-        )
-        # Get TMLE
-        tmle = is_binary(y) ? tmles["binary"] : tmles["continuous"]
-        # Run TMLE 
-        mach = machine(tmle, T, W, y)
-        fit!(mach; verbosity=v-1)
+    # Build estimator
+    tmle_config = TOML.parsefile(parsed_args["estimator"])
+    tmle = estimator_from_toml(tmle_config, queries, target_type, adaptive_cv=parsed_args["adaptive-cv"])
 
-        # Update the results
-        writeresults(jld_filename, mach, phenotypename, sample_ids; mach_filename=mach_filename)
-    end
+    # Run TMLE 
+    v >= 1 && @info "TMLE Estimation."
+    mach = machine(tmle, genotypes, confounders, phenotypes)
+    fit!(mach; verbosity=v-1)
+
+    # Save the results
+    writeresults(outfilename, mach, sample_ids; save_full=parsed_args["save-full"])
 
     v >= 1 && @info "Done."
 end

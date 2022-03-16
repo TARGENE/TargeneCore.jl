@@ -40,7 +40,7 @@ function stack_from_config(config::Dict, metalearner; adaptive_cv=true)
 end
 
 
-function estimators_from_toml(config::Dict, queries, outcome_type; adaptive_cv=true)
+function estimator_from_toml(config::Dict, queries, target_type; adaptive_cv=true)
     # Parse estimator for the propensity score
     metalearner = LogisticClassifier(fit_intercept=false)
     if length(first(queries).case) > 1
@@ -50,14 +50,14 @@ function estimators_from_toml(config::Dict, queries, outcome_type; adaptive_cv=t
     end
     
     # Parse estimator for the outcome regression
-    if outcome_type <: AbstractFloat
+    if target_type == Real
         metalearner =  LinearRegressor(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcont"], metalearner, adaptive_cv=adaptive_cv)
-    elseif outcome_type <: Bool
+    elseif target_type == Bool
         metalearner = LogisticClassifier(fit_intercept=false)
         Q̅ = stack_from_config(config["Qcat"], metalearner, adaptive_cv=adaptive_cv)
     else
-        throw(ArgumentError("The type of the outcomes: $outcome_type, should be either a Float or a Bool"))
+        throw(ArgumentError("The type of the outcomes: $target_type, should be either a Float or a Bool"))
     end
 
     return TMLEstimator(Q̅, G, queries...)

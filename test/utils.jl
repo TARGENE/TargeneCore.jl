@@ -24,7 +24,6 @@ include("helper_fns.jl")
     rm(queryfile)
 end
 
-
 @testset "Test out filenames" begin
     query = Query(case=(RSID_10="AG", RSID_100="AG"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_1")
     @test TMLEEpistasis.hdf5filename(query) == "RSID_10_RSID_100.hdf5"
@@ -33,26 +32,29 @@ end
     query = Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1")
     @test TMLEEpistasis.hdf5filename(query) == "RSID_10.hdf5"
     @test TMLEEpistasis.jlsfilename(query) == "RSID_10.jls"
-
 end
 
-
 @testset "Test phenotypes parsing" begin
-    allnames = TMLEEpistasis.phenotypes_from_data(phenotypefile)
-    @test allnames == [:categorical_phenotype, Symbol("continuous/phenotype")]
-
     # Fallback when no list is specified
-    @test allnames == TMLEEpistasis.phenotypesnames(phenotypefile, nothing)
-    @test [Symbol("continuous/phenotype")] == TMLEEpistasis.phenotypesnames(phenotypefile, phenotypelist_file_1)
-    @test allnames == TMLEEpistasis.phenotypesnames(phenotypefile, phenotypelist_file_2)
+    @test nothing === TMLEEpistasis.phenotypesnames(nothing)
+    # Test with a list of phenotypes
+    @test ["FID", "SAMPLE_ID", "continuous_phenotype"] == TMLEEpistasis.phenotypesnames(phenotypelist_file_1)
+    @test ["FID", "SAMPLE_ID", "categorical_phenotype"] == TMLEEpistasis.phenotypesnames(phenotypelist_file_2)
 
+    # phenotypes loading
+    phenotypes = TMLEEpistasis.load_phenotypes(phenotypefile, nothing)
+    @test size(phenotypes) == (490, 4)
+    @test names(phenotypes) == ["FID", "SAMPLE_ID", "categorical_phenotype", "continuous_phenotype"]
+    phenotypes = TMLEEpistasis.load_phenotypes(phenotypefile, phenotypelist_file_1)
+    @test size(phenotypes) == (490, 3)
+    @test names(phenotypes) == ["FID", "SAMPLE_ID", "continuous_phenotype"]
 end
 
 @testset "Test serializable!" begin
     tmle_config = joinpath("config", "tmle_config.toml")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
-    tmles =  TMLEEpistasis.estimators_from_toml(TOML.parsefile(tmle_config), queries; adaptive_cv=false)
+    tmle =  TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Bool; adaptive_cv=false)
     n = 100
     y = categorical(rand(Bool, n))
     T = (
@@ -60,10 +62,11 @@ end
         RSID_100=categorical(rand(["AA","AG", "GG"], n))
         )
     W = (w₁ = rand(n),)
-    mach = machine(tmles["binary"], T, W, y)
+    mach = machine(tmle, T, W, y)
     fit!(mach, verbosity=0)
     TMLEEpistasis.serializable!(mach)
     test_data_has_been_removed(mach)
+    rm(queryfile)
 end
 
 
