@@ -44,10 +44,6 @@ end
     @test size(phenotypes) == (490, 3)
     @test names(phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
 
-    phenotypes = TMLEEpistasis.load_phenotypes(binary_phenotypefile, phenotypelist_file)
-    @test size(phenotypes) == (490, 3)
-    @test names(phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
-
     phenotypes = TMLEEpistasis.load_phenotypes(continuous_phenotypefile, phenotypelist_file)
     @test size(phenotypes) == (490, 2)
     @test names(phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1"]
