@@ -99,10 +99,9 @@ function preprocess(genotypes, confounders, phenotypes, target_type)
     phenotypes.SAMPLE_ID = string.(phenotypes.SAMPLE_ID)
     
     # columns names 
-    col_filter = ("FID", "SAMPLE_ID")
-    genotypes_columns = filter(x -> x ∉ col_filter, names(genotypes))
-    confounders_columns = filter(x -> x ∉ col_filter, names(confounders))
-    phenotypes_columns = filter(x -> x ∉ col_filter, names(phenotypes))
+    genotypes_columns = filter(!=("SAMPLE_ID"), names(genotypes))
+    confounders_columns = filter(!=("SAMPLE_ID"), names(confounders))
+    phenotypes_columns = filter(!=("SAMPLE_ID"), names(phenotypes))
 
     # Join all elements together by SAMPLE_ID
     data = innerjoin(
@@ -148,7 +147,7 @@ function UKBBVariantRun(parsed_args)
 
     v >= 1 && @info "Loading data."
     # Build Genotypes
-    genotypes = UKBBGenotypes(parsed_args["queries"], queries)
+    genotypes = TMLEEpistasis.UKBBGenotypes(parsed_args["queries"], queries)
 
     # Read Confounders
     confounders = CSV.File(parsed_args["confounders"]) |> DataFrame

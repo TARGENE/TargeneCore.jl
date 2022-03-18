@@ -14,8 +14,7 @@ using MLJBase
 
 include("helper_fns.jl")
 
-function test_base_serialization(queryreports)
-    n_expected = 466
+function test_base_serialization(queryreports, n_expected)
     queryreport = queryreports[1]
     @test queryreport isa TMLE.Report
     test_queries((queryreport.query,),
@@ -70,7 +69,6 @@ end
     @test genotypes[1]  === missing
     @test genotypes[2] == "TT"
     @test genotypes[3] == "AA"
-
 end
 
 @testset "Test UKBBGenotypes function" begin
@@ -116,33 +114,44 @@ end
         )[11:end, :]
 
     # Continuous phenotypes
-    for (phen, target_type) in (("continuous_phenotype", Real), ("categorical_phenotype", Bool))
-        phenotypes = CSV.File(phenotypefile, select=["SAMPLE_ID", phen]) |> DataFrame
-        T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, target_type)
-        @test T == DataFrame(
+    phenotypes = CSV.File(continuous_phenotypefile) |> DataFrame
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real)
+    @test T == DataFrame(
                 RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
                 RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
         )
-        @test typeof(T.RSID_2) == CategoricalArray{
-            Int64, 
-            1, 
-            UInt32, 
-            Int64, 
-            CategoricalValue{Int64, UInt32}, Union{}}
-        @test W == confounders[12:end-10, ["PC1", "PC2"]]
-        @test length(sample_ids[phen]) == 478
-        if phen == "continuous_phenotype"
-            @test y[1:end-1, :] == DataFrame(phen => phenotypes[12:489, phen])
-            y[end, 1] === missing
-            # sample 490 is missing
-            @test sample_ids[phen][end] == "sample_489"
-        else
-            @test y[1:end-3, :] == DataFrame(phen => categorical(phenotypes[12:487, phen]))
-            y[end-2, 1] === missing
-            # sample 489 is missing
-            @test sample_ids[phen][end-1] == "sample_488"
-        end
-    end
+    @test typeof(T.RSID_2) == CategoricalArray{
+        Int64, 
+        1, 
+        UInt32, 
+        Int64, 
+        CategoricalValue{Int64, UInt32}, Union{}}
+    @test W == confounders[12:end-10, ["PC1", "PC2"]]
+    @test length(sample_ids["CONTINUOUS_1"]) == 478
+    @test length(sample_ids["CONTINUOUS_2"]) == 477
+    @test all(x === missing for x in y[478:479, "CONTINUOUS_2"])
+    @test sample_ids["CONTINUOUS_2"][end] == "sample_488"  
+    @test sample_ids["CONTINUOUS_1"][end-1] == "sample_488"  
+
+    # Binary phenotypes
+    phenotypes = CSV.File(binary_phenotypefile) |> DataFrame
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool)
+    @test T == DataFrame(
+                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
+                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
+        )
+    @test typeof(T.RSID_2) == CategoricalArray{
+        Int64, 
+        1, 
+        UInt32, 
+        Int64, 
+        CategoricalValue{Int64, UInt32}, Union{}}
+    @test W == confounders[12:end-10, ["PC1", "PC2"]]
+    @test length(sample_ids["BINARY_1"]) == 479
+    @test length(sample_ids["BINARY_2"]) == 477
+    @test all(x === missing for x in y[478:479, "BINARY_2"])
+    @test sample_ids["BINARY_1"][end] == "sample_490"  
+    @test sample_ids["BINARY_2"][end-1] == "sample_487"  
 end
 
 
@@ -151,11 +160,11 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
-        "phenotypes" => phenotypefile,
+        "phenotypes" => continuous_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "phenotypes-list" => phenotypelist_file_1,
+        "phenotypes-list" => phenotypelist_file,
         "verbosity" => 0,
         "adaptive-cv" => false,
         "save-full" => false,
@@ -167,8 +176,8 @@ end
     outfilename = "RSID_10_RSID_100.hdf5"
     file = jldopen(outfilename)
     n_expected = 466
-    @test size(file["SAMPLE_IDS"]["continuous_phenotype"], 1) == n_expected
-    test_base_serialization(file["QUERYREPORTS"])
+    @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
+    test_base_serialization(file["QUERYREPORTS"], n_expected)
     close(file)
 
     # Clean
@@ -181,11 +190,11 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
-        "phenotypes" => phenotypefile,
+        "phenotypes" => binary_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
-        "phenotypes-list" => phenotypelist_file_2,
+        "phenotypes-list" => nothing,
         "verbosity" => 0,
         "adaptive-cv" => true,
         "save-full" => true,
@@ -197,16 +206,18 @@ end
     # Essential results
     outfilename = "RSID_10_RSID_100.hdf5"
     file = jldopen(outfilename)
-    n_expected = 466
-    @test size(file["SAMPLE_IDS"]["categorical_phenotype"], 1) == n_expected
+
+    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 467
+    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 465
     mach = file["MACHINE"]
-    test_base_serialization(queryreports(mach))
-
+    queryreports_ = queryreports(mach)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 467)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 465)
     @test length(report(mach).G.cv_report) == 3
-    @test length(report(mach).Q̅.cv_report) == 4
-
+    @test length(report(mach).Q̅[1].cv_report) == 4
+    @test length(report(mach).Q̅[2].cv_report) == 4
     # Adaptive CV 
-    @test size(report(mach).Q̅.cv_report.HALClassifier_1.per_fold[1], 1) == 20
+    @test size(report(mach).Q̅[1].cv_report.HALClassifier_1.per_fold[1], 1) == 20
 
     # Clean
     rm(outfilename)
