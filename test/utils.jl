@@ -38,16 +38,15 @@ end
     # Fallback when no list is specified
     @test nothing === TMLEEpistasis.phenotypesnames(nothing)
     # Test with a list of phenotypes
-    @test ["FID", "SAMPLE_ID", "continuous_phenotype"] == TMLEEpistasis.phenotypesnames(phenotypelist_file_1)
-    @test ["FID", "SAMPLE_ID", "categorical_phenotype"] == TMLEEpistasis.phenotypesnames(phenotypelist_file_2)
-
+    @test ["SAMPLE_ID", "CONTINUOUS_1"] == TMLEEpistasis.phenotypesnames(phenotypelist_file)
     # phenotypes loading
-    phenotypes = TMLEEpistasis.load_phenotypes(phenotypefile, nothing)
-    @test size(phenotypes) == (490, 4)
-    @test names(phenotypes) == ["FID", "SAMPLE_ID", "categorical_phenotype", "continuous_phenotype"]
-    phenotypes = TMLEEpistasis.load_phenotypes(phenotypefile, phenotypelist_file_1)
+    phenotypes = TMLEEpistasis.load_phenotypes(binary_phenotypefile, nothing)
     @test size(phenotypes) == (490, 3)
-    @test names(phenotypes) == ["FID", "SAMPLE_ID", "continuous_phenotype"]
+    @test names(phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
+
+    phenotypes = TMLEEpistasis.load_phenotypes(continuous_phenotypefile, phenotypelist_file)
+    @test size(phenotypes) == (490, 2)
+    @test names(phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1"]
 end
 
 @testset "Test serializable!" begin

@@ -2,9 +2,10 @@ using BGEN
 
 confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")
-phenotypefile = joinpath("data", "phenotypes.csv")
-phenotypelist_file_1 = joinpath("data", "phen_list_1.csv")
-phenotypelist_file_2 = joinpath("data", "phen_list_2.csv")
+continuous_phenotypefile = joinpath("data", "continuous_phenotypes.csv")
+binary_phenotypefile = joinpath("data", "binary_phenotypes.csv")
+phenotypelist_file = joinpath("data", "phen_list.csv")
+
 
 function build_query_file(;path=queryfile, threshold=0.9, het="AG")
     queries = Dict(

@@ -39,7 +39,7 @@ phenotypesnames(phenotype_listfile::Nothing) = nothing
 
 function phenotypesnames(phenotype_listfile::String)
     phenotypeslist = open(readlines, phenotype_listfile)
-    return vcat(["FID", "SAMPLE_ID"], phenotypeslist)
+    return vcat(["SAMPLE_ID"], phenotypeslist)
 end
 
 function load_phenotypes(phenotypes_datafile, phenotypes_listfile)
