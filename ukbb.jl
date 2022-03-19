@@ -29,6 +29,9 @@ function parse_commandline()
             help = "A file (.toml format) describing the tmle estimator to use, see config/sample_estimator.toml"*
                    " for a basic example."
             required = true
+        "out"
+            help = "Path where the ouput will be saved"
+            required = true
         "--target-type", "-t"
             help = "The type of the target variable: Real or Bool"
             arg_type = String

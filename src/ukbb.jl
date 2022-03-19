@@ -142,9 +142,6 @@ function UKBBVariantRun(parsed_args)
     # Parse queries
     queries = parse_queries(parsed_args["queries"])
 
-    # Output filename
-    outfilename = hdf5filename(first(queries))
-
     v >= 1 && @info "Loading data."
     # Build Genotypes
     genotypes = TMLEEpistasis.UKBBGenotypes(parsed_args["queries"], queries)
@@ -170,7 +167,7 @@ function UKBBVariantRun(parsed_args)
     fit!(mach; verbosity=v-1)
 
     # Save the results
-    writeresults(outfilename, mach, sample_ids; save_full=parsed_args["save-full"])
+    writeresults(parsed_args["out"], mach, sample_ids; save_full=parsed_args["save-full"])
 
     v >= 1 && @info "Done."
 end

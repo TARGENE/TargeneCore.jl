@@ -164,6 +164,7 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
+        "out" => "RSID_10_RSID_100.hdf5",
         "phenotypes-list" => phenotypelist_file,
         "verbosity" => 0,
         "adaptive-cv" => false,
@@ -173,15 +174,14 @@ end
 
     UKBBVariantRun(parsed_args)
     # Essential results
-    outfilename = "RSID_10_RSID_100.hdf5"
-    file = jldopen(outfilename)
+    file = jldopen(parsed_args["out"])
     n_expected = 466
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
     test_base_serialization(file["QUERYREPORTS"], n_expected)
     close(file)
 
     # Clean
-    rm(outfilename)
+    rm(parsed_args["out"])
     rm(parsed_args["queries"])
 end
 
@@ -194,6 +194,7 @@ end
         "confounders" => confoundersfile,
         "queries" => queryfile,
         "estimator" => estimatorfile,
+        "out" => "RSID_10_RSID_100.hdf5",
         "phenotypes-list" => nothing,
         "verbosity" => 0,
         "adaptive-cv" => true,
@@ -204,8 +205,7 @@ end
     UKBBVariantRun(parsed_args)
     
     # Essential results
-    outfilename = "RSID_10_RSID_100.hdf5"
-    file = jldopen(outfilename)
+    file = jldopen(parsed_args["out"])
 
     @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 467
     @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 465
@@ -220,7 +220,7 @@ end
     @test size(report(mach).Q̅[1].cv_report.HALClassifier_1.per_fold[1], 1) == 20
 
     # Clean
-    rm(outfilename)
+    rm(parsed_args["out"])
     rm(parsed_args["queries"])
 end
 
