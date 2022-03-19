@@ -166,7 +166,7 @@ function UKBBVariantRun(parsed_args)
 
     # Run TMLE 
     v >= 1 && @info "TMLE Estimation."
-    mach = machine(tmle, genotypes, confounders, phenotypes)
+    mach = machine(tmle, genotypes, confounders, phenotypes, cache=false)
     fit!(mach; verbosity=v-1)
 
     # Save the results
