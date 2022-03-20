@@ -6,7 +6,7 @@ ENV TZ=Europe/Amsterdam
 
 ENV JULIA_DEPOT_PATH=/opt
 
-RUN apt-get update && apt-get install -y wget
+RUN apt-get update && apt-get install -y wget unzip
 
 # Install gcta
 
