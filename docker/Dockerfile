@@ -10,9 +10,9 @@ RUN apt-get update && apt-get install -y wget
 
 # Install gcta
 
-RUN curl -o gcta64dir.zip https://yanglab.westlake.edu.cn/software/gcta/bin/gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
+RUN wget https://yanglab.westlake.edu.cn/software/gcta/bin/gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
 
-RUN unzip gcta64dir.zip
+RUN unzip gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
 
 RUN mv gcta_v1.94.0Beta_linux_kernel_3_x86_64/gcta_v1.94.0Beta_linux_kernel_3_x86_64_static /usr/local/bin/gcta64
 
