@@ -9,68 +9,10 @@ using TMLE
 using CategoricalArrays
 using MLJLinearModels
 using MLJBase
-using Random
 
 
-function clean_results_files(prefix)
-    rm(string(prefix, "_batch_1_Real.hdf5"))
-    rm(string(prefix, "_batch_1_Bool.hdf5"))
-end
+include("helper_fns.jl")
 
-
-function build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
-    rng = Xoshiro(0)
-    n = size(grm_ids, 1)
-    T = (t₁=categorical(rand(rng, [0, 1], n)),)
-    W = (w₁=rand(rng, n), w₂=rand(rng, n))
-    height = rand(rng, n)
-    bmi = 2convert(Vector{Float64}, T.t₁) + 0.2rand(rng, n)
-    cancer = categorical(rand(rng, [0,1], n))
-    query_1 = Query(case=(t₁=1,), control=(t₁=0,))
-    query_2 = Query(case=(t₁=0,), control=(t₁=1,))
-
-    # Continuous single batch
-    tmle_reg = TMLEstimator(
-        LinearRegressor(), 
-        LogisticClassifier(),
-        query_1,
-        query_2)
-    mach_reg = machine(tmle_reg, T, W, (height=height, bmi=bmi), cache=false)
-    fit!(mach_reg, verbosity=0)
-    cont_path = string(prefix, "_batch_1_Real.hdf5")
-    jldopen(cont_path, "w") do io
-        io["SAMPLE_IDS"] = Dict(
-            "height" => string.(grm_ids.SAMPLE_ID),
-            "bmi" => string.(grm_ids.SAMPLE_ID)
-        )
-        if mode == "MACHINE"
-            io["MACHINE"] = mach_reg
-        else
-            io["QUERYREPORTS"] = queryreports(mach_reg)
-        end
-    end
-
-    # Binary single batch
-    tmle_bin = TMLEstimator(
-        LogisticClassifier(), 
-        LogisticClassifier(),
-        query_1,
-        query_2)
-    mach_bin = machine(tmle_bin, T, W, (cancer=cancer,), cache=false)
-    fit!(mach_bin, verbosity=0)
-    bin_path = string(prefix, "_batch_1_Bool.hdf5")
-    jldopen(bin_path, "w") do io
-        io["SAMPLE_IDS"] = Dict(
-            "cancer" => string.(grm_ids.SAMPLE_ID)
-        )
-        if mode == "MACHINE"
-            io["MACHINE"] = mach_bin
-        else
-            io["QUERYREPORTS"] = queryreports(mach_bin)
-        end
-    end
-
-end
 
 function basic_variance_implementation(matrix_distance, influence_curve, n_obs)
     variance = 0.f0
@@ -120,7 +62,7 @@ end
         "rs12_rs54_batch_1_Real.hdf5" => 3,
         "rs12_rs54_batch_1_Real.hdf5" => 4
     ]
-    clean_results_files(prefix)
+    clean_hdf5estimates_files(prefix)
 end
 
 @testset "Test bit_distance" begin
@@ -261,7 +203,7 @@ end
     close(results_file)
 
     rm(outfilename)
-    clean_results_files(prefix)
+    clean_hdf5estimates_files(prefix)
 end
 
 end

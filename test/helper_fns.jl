@@ -1,4 +1,9 @@
 using BGEN
+using Random
+using MLJBase
+using MLJLinearModels
+using TMLE
+using JLD2
 
 confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")
@@ -26,6 +31,7 @@ function build_query_file(;path=queryfile, threshold=0.9, het="AG")
     end
 end
 
+
 function build_ate_query_file(;path=queryfile, threshold=0.9)
     queries = Dict(
         "threshold" => threshold,
@@ -38,6 +44,67 @@ function build_ate_query_file(;path=queryfile, threshold=0.9)
     end
 end
 
+
+function clean_hdf5estimates_files(prefix)
+    rm(string(prefix, "_batch_1_Real.hdf5"))
+    rm(string(prefix, "_batch_1_Bool.hdf5"))
+end
+
+
+function build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
+    rng = Xoshiro(0)
+    n = size(grm_ids, 1)
+    T = (t₁=categorical(rand(rng, [0, 1], n)),)
+    W = (w₁=rand(rng, n), w₂=rand(rng, n))
+    height = rand(rng, n)
+    bmi = 2convert(Vector{Float64}, T.t₁) + 0.2rand(rng, n)
+    cancer = categorical(rand(rng, [0,1], n))
+    query_1 = Query(case=(t₁=1,), control=(t₁=0,), name="QUERY_1")
+    query_2 = Query(case=(t₁=0,), control=(t₁=1,), name="QUERY_2")
+
+    # Continuous single batch
+    tmle_reg = TMLEstimator(
+        LinearRegressor(), 
+        LogisticClassifier(),
+        query_1,
+        query_2)
+    mach_reg = machine(tmle_reg, T, W, (height=height, bmi=bmi), cache=false)
+    fit!(mach_reg, verbosity=0)
+    cont_path = string(prefix, "_batch_1_Real.hdf5")
+    jldopen(cont_path, "w") do io
+        io["SAMPLE_IDS"] = Dict(
+            "height" => string.(grm_ids.SAMPLE_ID),
+            "bmi" => string.(grm_ids.SAMPLE_ID)
+        )
+        if mode == "MACHINE"
+            io["MACHINE"] = mach_reg
+        else
+            io["QUERYREPORTS"] = queryreports(mach_reg)
+        end
+    end
+
+    # Binary single batch
+    tmle_bin = TMLEstimator(
+        LogisticClassifier(), 
+        LogisticClassifier(),
+        query_1,
+        query_2)
+    mach_bin = machine(tmle_bin, T, W, (cancer=cancer,), cache=false)
+    fit!(mach_bin, verbosity=0)
+    bin_path = string(prefix, "_batch_1_Bool.hdf5")
+    jldopen(bin_path, "w") do io
+        io["SAMPLE_IDS"] = Dict(
+            "cancer" => string.(grm_ids.SAMPLE_ID)
+        )
+        if mode == "MACHINE"
+            io["MACHINE"] = mach_bin
+        else
+            io["QUERYREPORTS"] = queryreports(mach_bin)
+        end
+    end
+end
+
+
 function test_queries(queries, expected_queries)
     for (i, query) in enumerate(queries)
         @test query.case == expected_queries[i].case
@@ -45,6 +112,7 @@ function test_queries(queries, expected_queries)
         @test query.name == expected_queries[i].name
     end
 end
+
 
 function _test_wiped_data(mach)
     @test mach.data == ()

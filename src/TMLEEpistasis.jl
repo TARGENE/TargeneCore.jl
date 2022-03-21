@@ -15,6 +15,7 @@ using Serialization
 using JLD2
 using SnpArrays
 using Mmap
+using HypothesisTests
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 
@@ -32,6 +33,7 @@ include("confounders.jl")
 include("phenotypes.jl")
 include("grm.jl")
 include("sieve_plateau.jl")
+include("summary.jl")
 
 ###############################################################################
 # EXPORTS
@@ -41,7 +43,7 @@ export generate_queries
 export filter_asb
 export filter_chromosome, merge_beds, adapt_flashpca
 export prepare_phenotypes, tmle_phenotypes_batches
-export grm_from_gcta
 export sieve_variance_plateau
+export build_summary
 
 end
