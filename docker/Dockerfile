@@ -47,14 +47,3 @@ COPY . /TMLEEpistasis.jl
 WORKDIR /TMLEEpistasis.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-
-# Build the sysimage for faster startup
-WORKDIR /TMLEEpistasis.jl/test
-
-RUN julia -q --project=.. ../build_sysimage.jl
-
-WORKDIR /TMLEEpistasis.jl
-
-RUN alias julia='julia -Jtest/TMLEEpistasisSysimage.so'
-
-RUN julia -q --project -e"using TMLEEpistasis"
