@@ -42,6 +42,7 @@ end
     summary = CSV.read(summaryfilename, DataFrame)
 
     @test summary.PHENOTYPE == ["cancer", "cancer", "height", "height", "bmi", "bmi"]
+    @test summary.PHENOTYPE_TYPE == ["BINARY", "BINARY", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS"]
     @test summary.QUERYNAME == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
     @test eltype(summary.INITIAL_ESTIMATE) == Float64
     @test eltype(summary.ESTIMATE) == Float64

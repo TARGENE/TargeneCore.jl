@@ -1,5 +1,6 @@
 init_results() = DataFrame(
     PHENOTYPE = String[],
+    PHENOTYPE_TYPE = String[],
     QUERYNAME = String[],
     INITIAL_ESTIMATE = Float64[],
     ESTIMATE = Float64[],
@@ -23,7 +24,7 @@ function sieve_results(estimate, sieve_stderror)
     return sieve_stderror, sieve_pval, sieve_lwb, sieve_upb
 end
 
-function update_results!(results, qr, sieve_stderror)
+function update_results!(results, qr, sieve_stderror, phenotype_type)
     bf = briefreport(qr)
     phenotype = string(qr.target_name)
     lwb, upb = bf.confint
@@ -32,7 +33,8 @@ function update_results!(results, qr, sieve_stderror)
 
     push!(
         results, 
-        [phenotype, bf.query.name, bf.initial_estimate, bf.estimate,
+        [phenotype, phenotype_type, bf.query.name, 
+        bf.initial_estimate, bf.estimate,
         bf.stderror, bf.pvalue, lwb, upb,
         sieve_stderror, sieve_pval, sieve_lwb, sieve_upb]
     )
@@ -57,13 +59,14 @@ function build_summary(parsed_args)
     results = init_results()
 
     for filename in estimate_filenames
+        phenotype_type = occursin("Bool", filename) ? "BINARY" : "CONTINUOUS"
         jldopen(joinpath(dirname_, filename)) do io
             qrs = haskey(io, "MACHINE") ? queryreports(io["MACHINE"]) : io["QUERYREPORTS"]
             for (qr_idx, qr) in enumerate(qrs)
                 sieve_stderror = haskey(pair_to_var_id, (filename, qr_idx)) ? 
                     sieve_stderrors[pair_to_var_id[(filename, qr_idx)]] :
                     nothing
-                update_results!(results, qr, sieve_stderror)
+                update_results!(results, qr, sieve_stderror, phenotype_type)
 
             end
         end
