@@ -1,6 +1,10 @@
 module TMLEEpistasis
 
-using MKL
+using Base.Sys
+
+if occursin("Intel", cpu_info()[1].model)
+    using MKL
+end
 using DataFrames
 using MLJBase
 using CSV
