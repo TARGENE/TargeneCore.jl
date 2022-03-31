@@ -44,6 +44,13 @@ end
     @test summary.PHENOTYPE == ["cancer", "cancer", "height", "height", "bmi", "bmi"]
     @test summary.PHENOTYPE_TYPE == ["BINARY", "BINARY", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS"]
     @test summary.QUERYNAME == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
+    @test summary.FILENAME_ORIGIN == ["rs12_rs45_batch_1_Bool.hdf5", 
+                                      "rs12_rs45_batch_1_Bool.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5"]
+    @test summary.QUERY_ID == [1, 2, 1, 2, 3, 4]
     @test eltype(summary.INITIAL_ESTIMATE) == Float64
     @test eltype(summary.ESTIMATE) == Float64
     @test eltype(summary.PVAL) == Float64

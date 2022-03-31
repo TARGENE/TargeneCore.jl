@@ -2,6 +2,8 @@ init_results() = DataFrame(
     PHENOTYPE = String[],
     PHENOTYPE_TYPE = String[],
     QUERYNAME = String[],
+    FILENAME_ORIGIN = String[],
+    QUERY_ID = Int[],
     INITIAL_ESTIMATE = Float64[],
     ESTIMATE = Float64[],
     STDERR = Float64[],
@@ -24,7 +26,7 @@ function sieve_results(estimate, sieve_stderror)
     return sieve_stderror, sieve_pval, sieve_lwb, sieve_upb
 end
 
-function update_results!(results, qr, sieve_stderror, phenotype_type)
+function update_results!(results, qr, sieve_stderror, phenotype_type, filename, qr_idx)
     bf = briefreport(qr)
     phenotype = string(qr.target_name)
     lwb, upb = bf.confint
@@ -33,7 +35,7 @@ function update_results!(results, qr, sieve_stderror, phenotype_type)
 
     push!(
         results, 
-        [phenotype, phenotype_type, bf.query.name, 
+        [phenotype, phenotype_type, bf.query.name, filename, qr_idx,
         bf.initial_estimate, bf.estimate,
         bf.stderror, bf.pvalue, lwb, upb,
         sieve_stderror, sieve_pval, sieve_lwb, sieve_upb]
@@ -66,7 +68,7 @@ function build_summary(parsed_args)
                 sieve_stderror = haskey(pair_to_var_id, (filename, qr_idx)) ? 
                     sieve_stderrors[pair_to_var_id[(filename, qr_idx)]] :
                     nothing
-                update_results!(results, qr, sieve_stderror, phenotype_type)
+                update_results!(results, qr, sieve_stderror, phenotype_type, filename, qr_idx)
 
             end
         end
