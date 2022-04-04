@@ -76,13 +76,15 @@ normalize!(variances, n_observations) =
 This function computes the sum for a single index i, see also `compute_variances`.
 As the GRM is symetric it is performed as : 
     2 times off-diagonal elements with j < i + diagonal term 
-and this for all τs.
+and this for all τs. Some diagonal elements are not equal to 1 while in theory they should be,
+this is an artefact of the GRM. We thus always include diagonal elements in the aggregate 
+whatever the value of the indicator.
 """
 function aggregate_variances(influence_curves, indicator, sample)
     @views begin
         D_off_diag = transpose(influence_curves[:, 1:sample-1])
         D_diag = transpose(influence_curves[:, sample])
-        return D_diag .* (2indicator[:, 1:sample-1] * D_off_diag .+ D_diag.* indicator[:, sample])
+        return D_diag .* (2indicator[:, 1:sample-1] * D_off_diag .+ D_diag)
     end
 end
 

@@ -29,8 +29,13 @@ function distance_vector_to_matrix!(matrix_distance, vector_distance, n_samples)
     index = 1
     for i in 1:n_samples
         for j in 1:i
-            matrix_distance[i, j] = vector_distance[index]
-            matrix_distance[j, i] = vector_distance[index]
+            # enforce indicator = 1 when i =j 
+            if i == j
+                matrix_distance[i, j] = 1
+            else
+                matrix_distance[i, j] = vector_distance[index]
+                matrix_distance[j, i] = vector_distance[index]
+            end
             index += 1
         end
     end
@@ -86,7 +91,7 @@ end
     influence_curves = [1. 2. 3. 4. 5.
                         6. 7. 8. 9. 10.]
     # distance indicator with 3 τs and corresponding to row 4
-    indicator = [1. 0. 0. 1.
+    indicator = [1. 0. 0. 0.2
                  0. 0. 1. 1.
                  1. 0. 1. 1.]
     sample = 4
@@ -148,7 +153,7 @@ end
     end
 
     # Check by hand for a single τ=0.5
-    @test variances[2, :] ≈ Float32[0.0033333336, 0.03250000000000001, 0.012500000000000002]
+    @test variances[2, :] ≈ Float32[0.03666667, 0.045, 0.045]
 
 end
 
