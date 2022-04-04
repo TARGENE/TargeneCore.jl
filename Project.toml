@@ -1,9 +1,10 @@
 name = "TMLEEpistasis"
 uuid = "3aa9512e-41c2-4133-bfaa-ba71048dd391"
 authors = ["olivierlabayle"]
-version = "0.3.0"
+version = "0.3.1"
 
 [deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 BGEN = "6db4b851-9beb-4b83-9d64-eb1cfb37721d"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
@@ -34,6 +35,7 @@ CategoricalArrays = "0.10"
 DataFrames = "1.2"
 EvoTrees = "0.9"
 HighlyAdaptiveLasso = "0.2"
+HypothesisTests = "0.10"
 JLD2 = "0.4"
 MKL = "0.5"
 MLJBase = ">=0.19.8"
@@ -43,8 +45,6 @@ MLJModels = "0.15"
 PackageCompiler = "2.0"
 SnpArrays = "0.3"
 TMLE = ">=0.6.2"
-HypothesisTests = "0.10"
-
 
 [extras]
 CPUSummary = "2a0fbf3d-bb9c-48f3-b0a9-814d99fd7ab9"

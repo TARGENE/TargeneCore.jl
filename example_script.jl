@@ -1,3 +1,6 @@
 using TMLEEpistasis
 
-include(joinpath(pkgdir(TMLEEpistasis), "test", "runtests.jl"))
+testdir = joinpath(pkgdir(TMLEEpistasis), "test")
+cd(testdir)
+
+include(joinpath(testdir, "runtests.jl"))
