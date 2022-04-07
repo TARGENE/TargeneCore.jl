@@ -53,7 +53,7 @@ function major_minor_queries(parsed_args)
                 row.ID => row.CHROMPATH,
                 row.ID_1 => row.CHROMPATH_1
             ),
-            "QUERY" => Dict(
+            "BOTH_HOMOZYGOUS_MAJOR_TO_HETEROZYGOUS" => Dict(
                 row.ID => row.MAJOR*row.MAJOR*" -> "*row.MAJOR*row.MINOR,
                 row.ID_1 => row.MAJOR_1*row.MAJOR_1*" -> "*row.MAJOR_1*row.MINOR_1
             )

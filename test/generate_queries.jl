@@ -78,7 +78,7 @@ end
             @test path == chrpath(12)
         end
 
-        query = queries["QUERY"]
+        query = queries["BOTH_HOMOZYGOUS_MAJOR_TO_HETEROZYGOUS"]
         @test length(query) == 2
         for (snp, q) in query
             @test q == expected_query[snp]
