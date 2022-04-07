@@ -1,4 +1,4 @@
-using TMLEEpistasis
+using TMLEEpistasis.Summary
 using ArgParse
 
 
@@ -14,6 +14,10 @@ function parse_commandline()
             arg_type = String
             help = "Path where the summary file will be saved"
             required = true
+        "--sieve"
+            arg_type = Bool
+            help = "If a sieve file is actually present in the hdf5 files"
+            action = :store_true
     end
 
     return parse_args(s)
@@ -21,6 +25,5 @@ end
 
 
 parsed_args = parse_commandline()
-
 
 build_summary(parsed_args)
