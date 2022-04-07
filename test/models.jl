@@ -31,7 +31,7 @@ end
     # Classifier
     y = categorical(rand([0,1], n))
     mach = machine(
-        TMLEEpistasis.InteractionLMClassifier(),
+        TMLEEpistasis.InteractionLMClassifier(lambda=10.),
         X,
         y
     )
@@ -42,7 +42,7 @@ end
     # Regressor 
     y = rand(n)
     mach = machine(
-        TMLEEpistasis.InteractionLMRegressor(),
+        TMLEEpistasis.InteractionLMRegressor(lambda=10),
         X,
         y
     )

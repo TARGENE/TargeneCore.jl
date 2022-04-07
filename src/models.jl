@@ -55,10 +55,10 @@ if not available (Ongoing work as of now: https://github.com/JuliaAI/MLJBase.jl/
 InteractionLM = Union{InteractionLMClassifier, InteractionLMRegressor}
 
 InteractionLMClassifier(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), LogisticClassifier(kwargs...))
+    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), LogisticClassifier(;kwargs...))
 
 InteractionLMRegressor(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), LinearRegressor(kwargs...))
+    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), RidgeRegressor(;kwargs...))
 
 
 function MLJBase.fit(model::InteractionLM, verbosity::Int, X, y)
