@@ -101,42 +101,10 @@ function writeresults(outfilename, mach, sample_ids; save_full=false)
     jldopen(outfilename, "a+") do io
         io["SAMPLE_IDS"] = sample_ids
         if save_full
-            serializable!(mach)
-            io["MACHINE"] = mach
+            io["MACHINE"] = MLJBase.serializable(mach)
         else
             io["QUERYREPORTS"] = queryreports(mach)
         end
     end
 end
 
-
-#####################################################################
-#####     ALL THIS SHOULD DISAPPEAR WHEN MLJBASE IS READY        ####
-#####################################################################
-
-function wipe_data(mach::Machine)
-    mach.data = ()
-    mach.args = ()
-    mach.resampled_data = ()
-end
-
-function serializable!(mach::Machine)
-    mach.cache = ()
-    wipe_data(mach)
-end
-
-function serializable!(mach::Machine{FullCategoricalJoint})
-    wipe_data(mach)
-    mach.cache = ()
-    for submach in machines(glb(mach.fitresult.model_fitresult))
-        serializable!(submach)
-    end
-end
-
-function serializable!(mach::Machine{<:Composite})
-    mach.cache = (network_model_names=mach.cache.network_model_names, )
-    wipe_data(mach)
-    for submach in machines(glb(mach))
-        serializable!(submach)
-    end
-end

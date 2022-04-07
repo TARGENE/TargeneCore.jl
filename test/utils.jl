@@ -39,26 +39,6 @@ end
     @test names(phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1"]
 end
 
-@testset "Test serializable!" begin
-    tmle_config = joinpath("config", "tmle_config.toml")
-    build_query_file()
-    queries = TMLEEpistasis.parse_queries(queryfile)
-    tmle =  TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Bool; adaptive_cv=false)
-    n = 100
-    y = categorical(rand(Bool, n))
-    T = (
-        RSID_10=categorical(rand(["AA","AG", "GG"], n)),
-        RSID_100=categorical(rand(["AA","AG", "GG"], n))
-        )
-    W = (w₁ = rand(n),)
-    mach = machine(tmle, T, W, y)
-    fit!(mach, verbosity=0)
-    TMLEEpistasis.serializable!(mach)
-    test_data_has_been_removed(mach)
-    rm(queryfile)
-end
-
-
 @testset "Test AdaptiveCV" begin
     # Continuous target
     cv = TMLEEpistasis.AdaptiveCV(CV())
