@@ -1,4 +1,4 @@
-using TMLEEpistasis.Summary
+using TMLEEpistasis
 using ArgParse
 
 
