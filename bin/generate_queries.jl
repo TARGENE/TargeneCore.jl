@@ -17,26 +17,32 @@ function parse_commandline()
             help = "Out directory where the queries will be saved"
             arg_type = String
             default = "."
-        "--sample-chrom-file", "-s"
-            help = "Path to a sample chromosome (1-22) from the UKBB imputed directory. "*
-                   "All chromosomes paths will be deduced from this file pattern."
-            arg_type = String
-            required = true
-        "--threshold", "-t"
+        "--calling-threshold", "-t"
             arg_type = Float64
-            help = "The threshold that will be used to hard call genotypes based on their probabilities"
+            help = "This is written down on the query file, it is the threshold that"*
+                    " is later used to hard call genotypes based on their probabilities"
             default = 0.9
         "--exclude", "-e"
             arg_type = String
-            help = "The threshold that will be used to hard call genotypes based on their probabilities"
+            help = "A file containing SNPs to be excluded from the analysis (one per line)"
             required = false
-        "asb-file"
+        "--minor-genotype-freq", "-f"
+            arg_type = Float64
+            help = "Minor genotype frequency filter"
+            default = 0.001
+            required = false
+        "asb-prefix"
             arg_type = String
-            help = "Path to filtered allelic-specific binding SNPS"
+            help = "Prefix path to filtered allelic-specific binding SNPS output by baal-nf "*
+                   "see https://git.ecdf.ed.ac.uk/oalmelid/baal-nf"
             required = true
-        "trans-actors-file"
+        "trans-actors"
             arg_type = String
             help = "Path to trans-acting SNPS"
+            required = true
+        "chr-prefix"
+            help = "Prefix path to BGEN chromosomes from the UKBB."
+            arg_type = String
             required = true
     end
 
