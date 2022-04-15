@@ -1,10 +1,12 @@
 module TestGenerateQueries
 
-using BGEN
 using Test
 using TMLEEpistasis
 using DataFrames
+using CSV
 using TOML
+using BGEN
+
 
 @testset "Test allele_specific_binding_snps" begin
     bQTLs = TMLEEpistasis.allele_specific_binding_snps(joinpath("data", "asb_files", "asb_"))
@@ -156,7 +158,7 @@ end
     parsed_args = Dict(
         "mode" => "asb",
         "asb-prefix" => joinpath("data", "asb_files", "asb_"),
-        "out" => outdir,
+        "outdir" => outdir,
         "call-threshold" => 0.8,
         "chr-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"),
         "trans-actors" => joinpath("data", "trans_actors_fake.csv"),
@@ -165,39 +167,39 @@ end
     )
 
     build_genotypes_and_queries(parsed_args)
-
-    # Check generated filenames
-    query_files = readdir(outdir)
-    @test query_files == ["query_RSID_198_RSID_102.toml",
-                          "query_RSID_198_RSID_2.toml",
-                          "query_RSID_99_RSID_102.toml",
-                          "query_RSID_99_RSID_2.toml"]
-
-    # Check content of the files
-    expected_query = Dict(
-        "RSID_2" => "GG -> GA",
-        "RSID_198" => "GG -> GA",
-        "RSID_102" => "AA -> AG",
-        "RSID_99" => "GG -> GA"
+    # 500 individuals, 1 sample_id, 2 bQTLs, 2 eQTLs
+    genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
+    @test size(genotypes) == (500, 5)
+    # queries
+    query₁ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_99.toml")))
+    @test query₁ == Dict(
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_99"=>"GG -> GA")
     )
-    for file in query_files
-        queries = TOML.parsefile(joinpath(outdir, file))
+    query₂ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_198.toml")))
+    @test query₂ == Dict(
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_198"=>"GG -> GA")
+    )
+    query₃ = TOML.parse(open(joinpath(outdir, "query_RSID_102__RSID_99.toml")))
+    @test query₃ == Dict(
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_102"=>"AA -> AG", "RSID_99"=>"GG -> GA")
+    )
+    query₄ = TOML.parse(open(joinpath(outdir, "query_RSID_102__RSID_198.toml")))
+    @test query₄ == Dict(
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_102"=>"AA -> AG", "RSID_198"=>"GG -> GA")
+    )
 
-        @test queries["threshold"] == 0.8
 
-        snps = queries["SNPS"]
-        @test length(snps) == 2
 
-        for (snp, path) in snps
-            @test path == chrpath(12)
-        end
-
-        query = queries["BOTH_HOMOZYGOUS_MAJOR_TO_HETEROZYGOUS"]
-        @test length(query) == 2
-        for (snp, q) in query
-            @test q == expected_query[snp]
-        end
-    end
+    # Increase filter
+    parsed_args["minor-genotype-freq"] = 0.1
+    rm(outdir; recursive=true)
+    mkdir(outdir)
+    build_genotypes_and_queries(parsed_args)
+    # 500 individuals, 1 sample_id, 2 bQTLs, 2 eQTLs
+    genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
+    @test size(genotypes) == (500, 5)
+    # no query on this filter
+    @test size(readdir(outdir), 1) == 1
 
     # Cleanup
     rm(outdir; recursive=true)

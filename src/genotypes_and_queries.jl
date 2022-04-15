@@ -123,7 +123,6 @@ function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
                 x -> size(x, 1)
             )
             of_interest = filter(x-> x[1] ∈ (eqtl_control, eqtl_case) && x[2] ∈ (bqtl_control, bqtl_case), counts)
-            println(of_interest)
             if size(of_interest, 1) == 4 && minimum(of_interest[!, 3])/n >= threshold
                 push!(queries, Dict(
                         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict(
@@ -139,7 +138,7 @@ function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
 end
 
 function write_outputs(genotypes, queries, outdir)
-    CSV.write(outdir, genotypes)
+    CSV.write(joinpath(outdir, "genotypes.csv"), genotypes)
     for query in queries
         eqtl, bqtl = keys(query["HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR"])
         outfile = joinpath(outdir, "query_$(eqtl)__$(bqtl).toml")
@@ -159,6 +158,8 @@ function asb_generated_mode(parsed_args)
     snps = add_chrfiles(snps, parsed_args["chr-prefix"])
     genotypes, rsid_to_minor_major = impute_genotypes(snps, parsed_args["call-threshold"])
     # Build queries
+    eQTLs = filter(:QTL_TYPE => ==(:eQTL), snps)
+    bQTLs = filter(:QTL_TYPE => ==(:bQTL), snps)
     queries = build_queries(eQTLs, bQTLs, genotypes, rsid_to_minor_major, parsed_args["minor-genotype-freq"])
     # write genotypes and queries
     write_outputs(genotypes, queries, parsed_args["outdir"])
