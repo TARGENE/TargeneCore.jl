@@ -8,6 +8,26 @@ using TOML
 using BGEN
 
 
+function write_queries()
+    open("test_query_1.toml", "w") do io
+        TOML.print(io, Dict(
+            "SNPS" => Dict("RSID_2" => "chr12"),
+            "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA")
+        ))
+    end
+    open("test_query_2.toml", "w") do io
+        TOML.print(io, Dict(
+            "SNPS" => Dict("RSID_2" => "chr12", "RSID_198" => "chr12"),
+            "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_198"=>"GG -> GA")
+        ))
+    end
+end
+
+function remove_queries()
+    rm("test_query_1.toml")
+    rm("test_query_2.toml")
+end
+
 @testset "Test allele_specific_binding_snps" begin
     bQTLs = TMLEEpistasis.allele_specific_binding_snps(joinpath("data", "asb_files", "asb_"))
     @test bQTLs == DataFrame(
@@ -121,8 +141,8 @@ end
 end
 
 @testset "Test build_queries" begin
-    eQTLs = DataFrame(ID=["RSID_1", "RSID_2"])
-    bQTLs = DataFrame(ID=["RSID_3"])
+    eQTLs = DataFrame(ID=["RSID_1", "RSID_2"], CHROM=["chr12", "chr1"])
+    bQTLs = DataFrame(ID=["RSID_3"], CHROM=["chr4"])
     genotypes = DataFrame(
         RSID_1=["AA", "AG", "GG", "GG", "AG", "AA"],
         RSID_2=["CC", "CG", "GG", "CC", "GG", "CC"],
@@ -145,12 +165,31 @@ end
         )
     queries = TMLEEpistasis.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.1)
     query = only(queries)
-    @test query == Dict("HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_1"=>"AA -> AG", "RSID_3"=>"GG -> GC"))
+    @test query == Dict(
+        "SNPS" => Dict("RSID_1" => "chr12", "RSID_3" => "chr4"),
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_1"=>"AA -> AG", "RSID_3"=>"GG -> GC")
+        )
     # chaning the threshold removes the interaction
     @test TMLEEpistasis.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.2) == []
 end
 
-@testset "Test generate_queries" begin
+@testset "Test read_queries and snps_from_queries" begin
+    write_queries()
+    queries = TMLEEpistasis.read_queries("test_query")
+    @test size(queries, 1) == 2
+    @test all(haskey(q, "SNPS") for q in queries)
+    @test all(haskey(q, "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR") for q in queries)
+
+    snps = TMLEEpistasis.snps_from_queries(queries)
+
+    @test snps == DataFrame(
+        ID=["RSID_2", "RSID_198"],
+        CHROM=["chr12", "chr12"]
+    )
+    remove_queries()
+end
+
+@testset "Test build_genotypes_and_queries: asb_generated_mode" begin
     outdir = joinpath("data", "outdir")
 
     mkdir(outdir)
@@ -173,22 +212,24 @@ end
     # queries
     query₁ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_99.toml")))
     @test query₁ == Dict(
+        "SNPS" => Dict("RSID_2"=>"chr12", "RSID_99"=>"chr12"),
         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_99"=>"GG -> GA")
     )
     query₂ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_198.toml")))
     @test query₂ == Dict(
+        "SNPS" => Dict("RSID_2"=>"chr12", "RSID_198"=>"chr12"),
         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_198"=>"GG -> GA")
     )
     query₃ = TOML.parse(open(joinpath(outdir, "query_RSID_102__RSID_99.toml")))
     @test query₃ == Dict(
+        "SNPS" => Dict("RSID_102"=>"chr12", "RSID_99"=>"chr12"),
         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_102"=>"AA -> AG", "RSID_99"=>"GG -> GA")
     )
     query₄ = TOML.parse(open(joinpath(outdir, "query_RSID_102__RSID_198.toml")))
     @test query₄ == Dict(
+        "SNPS" => Dict("RSID_102"=>"chr12", "RSID_198"=>"chr12"),
         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_102"=>"AA -> AG", "RSID_198"=>"GG -> GA")
     )
-
-
 
     # Increase filter
     parsed_args["minor-genotype-freq"] = 0.1
@@ -203,6 +244,44 @@ end
 
     # Cleanup
     rm(outdir; recursive=true)
+end
+
+
+@testset "Test build_genotypes_and_queries:queries given" begin
+    outdir = joinpath("data", "outdir")
+
+    mkdir(outdir)
+    write_queries()
+    parsed_args = Dict(
+        "mode" => "given",
+        "query-prefix" => "test_query_",
+        "outdir" => outdir,
+        "call-threshold" => 0.8,
+        "chr-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"),
+        "exclude" => joinpath("data", "pb_snps.csv"),
+    )
+
+    build_genotypes_and_queries(parsed_args)
+
+    genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
+    @test size(genotypes) == (500, 3)
+    @test names(genotypes) == ["SAMPLE_ID", "RSID_2", "RSID_198"]
+
+    query₁ = TOML.parse(open(joinpath(outdir, "query_RSID_2.toml")))
+    @test query₁ == Dict(
+        "SNPS" => Dict("RSID_2"=>"chr12"),
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA")
+    )
+
+    query₂ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_198.toml")))
+    @test query₂ == Dict(
+        "SNPS" => Dict("RSID_2"=>"chr12", "RSID_198"=>"chr12"),
+        "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_2"=>"GG -> GA", "RSID_198"=>"GG -> GA")
+    )
+
+    rm(outdir; recursive=true)
+    remove_queries()
+
 end
 
 end;

@@ -125,6 +125,7 @@ function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
             of_interest = filter(x-> x[1] ∈ (eqtl_control, eqtl_case) && x[2] ∈ (bqtl_control, bqtl_case), counts)
             if size(of_interest, 1) == 4 && minimum(of_interest[!, 3])/n >= threshold
                 push!(queries, Dict(
+                        "SNPS" => Dict(eqtl.ID => eqtl.CHROM, bqtl.ID => bqtl.CHROM),
                         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict(
                             eqtl.ID => eqtl_control*" -> "*eqtl_case,
                             bqtl.ID => bqtl_control*" -> "*bqtl_case
@@ -140,12 +141,43 @@ end
 function write_outputs(genotypes, queries, outdir)
     CSV.write(joinpath(outdir, "genotypes.csv"), genotypes)
     for query in queries
-        eqtl, bqtl = keys(query["HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR"])
-        outfile = joinpath(outdir, "query_$(eqtl)__$(bqtl).toml")
-        open(outfile, "w") do io
+        query_filename = "query_"
+        for (snp, _) in query["SNPS"]
+            query_filename = string(query_filename, snp, "__")
+        end
+        query_filename = string(query_filename[1:end-2], ".toml")
+        open(joinpath(outdir, query_filename), "w") do io
             TOML.print(io, query)
         end
     end
+end
+
+function read_queries(query_prefix)
+    queries = Dict[]
+    querydir_, prefix = splitdir(query_prefix)
+    querydir = querydir_ == "" ? "." : querydir_
+    for filename in readdir(querydir)
+        if occursin(prefix, filename)
+            push!(queries, TOML.parse(open(joinpath(querydir_, filename))))
+        end
+    end
+    return queries
+end
+
+
+function snps_from_queries(queries)
+    snps = DataFrame(ID=String[], CHROM=String[])
+    for query in queries
+        for (snp, chr) in query["SNPS"]
+            push!(snps, (snp, chr))
+        end
+    end
+    return unique(snps, :ID)
+end
+
+
+function maybe_filter()
+
 end
 
 function asb_generated_mode(parsed_args)
@@ -166,10 +198,27 @@ function asb_generated_mode(parsed_args)
 end
 
 
+function given_queries_mode(parsed_args)
+    # Read provided queries
+    queries = read_queries(parsed_args["query-prefix"])
+    # Get snps from queries and add chromosome file information
+    snps = snps_from_queries(queries)
+    exclude!(snps, parsed_args["exclude"])
+    snps = add_chrfiles(snps, parsed_args["chr-prefix"])
+    # Get required genotypes
+    genotypes, _ = impute_genotypes(snps, parsed_args["call-threshold"])
+    # write genotypes and rewrite queries to outdir
+    # maybe in the future check that genotypes in queries 
+    #are not too rare as for the asb mode
+    write_outputs(genotypes, queries, parsed_args["outdir"])
+end
+
 
 function build_genotypes_and_queries(parsed_args)
     if parsed_args["mode"] == "asb"
         asb_generated_mode(parsed_args)
+    elseif parsed_args["mode"] == "given"
+        given_queries_mode(parsed_args)
     else
         throw(ArgumentError("Not implemented yet."))
     end
