@@ -13,10 +13,14 @@ function parse_commandline()
                    "MAJOR:MAJOR -> MAJOR:MINOR for each SNP"
             arg_type = String
             default = "frequency"
-        "--out", "-o"
+        "--outdir", "-o"
             help = "Out directory where the queries will be saved"
             arg_type = String
             default = "."
+        "--query-prefix", "-q"
+            help = "Prefix path to queries"
+            arg_type = String
+            
         "--calling-threshold", "-t"
             arg_type = Float64
             help = "This is written down on the query file, it is the threshold that"*

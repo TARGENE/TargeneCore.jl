@@ -4,11 +4,11 @@ check_chr_format(x) = @assert all(occursin.(CHR_REG, x))
 
 function allele_specific_binding_snps(asb_prefix)
     bQTLs = DataFrame()
-    asbdir, prefix_ = splitdir(asb_prefix)
-    
+    asbdir_, prefix_ = splitdir(asb_prefix)
+    asbdir = asbdir_ == "" ? "." : asbdir_
     for file in readdir(asbdir)
         if occursin(prefix_, file)
-            new_bQTLs = CSV.read(joinpath(asbdir, file), DataFrame, select=[:ID, :CHROM, :isASB])
+            new_bQTLs = CSV.read(joinpath(asbdir_, file), DataFrame, select=[:ID, :CHROM, :isASB])
             bQTLs = vcat(
                 bQTLs, 
                 DataFrames.select(filter(x -> x.isASB === true, new_bQTLs), [:ID, :CHROM])
@@ -28,14 +28,15 @@ function trans_actors(path)
 end
 
 function add_chrfiles(snps, chr_prefix)
-    chr_dir, prefix_ = splitdir(chr_prefix)
+    chr_dir_, prefix_ = splitdir(chr_prefix)
+    chr_dir = chr_dir_ == "" ? "." : chr_dir_
     required_chrs = unique(snps.CHROM)
     chr_files = DataFrame(CHROM=[], BGEN_FILE=[])
     for filename in readdir(chr_dir)
         if occursin(prefix_, filename) && endswith(filename, "bgen")
             chromosome = match(CHR_REG, filename).match
             if chromosome ∈ required_chrs
-                filepath = joinpath(chr_dir, filename)
+                filepath = joinpath(chr_dir_, filename)
                 sample_filepath = string(filepath[1:end-4], "sample")
                 idx_filepath = string(filepath, ".bgi")
                 bgenfile = Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
