@@ -59,12 +59,15 @@ function UKBBVariantRun(parsed_args)
     v = parsed_args["verbosity"]
     target_type = parsed_args["target-type"] == "Real" ? Real : Bool
 
-    # Parse queries
     queries = parse_queries(parsed_args["queries"])
 
     v >= 1 && @info "Loading data."
-    # Build Genotypes
-    genotypes = TMLEEpistasis.UKBBGenotypes(parsed_args["queries"], queries)
+    # Load Genotypes
+    genotypes = CSV.read(
+        parsed_args["genotypes"], 
+        DataFrame, 
+        select=[:SAMPLE_ID, keys(first(queries).control)...]
+    )
 
     # Read Confounders
     confounders = CSV.File(parsed_args["confounders"]) |> DataFrame

@@ -1,7 +1,6 @@
 module TestsUKBB
 
 using Test
-using BGEN
 using CSV
 using DataFrames
 using TMLEEpistasis
@@ -92,6 +91,7 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
+        "genotypes" => genotypesfile,
         "phenotypes" => continuous_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
@@ -107,7 +107,7 @@ end
     UKBBVariantRun(parsed_args)
     # Essential results
     file = jldopen(parsed_args["out"])
-    n_expected = 466
+    n_expected = 488
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
     test_base_serialization(file["QUERYREPORTS"], n_expected)
     close(file)
@@ -122,6 +122,7 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
+        "genotypes" => genotypesfile,
         "phenotypes" => binary_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
@@ -139,12 +140,12 @@ end
     # Essential results
     file = jldopen(parsed_args["out"])
 
-    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 467
-    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 465
+    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 489
+    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 487
     mach = file["MACHINE"]
     queryreports_ = queryreports(mach)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 467)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 465)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 489)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 487)
     @test length(report(mach).G.cv_report) == 3
     @test length(report(mach).Q̅[1].cv_report) == 4
     @test length(report(mach).Q̅[2].cv_report) == 4

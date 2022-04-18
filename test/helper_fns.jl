@@ -5,6 +5,7 @@ using MLJLinearModels
 using TMLE
 using JLD2
 
+genotypesfile = joinpath("data", "genotypes.csv")
 confoundersfile = joinpath("data", "confounders.csv")
 queryfile = joinpath("config", "query.toml")
 continuous_phenotypefile = joinpath("data", "continuous_phenotypes.csv")
