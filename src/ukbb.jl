@@ -12,7 +12,7 @@ end
 convert_target(x, ::Type{Bool}) = categorical(x)
 convert_target(x, ::Type{Real}) = x
 
-function preprocess(genotypes, confounders, phenotypes, target_type)
+function preprocess(genotypes, confounders, phenotypes, target_type, queries)
     # Make sure data SAMPLE_ID types coincide
     genotypes.SAMPLE_ID = string.(genotypes.SAMPLE_ID)
     confounders.SAMPLE_ID = string.(confounders.SAMPLE_ID)
@@ -38,7 +38,7 @@ function preprocess(genotypes, confounders, phenotypes, target_type)
 
     # Retrieve T and convert to categorical data
     T = DataFrame()
-    for name in genotypes_columns
+    for name in keys(first(queries).control)
         T[:, name] = categorical(data[!, name])
     end
 
@@ -78,7 +78,7 @@ function UKBBVariantRun(parsed_args)
     # Preprocessing
     v >= 1 && @info "Preprocessing data."
     genotypes, confounders, phenotypes, sample_ids = 
-        preprocess(genotypes, confounders, phenotypes, target_type)
+        preprocess(genotypes, confounders, phenotypes, target_type, queries)
 
     # Build estimator
     tmle_config = TOML.parsefile(parsed_args["estimator"])

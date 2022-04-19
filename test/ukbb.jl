@@ -44,12 +44,13 @@ end
         RSID_2    = vcat(collect(1:10), missing, collect(12:n))
         )[11:end, :]
 
+    queries = [TMLE.Query(case=(RSID_2=2, RSID_1=1), control=(RSID_2=2, RSID_1=2))]
     # Continuous phenotypes
     phenotypes = CSV.File(continuous_phenotypefile) |> DataFrame
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries)
     @test T == DataFrame(
-                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
-                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
+                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"]),
+                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"])
         )
     @test typeof(T.RSID_2) == CategoricalArray{
         Int64, 
@@ -66,10 +67,10 @@ end
 
     # Binary phenotypes
     phenotypes = CSV.File(binary_phenotypefile) |> DataFrame
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries)
     @test T == DataFrame(
-                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
-                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
+        RSID_2 = categorical(genotypes[2:end-10, "RSID_2"]),
+        RSID_1 = categorical(genotypes[2:end-10, "RSID_1"])
         )
     @test typeof(T.RSID_2) == CategoricalArray{
         Int64, 
