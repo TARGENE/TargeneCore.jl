@@ -11,7 +11,7 @@ function allele_specific_binding_snps(asb_prefix)
             new_bQTLs = CSV.read(joinpath(asbdir_, file), DataFrame, select=[:ID, :CHROM, :isASB])
             bQTLs = vcat(
                 bQTLs, 
-                DataFrames.select(filter(x -> x.isASB === true, new_bQTLs), [:ID, :CHROM])
+                DataFrames.select(filter(x -> x.isASB === true && x.CHROM ∉ ("chrX", "chrY"), new_bQTLs), [:ID, :CHROM])
             )
         end
     end
