@@ -13,6 +13,9 @@ function parse_commandline()
 
 
     @add_arg_table s begin
+        "genotypes"
+            help = "Path to genotypes .csv file"
+            required = true
         "phenotypes"
             help = "A file (.csv format). The first row contains the column names with `eid` the sample ID"*
                    " and the rest of the columns are phenotypes of interest."

@@ -31,8 +31,7 @@ include("ukbb.jl")
 include("models.jl")
 include("estimators.jl")
 include("utils.jl")
-include("asb_snps.jl")
-include("queries_generation.jl")
+include("genotypes_and_queries.jl")
 include("confounders.jl")
 include("phenotypes.jl")
 include("grm.jl")
@@ -43,8 +42,7 @@ include("summary.jl")
 # EXPORTS
 
 export UKBBVariantRun
-export generate_queries
-export filter_asb
+export build_genotypes_and_queries
 export filter_chromosome, merge_beds, adapt_flashpca
 export prepare_phenotypes, tmle_phenotypes_batches
 export sieve_variance_plateau

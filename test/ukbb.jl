@@ -1,7 +1,6 @@
 module TestsUKBB
 
 using Test
-using BGEN
 using CSV
 using DataFrames
 using TMLEEpistasis
@@ -35,74 +34,6 @@ function test_base_serialization(queryreports, n_expected)
     @test queryreport.initial_estimate isa Real
 end
 
-@testset "Test read_bgen function" begin
-    # This file as an associated .bgi
-    bgen_file = BGEN.datadir("example.8bits.bgen")
-    b = TMLEEpistasis.read_bgen(bgen_file)
-    @test b.idx isa BGEN.Index
-
-    # This file as no associated .bgi
-    bgen_file = BGEN.datadir("example.9bits.bgen")
-    b = TMLEEpistasis.read_bgen(bgen_file)
-    @test b.idx === nothing
-end
-
-@testset "Test samples_genotype" begin
-    probabilities = [0.3 0.2 0.9;
-                     0.5 0.2 0.05;
-                     0.2 0.6 0.05]
-    variant_genotypes = ["AA", "AT", "TT"]
-
-    threshold = 0.9
-    genotypes = TMLEEpistasis.samples_genotype(
-        probabilities, 
-        variant_genotypes, 
-        threshold)
-    @test genotypes[1] === genotypes[2] === missing
-    @test genotypes[3] == "AA"
-
-    threshold = 0.55
-    genotypes = TMLEEpistasis.samples_genotype(
-        probabilities, 
-        variant_genotypes, 
-        threshold)
-    @test genotypes[1]  === missing
-    @test genotypes[2] == "TT"
-    @test genotypes[3] == "AA"
-end
-
-@testset "Test UKBBGenotypes function" begin
-    build_query_file(threshold=0.95)
-    queries = TMLEEpistasis.parse_queries(queryfile)
-    genotypes = TMLEEpistasis.UKBBGenotypes(queryfile, queries)
-    # I only look at the first 10 rows
-    # SAMPLE_ID    
-    @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
-    # RSID_10
-    @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
-    # RSID_100
-    @test all(genotypes[1:10, "RSID_100"] .=== ["AG", "AA", "AG", missing, "AG", "AG", missing, "AG", "GG", "AG"])
-    # Test column order
-    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
-
-    rm(queryfile)
-end
-
-@testset "Test variant_genotypes" begin
-    b = TMLEEpistasis.read_bgen(BGEN.datadir("example.8bits.bgen"))
-    queries = [
-        Query(case=(RSID_10="AA", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG")),
-        Query(case=(RSID_10="AA", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GA"))
-    ]
-    # Defaults to "AG"
-    v = variant_by_rsid(b, "RSID_10")
-    @test TMLEEpistasis.variant_genotypes(v, queries) == ["AA", "AG", "GG"]
-    # "GA" is specified by user so returned
-    v = variant_by_rsid(b, "RSID_100")
-    @test TMLEEpistasis.variant_genotypes(v, queries) == ["AA", "GA", "GG"]
-end
-
-
 @testset "Test preprocess" begin
     confounders = CSV.File(confoundersfile) |> DataFrame
     n = size(confounders)[1]
@@ -113,12 +44,13 @@ end
         RSID_2    = vcat(collect(1:10), missing, collect(12:n))
         )[11:end, :]
 
+    queries = [TMLE.Query(case=(RSID_2=2, RSID_1=1), control=(RSID_2=2, RSID_1=2))]
     # Continuous phenotypes
     phenotypes = CSV.File(continuous_phenotypefile) |> DataFrame
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries)
     @test T == DataFrame(
-                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
-                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
+                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"]),
+                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"])
         )
     @test typeof(T.RSID_2) == CategoricalArray{
         Int64, 
@@ -135,10 +67,10 @@ end
 
     # Binary phenotypes
     phenotypes = CSV.File(binary_phenotypefile) |> DataFrame
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries)
     @test T == DataFrame(
-                RSID_1 = categorical(genotypes[2:end-10, "RSID_1"]),
-                RSID_2 = categorical(genotypes[2:end-10, "RSID_2"])
+        RSID_2 = categorical(genotypes[2:end-10, "RSID_2"]),
+        RSID_1 = categorical(genotypes[2:end-10, "RSID_1"])
         )
     @test typeof(T.RSID_2) == CategoricalArray{
         Int64, 
@@ -160,6 +92,7 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
+        "genotypes" => genotypesfile,
         "phenotypes" => continuous_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
@@ -175,7 +108,7 @@ end
     UKBBVariantRun(parsed_args)
     # Essential results
     file = jldopen(parsed_args["out"])
-    n_expected = 466
+    n_expected = 488
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
     test_base_serialization(file["QUERYREPORTS"], n_expected)
     close(file)
@@ -190,6 +123,7 @@ end
     estimatorfile = joinpath("config", "tmle_config.toml")
     build_query_file()
     parsed_args = Dict(
+        "genotypes" => genotypesfile,
         "phenotypes" => binary_phenotypefile,
         "confounders" => confoundersfile,
         "queries" => queryfile,
@@ -207,12 +141,12 @@ end
     # Essential results
     file = jldopen(parsed_args["out"])
 
-    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 467
-    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 465
+    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 489
+    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 487
     mach = file["MACHINE"]
     queryreports_ = queryreports(mach)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 467)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 465)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 489)
+    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 487)
     @test length(report(mach).G.cv_report) == 3
     @test length(report(mach).Q̅[1].cv_report) == 4
     @test length(report(mach).Q̅[2].cv_report) == 4
