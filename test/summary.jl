@@ -15,7 +15,7 @@ function build_sieve_file(prefix)
     sieve_file = jldopen(sieve_filename(prefix), "w")
     sieve_file["STDERRORS"] = [0.3, nothing]
     sieve_file["SOURCEFILE_REPORTID_PAIRS"] = 
-        ["$(prefix)_batch_1_Real.hdf5" => 3, "$(prefix)_batch_1_Real.hdf5" => 4]
+        ["$(prefix)_batch_1_Real.hdf5" => "2_1", "$(prefix)_batch_1_Real.hdf5" => "2_2"]
     close(sieve_file)
 end
 
@@ -28,7 +28,7 @@ end
     grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs45"
     summaryfilename = summary_filename(prefix)
-    build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
+    build_results_files(grm_ids, prefix)
     # With sieve is false
     parsed_args = Dict(
         "prefix" => prefix,
@@ -62,7 +62,7 @@ end
                                       "rs12_rs45_batch_1_Real.hdf5", 
                                       "rs12_rs45_batch_1_Real.hdf5", 
                                       "rs12_rs45_batch_1_Real.hdf5"]
-    @test summary.QUERY_ID == [1, 2, 1, 2, 3, 4]
+    @test summary.REPORT_KEY == ["1_1", "1_2", "1_1", "1_2", "2_1", "2_2"]
     @test eltype(summary.INITIAL_ESTIMATE) == Float64
     @test eltype(summary.ESTIMATE) == Float64
     @test eltype(summary.PVAL) == Float64

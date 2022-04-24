@@ -11,7 +11,7 @@ init_results(sieve_filename_) = hcat(DataFrame(
     PHENOTYPE_TYPE = String[],
     QUERYNAME = String[],
     FILENAME_ORIGIN = String[],
-    QUERY_ID = Int[],
+    REPORT_KEY = String[],
     INITIAL_ESTIMATE = Float64[],
     ESTIMATE = Float64[],
     STDERR = Float64[],
@@ -32,27 +32,27 @@ function sieve_results_(estimate, sieve_stderror)
     return [sieve_stderror, sieve_pval, sieve_lwb, sieve_upb]
 end
 
-sieve_results(estimate, filename, qr_idx, pair_to_var_id::Nothing, sieve_stderrors::Nothing) = []
-function sieve_results(estimate, filename, qr_idx, pair_to_var_id, sieve_stderrors)
-    sieve_stderror = haskey(pair_to_var_id, (filename, qr_idx)) ? 
-                            sieve_stderrors[pair_to_var_id[(filename, qr_idx)]] :
+sieve_results(estimate, filename, key, pair_to_var_id::Nothing, sieve_stderrors::Nothing) = []
+function sieve_results(estimate, filename, key, pair_to_var_id, sieve_stderrors)
+    sieve_stderror = haskey(pair_to_var_id, (filename, key)) ? 
+                            sieve_stderrors[pair_to_var_id[(filename, key)]] :
                             nothing
     return sieve_results_(estimate, sieve_stderror)
 end
 
-function update_results!(results, qr, phenotype_type, filename, qr_idx, pair_to_var_id, sieve_stderrors)
-    bf = briefreport(qr)
-    phenotype = string(qr.target_name)
-    lwb, upb = bf.confint
+function update_results!(results, tmlereport, phenotype_type, filename, key, pair_to_var_id, sieve_stderrors)
+    s = summarize(tmlereport)
+    phenotype = string(tmlereport.target_name)
+    lwb, upb = s.confint
 
-    qr_summary = vcat(
-        [phenotype, phenotype_type, bf.query.name, filename, qr_idx,
-        bf.initial_estimate, bf.estimate,
-        bf.stderror, bf.pvalue, lwb, upb],
-        sieve_results(bf.estimate, filename, qr_idx, pair_to_var_id, sieve_stderrors)
+    summary = vcat(
+        [phenotype, phenotype_type, s.query.name, filename, key,
+        s.initial_estimate, s.estimate,
+        s.stderror, s.pvalue, lwb, upb],
+        sieve_results(s.estimate, filename, key, pair_to_var_id, sieve_stderrors)
     )
 
-    push!(results, qr_summary)
+    push!(results, summary)
 end
 
 get_sieve_info(dirname_, sieve_filename_::Nothing) = (nothing, nothing)
@@ -87,9 +87,10 @@ function build_summary(parsed_args)
     for filename in estimate_filenames
         phenotype_type = occursin("Bool", filename) ? "BINARY" : "CONTINUOUS"
         jldopen(joinpath(dirname_, filename)) do io
-            qrs = haskey(io, "MACHINE") ? queryreports(io["MACHINE"]) : io["QUERYREPORTS"]
-            for (qr_idx, qr) in enumerate(qrs)
-                update_results!(results, qr, phenotype_type, filename, qr_idx, pair_to_var_id, sieve_stderrors)
+            tmlereports = io["TMLEREPORTS"]
+            for key in keys(tmlereports)
+                tmlereport = tmlereports[key]
+                update_results!(results, tmlereport, phenotype_type, filename, key, pair_to_var_id, sieve_stderrors)
             end
         end
     end

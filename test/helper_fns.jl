@@ -52,7 +52,7 @@ function clean_hdf5estimates_files(prefix)
 end
 
 
-function build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
+function build_results_files(grm_ids, prefix)
     rng = Xoshiro(0)
     n = size(grm_ids, 1)
     T = (t₁=categorical(rand(rng, [0, 1], n)),)
@@ -64,44 +64,38 @@ function build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
     query_2 = Query(case=(t₁=0,), control=(t₁=1,), name="QUERY_2")
 
     # Continuous single batch
-    tmle_reg = TMLEstimator(
-        LinearRegressor(), 
-        LogisticClassifier(),
-        query_1,
-        query_2)
-    mach_reg = machine(tmle_reg, T, W, (height=height, bmi=bmi), cache=false)
-    fit!(mach_reg, verbosity=0)
     cont_path = string(prefix, "_batch_1_Real.hdf5")
-    jldopen(cont_path, "w") do io
-        io["SAMPLE_IDS"] = Dict(
-            "height" => string.(grm_ids.SAMPLE_ID),
-            "bmi" => string.(grm_ids.SAMPLE_ID)
-        )
-        if mode == "MACHINE"
-            io["MACHINE"] = mach_reg
-        else
-            io["QUERYREPORTS"] = queryreports(mach_reg)
-        end
+    tmle_reg = TMLEstimator(
+            LinearRegressor(), 
+            LogisticClassifier(),
+            query_1,
+            query_2
+    )
+    TMLE.fit(tmle_reg, T, W, (height=height, bmi=bmi);
+        verbosity=0,
+        cache=false,
+        callbacks=[TMLEEpistasis.JLD2Saver(cont_path, true)])
+    jldopen(cont_path, "a") do io
+            io["SAMPLE_IDS"] = Dict(
+                "height" => string.(grm_ids.SAMPLE_ID),
+                "bmi" => string.(grm_ids.SAMPLE_ID)
+            )
     end
-
     # Binary single batch
+    bin_path = string(prefix, "_batch_1_Bool.hdf5")
     tmle_bin = TMLEstimator(
         LogisticClassifier(), 
         LogisticClassifier(),
         query_1,
         query_2)
-    mach_bin = machine(tmle_bin, T, W, (cancer=cancer,), cache=false)
-    fit!(mach_bin, verbosity=0)
-    bin_path = string(prefix, "_batch_1_Bool.hdf5")
-    jldopen(bin_path, "w") do io
+    TMLE.fit(tmle_bin, T, W, (cancer=cancer,);
+        verbosity=0,
+        cache=false,
+        callbacks=[TMLEEpistasis.JLD2Saver(bin_path, true)])
+    jldopen(bin_path, "a") do io
         io["SAMPLE_IDS"] = Dict(
             "cancer" => string.(grm_ids.SAMPLE_ID)
         )
-        if mode == "MACHINE"
-            io["MACHINE"] = mach_bin
-        else
-            io["QUERYREPORTS"] = queryreports(mach_bin)
-        end
     end
 end
 

@@ -13,25 +13,25 @@ using MLJBase
 
 include("helper_fns.jl")
 
-function test_base_serialization(queryreports, n_expected)
-    queryreport = queryreports[1]
-    @test queryreport isa TMLE.Report
-    test_queries((queryreport.query,),
+function test_base_serialization(tmle_reports, n_expected; phenotype_id=1)
+    tmle_report = tmle_reports["$(phenotype_id)_1"]
+    @test tmle_report isa TMLE.TMLEReport
+    test_queries((tmle_report.query,),
         (Query(name="QUERY_1", case=(RSID_10 = "AG", RSID_100 = "AG"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
-    @test size(queryreport.influence_curve, 1) == n_expected
-    @test queryreport.estimate isa Real
-    @test queryreport.initial_estimate isa Real
+    @test size(tmle_report.influence_curve, 1) == n_expected
+    @test tmle_report.estimate isa Real
+    @test tmle_report.initial_estimate isa Real
 
-    # Check second queryreport
-    queryreport = queryreports[2]
-    @test queryreport isa TMLE.Report
-    test_queries((queryreport.query,),
+    # Check second tmle_report
+    tmle_report = tmle_reports["$(phenotype_id)_2"]
+    @test tmle_report isa TMLE.TMLEReport
+    test_queries((tmle_report.query,),
         (Query(name="QUERY_2", case=(RSID_10 = "AG", RSID_100 = "AA"), control=(RSID_10 = "GG", RSID_100 = "GG")),)
     )
-    @test size(queryreport.influence_curve, 1) == n_expected
-    @test queryreport.estimate isa Real
-    @test queryreport.initial_estimate isa Real
+    @test size(tmle_report.influence_curve, 1) == n_expected
+    @test tmle_report.estimate isa Real
+    @test tmle_report.initial_estimate isa Real
 end
 
 @testset "Test preprocess" begin
@@ -110,7 +110,7 @@ end
     file = jldopen(parsed_args["out"])
     n_expected = 488
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
-    test_base_serialization(file["QUERYREPORTS"], n_expected)
+    test_base_serialization(file["TMLEREPORTS"], n_expected)
     close(file)
 
     # Clean
@@ -143,15 +143,20 @@ end
 
     @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 489
     @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 487
-    mach = file["MACHINE"]
-    queryreports_ = queryreports(mach)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_1, queryreports_), 489)
-    test_base_serialization(filter(x -> x.target_name == :BINARY_2, queryreports_), 487)
-    @test length(report(mach).G.cv_report) == 3
-    @test length(report(mach).Q̅[1].cv_report) == 4
-    @test length(report(mach).Q̅[2].cv_report) == 4
+    
+    tmlereports = file["TMLEREPORTS"]
+    test_base_serialization(tmlereports, 489, phenotype_id=1)
+    test_base_serialization(tmlereports, 487, phenotype_id=2)
+
+    machines = file["MACHINES"]
+    Gmach = machines["G"]
+    @test length(report(Gmach).cv_report) == 3
+    Qmach₁ = machines["Q_1"]
+    @test length(report(Qmach₁).cv_report) == 4
+    Qmach₂ = machines["Q_2"]
+    @test length(report(Qmach₂).cv_report) == 4
     # Adaptive CV 
-    @test size(report(mach).Q̅[1].cv_report.HALClassifier_1.per_fold[1], 1) == 20
+    @test size(report(Qmach₁).cv_report.HALClassifier_1.per_fold[1], 1) == 20
 
     # Clean
     rm(parsed_args["out"])

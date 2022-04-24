@@ -91,20 +91,3 @@ function MLJBase.train_test_pairs(cv::AdaptiveCV, rows, y)
     return MLJBase.train_test_pairs(adapted_cv, rows, y)
 end
 
-
-#####################################################################
-#####                         SAVING                             ####
-#####################################################################
-
-function writeresults(outfilename, mach, sample_ids; save_full=false)
-    # Save essential information
-    jldopen(outfilename, "a+") do io
-        io["SAMPLE_IDS"] = sample_ids
-        if save_full
-            io["MACHINE"] = MLJBase.serializable(mach)
-        else
-            io["QUERYREPORTS"] = queryreports(mach)
-        end
-    end
-end
-

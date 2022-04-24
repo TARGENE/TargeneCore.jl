@@ -44,28 +44,28 @@ end
 @testset "Test build_work_list" begin
     grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs54"
-    build_results_files(grm_ids, prefix; mode="QUERYREPORTS")
+    build_results_files(grm_ids, prefix)
     # mode=QUERYREPORTS, pval=0.05
-    influence_curves, n_obs, phenotype_query_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=0.05)
+    influence_curves, n_obs, file_tmlereport_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=0.05)
     jldopen(string(prefix, "_batch_1_Real.hdf5")) do io
-        expected_infcurves = [qr.influence_curve for qr in io["QUERYREPORTS"] if qr.target_name == :bmi]
-        @test influence_curves[1, :] == convert(Vector{Float32}, expected_infcurves[1])
-        @test influence_curves[2, :] == convert(Vector{Float32}, expected_infcurves[2])
+        tmlereports = io["TMLEREPORTS"]
+        @test influence_curves[1, :] == convert(Vector{Float32}, tmlereports["2_1"].influence_curve)
+        @test influence_curves[2, :] == convert(Vector{Float32}, tmlereports["2_2"].influence_curve)
     end
     @test n_obs == [194, 194]
-    @test phenotype_query_pairs == ["rs12_rs54_batch_1_Real.hdf5" => 3, "rs12_rs54_batch_1_Real.hdf5"=>4]
+    @test file_tmlereport_pairs == ["rs12_rs54_batch_1_Real.hdf5" => "2_1", "rs12_rs54_batch_1_Real.hdf5"=>"2_2"]
 
     # mode=MACHINE, pval=1
-    influence_curves, n_obs, phenotype_query_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=1)
+    influence_curves, n_obs, file_tmlereport_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=1)
     @test size(influence_curves) == (6, 194)
     @test n_obs == repeat([194], 6)
-    phenotype_query_pairs == [
-        "rs12_rs54_batch_1_Bool.hdf5" => 1,
-        "rs12_rs54_batch_1_Bool.hdf5" => 2,
-        "rs12_rs54_batch_1_Real.hdf5" => 1,
-        "rs12_rs54_batch_1_Real.hdf5" => 2,
-        "rs12_rs54_batch_1_Real.hdf5" => 3,
-        "rs12_rs54_batch_1_Real.hdf5" => 4
+    file_tmlereport_pairs == [
+        "rs12_rs54_batch_1_Bool.hdf5" => "1_1",
+        "rs12_rs54_batch_1_Bool.hdf5" => "1_2",
+        "rs12_rs54_batch_1_Real.hdf5" => "1_1",
+        "rs12_rs54_batch_1_Real.hdf5" => "1_2",
+        "rs12_rs54_batch_1_Real.hdf5" => "2_1",
+        "rs12_rs54_batch_1_Real.hdf5" => "2_2"
     ]
     clean_hdf5estimates_files(prefix)
 end
@@ -202,7 +202,7 @@ end
     @test size(results_file["TAUS"]) == (nb_estimators,)
     @test size(results_file["VARIANCES"]) == (nb_estimators, 2)
     @test results_file["SOURCEFILE_REPORTID_PAIRS"] == 
-        ["rs12_rs45_batch_1_Real.hdf5" => 3,"rs12_rs45_batch_1_Real.hdf5" => 4]
+        ["rs12_rs45_batch_1_Real.hdf5" => "2_1","rs12_rs45_batch_1_Real.hdf5" => "2_2"]
     @test size(results_file["STDERRORS"]) == (2,)
 
     close(results_file)

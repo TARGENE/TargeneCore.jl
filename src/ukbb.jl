@@ -1,7 +1,39 @@
 
+
+"""
+A callback to save the TMLE estimation results to disk instead of keeping them in memory
+"""
+mutable struct JLD2Saver <: TMLE.Callback
+    file::String
+    save_machines::Bool
+end
+
+function TMLE.after_tmle(callback::JLD2Saver, report::TMLEReport, target_id::Int, query_id::Int)
+    jldopen(callback.file, "a") do io
+        group = haskey(io, "TMLEREPORTS") ? io["TMLEREPORTS"] : JLD2.Group(io, "TMLEREPORTS")
+        group[string(target_id, "_", query_id)] = report
+    end
+end
+
+function TMLE.after_fit(callback::JLD2Saver, mach::Machine, id::Symbol)
+    if callback.save_machines
+        jldopen(callback.file, "a") do io
+            group = haskey(io, "MACHINES") ? io["MACHINES"] : JLD2.Group(io, "MACHINES")
+            group[string(id)] = mach
+        end
+    end
+end
+
+function TMLE.finalize(callback::JLD2Saver, estimation_report::NamedTuple)
+    jldopen(callback.file, "a") do io
+        io["low_propensity_scores"] = estimation_report.low_propensity_scores
+    end
+    return estimation_report
+end
+
 function sample_ids_per_phenotype(data, phenotypes_columns)
     sample_ids = Dict()
-    for colname in  phenotypes_columns
+    for colname in phenotypes_columns
         sample_ids[colname] =
             dropmissing(data[!, ["SAMPLE_ID", colname]]).SAMPLE_ID
         
@@ -86,11 +118,16 @@ function UKBBVariantRun(parsed_args)
 
     # Run TMLE 
     v >= 1 && @info "TMLE Estimation."
-    mach = machine(tmle, genotypes, confounders, phenotypes, cache=false)
-    fit!(mach; verbosity=v-1)
+    TMLE.fit(tmle, genotypes, confounders, phenotypes;
+             verbosity=v-1, 
+             cache=false,
+             callbacks=[JLD2Saver(parsed_args["out"], parsed_args["save-full"])]
+    )
 
-    # Save the results
-    writeresults(parsed_args["out"], mach, sample_ids; save_full=parsed_args["save-full"])
+    # Save sample_ids
+    jldopen(parsed_args["out"], "a") do io
+        io["SAMPLE_IDS"] = sample_ids
+    end
 
     v >= 1 && @info "Done."
 end

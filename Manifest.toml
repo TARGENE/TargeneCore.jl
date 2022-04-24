@@ -256,9 +256,9 @@ uuid = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 version = "2.5.0"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
+git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.9.0"
+version = "1.10.0"
 
 [[deps.DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
@@ -384,9 +384,9 @@ version = "0.4.2"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "1bd6fc0c344fc0cbee1f42f8d2e7ec8253dda2d2"
+git-tree-sha1 = "40d1546a45abd63490569695a86a2d93c2021e54"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.25"
+version = "0.10.26"
 
 [[deps.FreeType]]
 deps = ["CEnum", "FreeType2_jll"]
@@ -1077,7 +1077,9 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.TMLE]]
 deps = ["CategoricalArrays", "HypothesisTests", "MLJBase", "MLJGLMInterface", "MLJModels", "Missings", "TableOperations", "Tables"]
-git-tree-sha1 = "41aa630105cc1cbb5e370c2ec2e713f5771a0fde"
+git-tree-sha1 = "b4a3687a3760c423bd985f9ae73aeafbf3bd44df"
+repo-rev = "fcd12b1b0aafc505b08bc8fdc039840b4bc04076"
+repo-url = "https://github.com/olivierlabayle/TMLE.jl.git"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 version = "0.6.3"
 

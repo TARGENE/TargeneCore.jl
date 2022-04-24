@@ -41,22 +41,23 @@ function build_work_list(prefix, grm_ids; pval=0.05)
 
     influence_curves = Vector{Float32}[]
     n_obs = Int[]
-    file_queryreport_pairs = Pair{String, Int}[]
+    file_tmlereport_pairs = Pair{String, String}[]
     for hdf5file in hdf5files
         jldopen(hdf5file) do io
-            qrs = haskey(io, "MACHINE") ? queryreports(io["MACHINE"]) : io["QUERYREPORTS"]
-            for (qr_id, qr) in enumerate(qrs)
-                if pvalue(ztest(qr)) <= pval
-                    phenotype = string(qr.target_name)
+            tmlereports = io["TMLEREPORTS"]
+            for key in keys(tmlereports)
+                tmlereport = tmlereports[key]
+                if pvalue(ztest(tmlereport)) <= pval
+                    phenotype = string(tmlereport.target_name)
                     sample_ids = parse.(Int, io["SAMPLE_IDS"][phenotype])
-                    push!(influence_curves, align_ic(qr.influence_curve, sample_ids, grm_ids))
+                    push!(influence_curves, align_ic(tmlereport.influence_curve, sample_ids, grm_ids))
                     push!(n_obs, size(sample_ids, 1))
-                    push!(file_queryreport_pairs, hdf5file => qr_id)
+                    push!(file_tmlereport_pairs, hdf5file => key)
                 end
             end
         end
     end
-    return reduce(vcat, transpose(influence_curves)), n_obs, file_queryreport_pairs
+    return reduce(vcat, transpose(influence_curves)), n_obs, file_tmlereport_pairs
 end
 
 
