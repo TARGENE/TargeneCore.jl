@@ -1077,8 +1077,8 @@ uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[deps.TMLE]]
 deps = ["CategoricalArrays", "HypothesisTests", "MLJBase", "MLJGLMInterface", "MLJModels", "Missings", "TableOperations", "Tables"]
-git-tree-sha1 = "b4a3687a3760c423bd985f9ae73aeafbf3bd44df"
-repo-rev = "fcd12b1b0aafc505b08bc8fdc039840b4bc04076"
+git-tree-sha1 = "ebaf18f1d04ca9b0b80257a2bac0ff5346e9ab78"
+repo-rev = "fe7107282b7f5f62d3798b21645d6a7c622e8c72"
 repo-url = "https://github.com/olivierlabayle/TMLE.jl.git"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 version = "0.6.3"
