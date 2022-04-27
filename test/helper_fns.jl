@@ -49,6 +49,7 @@ end
 function clean_hdf5estimates_files(prefix)
     rm(string(prefix, "_batch_1_Real.hdf5"))
     rm(string(prefix, "_batch_1_Bool.hdf5"))
+    rm(string(prefix, "_batch_2_Bool.hdf5"))
 end
 
 
@@ -96,6 +97,11 @@ function build_results_files(grm_ids, prefix)
         io["SAMPLE_IDS"] = Dict(
             "cancer" => string.(grm_ids.SAMPLE_ID)
         )
+    end
+
+    # Empty file that may be output by the tmle procedure
+    jldopen(string(prefix, "_batch_2_Bool.hdf5"), "a") do io
+        JLD2.Group(io, "TMLEREPORTS")
     end
 end
 
