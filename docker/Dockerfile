@@ -41,6 +41,6 @@ WORKDIR /TMLEEpistasis.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
 
-RUN julia -q --project build_sysimage.jl
+# RUN julia -q --project build_sysimage.jl
 
-RUN echo 'alias julia="julia -J TMLEEpistasisSysimage.so"' >> ~/.bashrc
+# RUN echo 'alias julia="julia -J TMLEEpistasisSysimage.so"' >> ~/.bashrc
