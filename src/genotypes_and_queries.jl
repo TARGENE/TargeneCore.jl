@@ -34,13 +34,13 @@ function add_chrfiles(snps, chr_prefix)
     chr_files = DataFrame(CHROM=[], BGEN_FILE=[])
     for filename in readdir(chr_dir)
         if occursin(prefix_, filename) && endswith(filename, "bgen")
-            chromosome = match(CHR_REG, filename).match
-            if chromosome ∈ required_chrs
+            regexp_match = match(CHR_REG, filename)
+            if regexp_match !== nothing && regexp_match.match ∈ required_chrs
                 filepath = joinpath(chr_dir_, filename)
                 sample_filepath = string(filepath[1:end-4], "sample")
                 idx_filepath = string(filepath, ".bgi")
                 bgenfile = Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
-                push!(chr_files, [chromosome, bgenfile])
+                push!(chr_files, [regexp_match.match, bgenfile])
             end
         end
     end
@@ -119,7 +119,7 @@ function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
             bqtl_control = bqtl_major*bqtl_major
             bqtl_case = bqtl_major*bqtl_minor
 
-            counts = combine(
+            counts = DataFrames.combine(
                 groupby(genotypes, [eqtl.ID, bqtl.ID]; skipmissing=true), 
                 x -> size(x, 1)
             )

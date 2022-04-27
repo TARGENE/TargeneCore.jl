@@ -39,6 +39,10 @@ function parse_commandline()
             help = "The type of the target variable: Real or Bool"
             arg_type = String
             default = "Bool"
+        "--min-freq", "-m"
+            help = "The threshold used to filter rare genotypes or genotypes/binary-phenotypes"
+            arg_type = Float64
+            default = 0.01
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
                    "to consider for the analysis."
