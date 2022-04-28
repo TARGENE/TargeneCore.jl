@@ -13,6 +13,9 @@ function parse_commandline()
 
 
     @add_arg_table s begin
+        "genotypes"
+            help = "Path to genotypes .csv file"
+            required = true
         "phenotypes"
             help = "A file (.csv format). The first row contains the column names with `eid` the sample ID"*
                    " and the rest of the columns are phenotypes of interest."
@@ -29,24 +32,32 @@ function parse_commandline()
             help = "A file (.toml format) describing the tmle estimator to use, see config/sample_estimator.toml"*
                    " for a basic example."
             required = true
-        "output"
-            help = "A path where the results will be saved (.csv format)"
+        "out"
+            help = "Path where the ouput will be saved"
             required = true
+        "--target-type", "-t"
+            help = "The type of the target variable: Real or Bool"
+            arg_type = String
+            default = "Bool"
+        "--min-freq", "-m"
+            help = "The threshold used to filter rare genotypes or genotypes/binary-phenotypes"
+            arg_type = Float64
+            default = 0.01
         "--phenotypes-list", "-p"
             help = "A file, one line for each phenotype, containing a restrictions of the phenotypes "*
                    "to consider for the analysis."
             required = false
             arg_type = String
+        "--adaptive-cv", "-a"
+            help = "Adaptively selects the number of folds used in cross validation and overrides the default used in the estimator file."
+            action = :store_true
+        "--save-full", "-f"
+            help = "Also save the full TMLE estimators for each phenotype."
+            action = :store_true
         "--verbosity", "-v"
             help = "Verbosity level"
             arg_type = Int
             default = 1
-        "epistasis"
-            help = "Run the Epistasis effect size estimation procedure"
-            action = :command
-        "crossval"
-            help = "Run the Cross validation procedure"
-            action = :command
     end
 
     return parse_args(s)
@@ -54,9 +65,6 @@ end
 
 parsed_args = parse_commandline()
 
-if parsed_args["%COMMAND%"] == "crossval"
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeCrossValidation)
-elseif parsed_args["%COMMAND%"] == "epistasis"
-    UKBBVariantRun(parsed_args, run_fn=TMLEEpistasis.PhenotypeTMLEEpistasis)
-end
+UKBBVariantRun(parsed_args)
+
 

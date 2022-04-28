@@ -4,7 +4,7 @@
 function buildmodels(config)
     models = Dict()
     for (modelname, hyperparams) in config
-        if !(modelname in ("resampling", "outcome"))
+        if !(modelname in ("resampling", "measures"))
             modeltype = eval(Symbol(modelname))
             paramnames = Tuple(Symbol(x[1]) for x in hyperparams)
             counter = 1
@@ -19,63 +19,46 @@ function buildmodels(config)
 end
 
 
-function stack_from_config(config::Dict, metalearner)
+function stack_from_config(config::Dict, metalearner; adaptive_cv=true)
     # Define the resampling strategy
     resampling = config["resampling"]
     resampling = eval(Symbol(resampling["type"]))(nfolds=resampling["nfolds"])
+    if adaptive_cv
+        resampling = AdaptiveCV(resampling)
+    end
+
+    # Define the internal cross validation measures to report
+    measures = config["measures"]
+    measures = (measures === nothing || size(measures, 1) == 0) ? nothing : 
+        [getfield(MLJBase, Symbol(fn)) for fn in measures]
 
     # Define the models library
     models = buildmodels(config)
 
     # Define the Stack
-    Stack(;metalearner=metalearner, resampling=resampling, models...)
+    Stack(;metalearner=metalearner, resampling=resampling, measures=measures, models...)
 end
 
 
-function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeTMLEEpistasis))
-    tmles = Dict()
-    queryvals = [x[2] for x in queries]
-    isinteraction = length(queryvals[1]) > 1
+function estimator_from_toml(config::Dict, queries, target_type; adaptive_cv=true)
     # Parse estimator for the propensity score
     metalearner = LogisticClassifier(fit_intercept=false)
-    if isinteraction
-        G = FullCategoricalJoint(stack_from_config(config["G"], metalearner))
+    if length(first(queries).case) > 1
+        G = FullCategoricalJoint(stack_from_config(config["G"], metalearner, adaptive_cv=adaptive_cv))
     else
-        G = stack_from_config(config["G"], metalearner)
+        G = stack_from_config(config["G"], metalearner, adaptive_cv=adaptive_cv)
     end
     
     # Parse estimator for the outcome regression
-    if haskey(config, "Qcont")
+    if target_type == Real
         metalearner =  LinearRegressor(fit_intercept=false)
-        Q̅ = stack_from_config(config["Qcont"], metalearner)
-        tmles["continuous"] = TMLEstimator(Q̅, G, queryvals...)
-    end
-
-    if haskey(config, "Qcat")
+        Q̅ = stack_from_config(config["Qcont"], metalearner, adaptive_cv=adaptive_cv)
+    elseif target_type == Bool
         metalearner = LogisticClassifier(fit_intercept=false)
-        Q̅ = stack_from_config(config["Qcat"], metalearner)
-        tmles["binary"] = TMLEstimator(Q̅, G, queryvals...)
+        Q̅ = stack_from_config(config["Qcat"], metalearner, adaptive_cv=adaptive_cv)
+    else
+        throw(ArgumentError("The type of the outcomes: $target_type, should be either a Float or a Bool"))
     end
 
-    length(tmles) == 0 && throw(ArgumentError("At least one of (Qcat, Qcont) "*
-                                               "should be specified in the TMLE"*
-                                               " configuration file"))
-    
-    return tmles
-
-end
-
-
-function estimators_from_toml(config::Dict, queries, run_fn::typeof(PhenotypeCrossValidation))
-
-    libraries = Dict()
-    for key in ["G", "Qcont", "Qcat"]
-        key_config = config[key]
-        models = buildmodels(key_config)
-        resampling = eval(Symbol(key_config["resampling"]["type"]))(nfolds=key_config["resampling"]["nfolds"])
-        libraries[key] = (resampling, models)
-    end
-
-    return libraries
-
+    return TMLEstimator(Q̅, G, queries...)
 end

@@ -1,8 +1,6 @@
 # For the estimation of E[Y|W, T]
 [Qcont]
-    # Description of the outcome
-    [Qcont.outcome]
-    type = "continuous"
+    measures = ["rmse"]
     # Description of the resampling strategy
     [Qcont.resampling]
     type = "CV"
@@ -11,8 +9,10 @@
     [Qcont.InteractionLMRegressor]
     column_pattern = ["^RS_"]
 
-    [Qcont.XGBoostRegressor]
-    num_round = [10, 20]
+    [Qcont.EvoTreeRegressor]
+    nrounds = [10, 20]
+
+    [Qcont.ConstantRegressor]
 
     [Qcont.HALRegressor]
     max_degree = 1
@@ -23,9 +23,7 @@
 
 # For the estimation of E[Y|W, T]
 [Qcat]
-    # Description of the outcome
-    [Qcat.outcome]
-    type = "binary"
+    measures = ["log_loss"]
 
     # Description of the resampling strategy
     [Qcat.resampling]
@@ -35,6 +33,8 @@
     [Qcat.InteractionLMClassifier]
     column_pattern = ["^RS_"]
 
+    [Qcat.ConstantClassifier]
+
     [Qcat.HALClassifier]
     max_degree = 1
     smoothness_orders = 1
@@ -42,14 +42,12 @@
     lambda = 10
     cv_select = false
 
-    [Qcat.XGBoostClassifier]
-    num_round = 10
+    [Qcat.EvoTreeClassifier]
+    nrounds = 10
 
 # For the estimation of p(T| W)
 [G]
-    # Description of the outcome
-    [G.outcome]
-    type = "categorical"
+    measures = ["log_loss"]
     # Description of the resampling strategy
     [G.resampling]
     type = "StratifiedCV"
@@ -58,5 +56,7 @@
     [G.LogisticClassifier]
     fit_intercept = true
 
-    [G.XGBoostClassifier]
-    num_round = 10
+    [G.ConstantClassifier]
+
+    [G.EvoTreeClassifier]
+    nrounds = 10

@@ -1,18 +1,4 @@
 ###############################################################################
-# REGRESSORS
-
-KNNRegressor = @load KNNRegressor pkg=NearestNeighborModels verbosity=0
-LinearRegressor = @load LinearRegressor pkg=MLJLinearModels verbosity=0
-XGBoostRegressor = @load XGBoostRegressor pkg=XGBoost verbosity=0
-
-###############################################################################
-# CLASSIFIERS
-
-LogisticClassifier = @load LogisticClassifier pkg=MLJLinearModels verbosity=0
-KNNClassifier = @load KNNClassifier pkg=NearestNeighborModels verbosity=0
-XGBoostClassifier = @load XGBoostClassifier pkg=XGBoost verbosity=0
-
-###############################################################################
 # INTERACTIONS LINEAR MODEL
 
 mutable struct InteractionTransformer <: Unsupervised 
@@ -20,7 +6,7 @@ mutable struct InteractionTransformer <: Unsupervised
 end
 
 
-function MLJ.fit(model::InteractionTransformer, verbosity::Int, X)
+function MLJBase.fit(model::InteractionTransformer, verbosity::Int, X)
     matching_columns = filter(
         x -> occursin(model.column_pattern, string(x)), 
         Tables.columnnames(X)
@@ -39,7 +25,7 @@ function MLJ.fit(model::InteractionTransformer, verbosity::Int, X)
 end
 
 
-function MLJ.transform(model::InteractionTransformer, fitresult, X)
+function MLJBase.transform(model::InteractionTransformer, fitresult, X)
     n = nrows(X)
     interactions = Matrix{Float64}(undef, n, fitresult.ninter)
     index = 1
@@ -52,11 +38,11 @@ function MLJ.transform(model::InteractionTransformer, fitresult, X)
     return merge(Tables.columntable(X), interactions_ndt)
 end
 
-struct InteractionLMClassifier <: MLJ.ProbabilisticComposite
+struct InteractionLMClassifier <: MLJBase.ProbabilisticComposite
     interaction_transformer::InteractionTransformer
     linear_model
 end
-struct InteractionLMRegressor <: MLJ.DeterministicComposite
+struct InteractionLMRegressor <: MLJBase.DeterministicComposite
     interaction_transformer::InteractionTransformer
     linear_model
 end
@@ -69,26 +55,28 @@ if not available (Ongoing work as of now: https://github.com/JuliaAI/MLJBase.jl/
 InteractionLM = Union{InteractionLMClassifier, InteractionLMRegressor}
 
 InteractionLMClassifier(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), LogisticClassifier(kwargs...))
+    InteractionLMClassifier(InteractionTransformer(Regex(column_pattern)), LogisticClassifier(;kwargs...))
 
 InteractionLMRegressor(;column_pattern="^rs[0-9]+", kwargs...) =
-    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), LinearRegressor(kwargs...))
+    InteractionLMRegressor(InteractionTransformer(Regex(column_pattern)), RidgeRegressor(;kwargs...))
 
 
-function MLJ.fit(model::InteractionLM, verbosity::Int, X, y)
+function MLJBase.fit(model::InteractionLM, verbosity::Int, X, y)
     Xs = source(X)
     ys = source(y)
 
     inter_mach = machine(model.interaction_transformer, Xs)
-    Xt = MLJ.transform(inter_mach, Xs)
+    Xt = MLJBase.transform(inter_mach, Xs)
 
     pred_mach = machine(model.linear_model, Xt, ys)
-    ŷ = MLJ.predict(pred_mach, Xt)
+    ŷ = MLJBase.predict(pred_mach, Xt)
 
     mach = machine(supertype(supertype(typeof(model)))(), Xs, ys; predict=ŷ)
 
 	return!(mach, model, verbosity)
 end
 
-MLJ.target_scitype(model::InteractionLMRegressor) = AbstractVector{<:MLJ.Continuous}
-MLJ.target_scitype(model::InteractionLMClassifier) = AbstractVector{<:Finite}
+MLJBase.target_scitype(model::InteractionLMRegressor) = AbstractVector{<:MLJBase.Continuous}
+MLJBase.target_scitype(model::InteractionLMClassifier) = AbstractVector{<:Finite}
+
+MLJBase.input_scitype(model::InteractionLM) = Table
