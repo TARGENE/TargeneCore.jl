@@ -1,9 +1,12 @@
-name: Release
+name: Publish Docker Image
 
-on: workflow_dispatch
+on:
+  release:
+    types: [created]
 
 jobs:
-  docker:
+  push-to-registries:
+    name: Build and push docker image to registries
     runs-on: ubuntu-latest
     steps:
       - name: Set Swap Space
@@ -13,9 +16,6 @@ jobs:
           
       - name: Checkout
         uses: actions/checkout@v2
-        
-      - name: Set Version
-        run:  echo "PKG_VERSION=$(grep version Project.toml | cut -d '"' -f2)" >> $GITHUB_ENV
         
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -28,6 +28,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: olivierlabayle/tl-core
+      
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
@@ -35,4 +42,5 @@ jobs:
           platforms: linux/amd64
           file: docker/Dockerfile
           push: true
-          tags: olivierlabayle/tmle-epistasis:${{ env.PKG_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
