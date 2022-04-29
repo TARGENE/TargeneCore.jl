@@ -18,6 +18,8 @@ include("helper_fns.jl")
     build_query_file()
     queries = TMLEEpistasis.parse_queries(queryfile)
     tmle_bin = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Bool, adaptive_cv=false)
+
+    @test tmle_bin.threshold == 0.001
     # Test binary target TMLE's Qstack
     @test tmle_bin.Q̅.measures == [log_loss]
     @test tmle_bin.F isa LinearBinaryClassifier

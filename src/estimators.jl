@@ -28,10 +28,10 @@ function stack_from_config(config::Dict, metalearner; adaptive_cv=true)
     end
 
     # Define the internal cross validation measures to report
-    measures = config["measures"]
-    measures = (measures === nothing || size(measures, 1) == 0) ? nothing : 
-        [getfield(MLJBase, Symbol(fn)) for fn in measures]
-
+    measures = (haskey(config, "measures") && size(config["measures"], 1) > 0) ? 
+                    [getfield(MLJBase, Symbol(fn)) for fn in config["measures"]] : 
+                    nothing
+        
     # Define the models library
     models = buildmodels(config)
 
@@ -60,5 +60,6 @@ function estimator_from_toml(config::Dict, queries, target_type; adaptive_cv=tru
         throw(ArgumentError("The type of the outcomes: $target_type, should be either a Float or a Bool"))
     end
 
-    return TMLEstimator(Q̅, G, queries...)
+    threshold = haskey(config, "threshold") ? config["threshold"] : 0.005
+    return TMLEstimator(Q̅, G, queries...; threshold=threshold)
 end

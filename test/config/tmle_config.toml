@@ -1,3 +1,5 @@
+threshold = 0.001
+
 # For the estimation of E[Y|W, T]
 [Qcont]
     measures = ["rmse"]
