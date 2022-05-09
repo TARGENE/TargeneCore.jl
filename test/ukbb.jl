@@ -34,34 +34,34 @@ function test_base_serialization(tmle_reports, n_expected; phenotype_id=1)
     @test tmle_report.initial_estimate isa Real
 end
 
-@testset "Test frequency_criterion" begin
-    # Some combination is not present in the data so 
-    # the criterion should return false whatever the threshold
-    data = DataFrame(
-        RSID_1=["AC", "AC", "AA", "AA", "AA"],
-        RSID_2=["AC", "AA", "AA", "AA", "AA"],
-        TRAIT=[1, 1, 0, 1, 1]
+@testset "Test actualqueries" begin
+    genotypes = DataFrame(
+        rs1 = ["AC", "CC", "AC", "CC", missing],
+        rs2 = ["CG", "CG", "GG", "GG", "GG"]
     )
-    threshold = 0.
-    @test TMLEEpistasis.frequency_criterion(data, 
-        [:RSID_1, :RSID_2]; threshold=threshold) == false
-    # Now with the same threshold it is true
-    data = DataFrame(
-        RSID_1=["AC", "AC", "AA", "AA", "AA", "AA"],
-        RSID_2=["AC", "AA", "AA", "AA", "AA", "AC"],
-        TRAIT=[1, 1, 0, 1, 1, 1]
-    )
-    @test TMLEEpistasis.frequency_criterion(data, 
-        [:RSID_1, :RSID_2]; threshold=threshold) == true
-    # Let's modify the threshold, lowest freq is 0.166
-    threshold = 0.17
-    @test TMLEEpistasis.frequency_criterion(data, 
-        [:RSID_1, :RSID_2]; threshold=threshold) == false
-    # including some phenotype, not all combinations are present
-    threshold =0.
-    @test TMLEEpistasis.frequency_criterion(data, 
-        [:RSID_1, :RSID_2, :TRAIT]; threshold=threshold) == false
+    queries = [
+    Query(
+        case=(rs1 = "AC", rs2 = "CG"),
+        control=(rs1 = "CC", rs2 = "GG"),
+        name="QUERY_1"),
+    Query(
+        case=(rs1 = "AC", rs2 = "CG"),
+        control=(rs1 = "CC", rs2 = "CC"),
+        name="QUERY_2")
+    ]
+    @test TMLEEpistasis.genotypes_combinations(queries[1]) ==
+        DataFrame(
+            rs1 = ["CC", "AC", "CC", "AC"],
+            rs2 = ["GG", "GG", "CG", "CG"]
+        )
+    @test TMLEEpistasis.genotypes_combinations(queries[2]) ==
+        DataFrame(
+            rs1 = ["CC", "AC", "CC", "AC"],
+            rs2 = ["CC", "CC", "CG", "CG"]
+        )
 
+    actual_queries = TMLEEpistasis.actualqueries(genotypes, queries)
+    @test actual_queries == queries[1:1]
 end
 
 @testset "Test preprocess" begin
@@ -83,7 +83,7 @@ end
         Y1 = rand(n),
         Y2 = rand(n)
     )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries, freq_threhsold=0.01)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries)
     
     # Check the order of columns has been reversed
     @test T == genotypes[!, [:RSID_2, :RSID_1]]
@@ -94,53 +94,6 @@ end
                 "Y1" => string.(base_sample_ids),
                 "Y2" => string.(base_sample_ids),
             )
-    
-    # frequency threshold not passed by genotype due to missing combination
-    genotypes = DataFrame(
-        SAMPLE_ID = base_sample_ids, 
-        RSID_1    = ["AC", "AC", "AC", "AC", "AC", "CC", "CC", "CC", "CC", "CC"],
-        RSID_2    = [missing, "AA", "AA", "AA", "AA", "AG", "AG", "AA", "AA", "AA"]
-        )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries, freq_threhsold=0.01)
-    @test all((T, W, y, sample_ids) .=== (nothing, nothing, nothing, nothing))
-
-    # frequency threshold not passed by genotype due to poor frequency
-    genotypes = DataFrame(
-        SAMPLE_ID = base_sample_ids, 
-        RSID_1    = ["AC", "AC", "AC", "AC", "AC", "CC", "CC", "CC", "CC", "CC"],
-        RSID_2    = ["AG", "AA", "AA", "AA", "AA", "AG", "AG", "AA", "AA", "AA"]
-        )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Real, queries, freq_threhsold=0.2)
-    @test all((T, W, y, sample_ids) .=== (nothing, nothing, nothing, nothing))
-
-    # frequency threshold not passed by some phenotype
-    genotypes = DataFrame(
-        SAMPLE_ID = base_sample_ids, 
-        RSID_1    = ["AC", "AC", "AC", "AC", "AC", "CC", "CC", "CC", "CC", "CC"],
-        RSID_2    = ["AG", "AG", "AA", "AA", "AA", "AG", "AG", "AA", "AA", "AA"]
-        )
-    phenotypes = DataFrame(
-        SAMPLE_ID = base_sample_ids,
-        Y1 = [0, 1, 0, 1, 0, 1, 0, 0, 1, 0],
-        Y2 = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-    )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries, freq_threhsold=0.0)
-    @test T == genotypes[!, [:RSID_2, :RSID_1]]
-    @test W == confounders[!, Not("SAMPLE_ID")]
-    @test y == phenotypes[!, [:Y1]]
-    @test y[!, :Y1] isa CategoricalVector
-    @test sample_ids == 
-            Dict(
-                "Y1" => string.(base_sample_ids),
-            )
-    # frequency threshold not passed by all phenotype
-    phenotypes = DataFrame(
-        SAMPLE_ID = base_sample_ids,
-        Y2 = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-    )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries, freq_threhsold=0.0)
-    @test all((T, W, y, sample_ids) .=== (nothing, nothing, nothing, nothing))
-
     # Checking joining on sample_ids
     genotypes = DataFrame(
         SAMPLE_ID = base_sample_ids, 
@@ -151,14 +104,13 @@ end
         SAMPLE_ID = base_sample_ids,
         Y1 = [0, 1, 0, 1, 0, 1, 0, 0, 1, missing],
     )
-    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries, freq_threhsold=0.0)
+    T, W, y, sample_ids = TMLEEpistasis.preprocess(genotypes, confounders, phenotypes, Bool, queries)
 
     @test size(T) == (9, 2)
     # For y the missing value hasn't been dropped yet, it will be dropped during TMLE
     @test size(y) == (9, 1)
     @test size(W) == (9, 3)
     @test sample_ids == Dict("Y1" => ["1", "2", "4", "5", "6", "7", "8", "9"])
-
 end
 
 
@@ -178,7 +130,6 @@ end
         "adaptive-cv" => false,
         "save-full" => false,
         "target-type" => "Real",
-        "min-freq" => 0.01
     )
 
     UKBBVariantRun(parsed_args)
@@ -187,6 +138,8 @@ end
     n_expected = 488
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
     test_base_serialization(file["TMLEREPORTS"], n_expected)
+    # QUERY_3 contains a missing genotype so is not actually computed
+    @test keys(file["TMLEREPORTS"]) == ["1_1", "1_2"]
     close(file)
 
     # Clean
@@ -210,7 +163,6 @@ end
         "adaptive-cv" => true,
         "save-full" => true,
         "target-type" => "Bool",
-        "min-freq" => 0.01
     )
 
     UKBBVariantRun(parsed_args)
@@ -222,6 +174,8 @@ end
     @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 487
     
     tmlereports = file["TMLEREPORTS"]
+    # QUERY_3 contains a missing genotype so is not actually computed
+    @test keys(tmlereports) == ["1_1", "1_2", "2_1", "2_2"]
     test_base_serialization(tmlereports, 489, phenotype_id=1)
     test_base_serialization(tmlereports, 487, phenotype_id=2)
 
@@ -235,35 +189,6 @@ end
     # Adaptive CV 
     @test size(report(Qmach₁).cv_report.HALClassifier_1.per_fold[1], 1) == 20
 
-    # Clean
-    rm(parsed_args["out"])
-    rm(parsed_args["queries"])
-end
-
-@testset "Test UKBBVariantRun with high freq threhsold" begin
-    estimatorfile = joinpath("config", "tmle_config.toml")
-    build_query_file()
-    parsed_args = Dict(
-        "genotypes" => genotypesfile,
-        "phenotypes" => binary_phenotypefile,
-        "confounders" => confoundersfile,
-        "queries" => queryfile,
-        "estimator" => estimatorfile,
-        "out" => "RSID_10_RSID_100.hdf5",
-        "phenotypes-list" => nothing,
-        "verbosity" => 0,
-        "adaptive-cv" => true,
-        "save-full" => true,
-        "target-type" => "Bool",
-        "min-freq" => 0.05
-    )
-
-    UKBBVariantRun(parsed_args)
-    
-    # Essential results
-    jldopen(parsed_args["out"]) do io
-        @test isempty(keys(io["TMLEREPORTS"]))
-    end
     # Clean
     rm(parsed_args["out"])
     rm(parsed_args["queries"])

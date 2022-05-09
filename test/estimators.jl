@@ -65,7 +65,8 @@ include("helper_fns.jl")
     # Both TMLE have the same G Stack
     expected_queries = [
         Query(case=(RSID_10="AG", RSID_100="AG"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_1"),
-        Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_2")
+        Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="GG", RSID_100="GG"), name="QUERY_2"),
+        Query(case=(RSID_10="AG", RSID_100="AA"), control=(RSID_10="TT", RSID_100="GG"), name="QUERY_3")
     ]
     for tmle in [tmle_bin, tmle_cont]
         @test tmle.G.model.measures == [log_loss]
@@ -93,7 +94,7 @@ end
     tmle_cont = TMLEEpistasis.estimator_from_toml(TOML.parsefile(tmle_config), queries, Real, adaptive_cv=true)
     expected_queries = [
         Query(case=(RSID_10="AG",), control=(RSID_10="GG",), name="QUERY_1"),
-        Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2")
+        Query(case=(RSID_10="AA",), control=(RSID_10="GG",), name="QUERY_2"),
     ]
     for (type, tmle) in [("binary", tmle_bin), ("continuous", tmle_cont)]
         test_queries(tmle.queries, expected_queries)
