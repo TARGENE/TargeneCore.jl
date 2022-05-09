@@ -24,8 +24,10 @@ function build_query_file(;path=queryfile, threshold=0.9, het="AG")
             "RSID_100" => "GG -> "*het),
         "QUERY_2" => Dict(
             "RSID_10"  => "GG -> "*het,
-            "RSID_100" => "GG -> AA"
-        )
+            "RSID_100" => "GG -> AA"),
+        "QUERY_3" => Dict(
+            "RSID_10"  => "TT -> "*het,
+            "RSID_100" => "GG -> AA")
     )
     open(path, "w") do io
         TOML.print(io, queries)

@@ -51,51 +51,34 @@ end
 convert_target(x, ::Type{Bool}) = categorical(x)
 convert_target(x, ::Type{Real}) = x
 
-function frequency_criterion(data::DataFrame, columns; threshold=0.001)
-    n = size(data, 1)
-    freqs = combine(
-        groupby(data, columns; skipmissing=true), 
-        x -> size(x, 1)/n
+function genotypes_combinations(query)
+    snps = keys(query.case)
+    snp_levels = NamedTuple{snps}(
+        [[getfield(query.control, snp), getfield(query.case, snp)] for snp in snps]
     )
-    expected_nb_combinations = prod(size(unique(skipmissing(data[!, column])), 1) for column in columns)
-    if size(freqs, 1) == expected_nb_combinations && all(x > threshold for x in freqs[!, end])
-        return true
+    combinations = DataFrame(NamedTuple{snps}([[] for _ in snps]))
+    for comb in reduce(vcat, Iterators.product(snp_levels...))
+        push!(combinations, comb)
     end
-    return false
+    return combinations
 end
 
-"""
-If the phenotypes are continuous then we just return all phenotypes
-"""
-phenotypes_passing_freq_threshold(
-    data::DataFrame, 
-    ::Type{Real},
-    genotypes_columns,
-    phenotypes_columns; 
-    threshold=0.001) = phenotypes_columns
-
-"""
-If the phenotypes are binary then we check frequencies
-"""
-function phenotypes_passing_freq_threshold(
-    data::DataFrame, 
-    ::Type{Bool}, 
-    genotypes_columns, 
-    phenotypes_columns; 
-    threshold=0.001
-    )
-    phenotypes_to_go = []
-    for phenotype in phenotypes_columns
-        if frequency_criterion(data, [genotypes_columns..., phenotype]; threshold=threshold)
-            push!(phenotypes_to_go, phenotype)
+function actualqueries(genotypes, queries)
+    unique_genotypes = unique(dropmissing(genotypes))
+    actual_queries = []
+    for query in queries
+        required_genotypes = genotypes_combinations(query)
+        joined = innerjoin(unique_genotypes, required_genotypes, on=names(genotypes))
+        if size(joined, 1) == size(required_genotypes, 1)
+            push!(actual_queries, query)
+        else
+            @warn "Query: ", query.name, " will not be processed due to missing genotypic data."
         end
     end
-    return phenotypes_to_go
+    return actual_queries
 end
 
-
-function preprocess(genotypes, confounders, phenotypes, target_type, queries; 
-    freq_threhsold=0.001)
+function preprocess(genotypes, confounders, phenotypes, target_type, queries)
     # Make sure data SAMPLE_ID types coincide
     genotypes.SAMPLE_ID = string.(genotypes.SAMPLE_ID)
     confounders.SAMPLE_ID = string.(confounders.SAMPLE_ID)
@@ -113,27 +96,8 @@ function preprocess(genotypes, confounders, phenotypes, target_type, queries;
             on=:SAMPLE_ID
             )
 
-    # Drop missing values from genotypes 
+    # Drop missing values based on genotypes 
     dropmissing!(data, genotypes_columns)
-
-    # Check if the lowest frequent genotype passes the threshold
-    if !frequency_criterion(data, genotypes_columns; threshold=freq_threhsold)
-        return nothing, nothing, nothing, nothing
-    end
-
-    # Check if the lowest frequent genotype/phenotype passes the threshold
-    phenotypes_columns = phenotypes_passing_freq_threshold(
-        data, 
-        target_type, 
-        genotypes_columns, 
-        phenotypes_columns;
-        threshold=freq_threhsold
-    )
-    if isempty(phenotypes_columns)
-        return nothing, nothing, nothing, nothing
-    end
-    # Retrive sample_ids per phenotype
-    sample_ids = sample_ids_per_phenotype(data, phenotypes_columns)
 
     # Retrieve T and convert to categorical data
     # The use of the query he is so that the order of the columns in both
@@ -142,6 +106,9 @@ function preprocess(genotypes, confounders, phenotypes, target_type, queries;
     for name in keys(first(queries).control)
         T[:, name] = categorical(data[!, name])
     end
+
+    # Retrive sample_ids per phenotype
+    sample_ids = sample_ids_per_phenotype(data, phenotypes_columns)
 
     # Retrieve W
     W = data[!, confounders_columns]
@@ -182,14 +149,17 @@ function UKBBVariantRun(parsed_args)
     # Preprocessing
     v >= 1 && @info "Preprocessing data."
     genotypes, confounders, phenotypes, sample_ids = 
-        preprocess(genotypes, confounders, phenotypes, target_type, queries;freq_threhsold=parsed_args["min-freq"])
-    # If the frequency threshold has not been met, write a dummy file
-    if genotypes === nothing
+        preprocess(genotypes, confounders, phenotypes, target_type, queries)
+    
+    # Each genotype should have probability > 0
+    queries = actualqueries(genotypes, queries)
+    if size(queries, 1) == 0
         jldopen(parsed_args["out"], "a") do io
             JLD2.Group(io, "TMLEREPORTS")
         end
         return 0
     end
+
     # Build estimator
     tmle_config = TOML.parsefile(parsed_args["estimator"])
     tmle = estimator_from_toml(tmle_config, queries, target_type, adaptive_cv=parsed_args["adaptive-cv"])
