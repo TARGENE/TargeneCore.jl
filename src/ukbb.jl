@@ -96,8 +96,8 @@ function preprocess(genotypes, confounders, phenotypes, target_type, queries)
             on=:SAMPLE_ID
             )
 
-    # Drop missing values based on genotypes 
-    dropmissing!(data, genotypes_columns)
+    # Drop missing values based on genotypes and covariates 
+    dropmissing!(data, vcat(genotypes_columns, confounders_columns))
 
     # Retrieve T and convert to categorical data
     # The use of the query he is so that the order of the columns in both
@@ -111,7 +111,10 @@ function preprocess(genotypes, confounders, phenotypes, target_type, queries)
     sample_ids = sample_ids_per_phenotype(data, phenotypes_columns)
 
     # Retrieve W
-    W = data[!, confounders_columns]
+    W = DataFrame()
+    for col in confounders_columns
+        W[:, col] = convert(Vector{Float64}, data[!, col])
+    end
 
     # Retrieve Y and convert to categorical if needed
     Y = DataFrame()

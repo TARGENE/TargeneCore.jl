@@ -69,6 +69,7 @@ end
     base_sample_ids = 1:n
 
     confounders = DataFrame(rand(n, 3), :auto)
+    confounders.sex = [0, 1, 1, 1, 0, 0 , 0, 1, 1, 0]
     confounders.SAMPLE_ID = base_sample_ids
 
     genotypes = DataFrame(
@@ -88,6 +89,7 @@ end
     # Check the order of columns has been reversed
     @test T == genotypes[!, [:RSID_2, :RSID_1]]
     @test W == confounders[!, Not("SAMPLE_ID")]
+    @test all(eltype(W[!, col]) === Float64 for col in names(W))
     @test y == phenotypes[!, Not("SAMPLE_ID")]
     @test sample_ids == 
             Dict(
@@ -109,7 +111,7 @@ end
     @test size(T) == (9, 2)
     # For y the missing value hasn't been dropped yet, it will be dropped during TMLE
     @test size(y) == (9, 1)
-    @test size(W) == (9, 3)
+    @test size(W) == (9, 4)
     @test sample_ids == Dict("Y1" => ["1", "2", "4", "5", "6", "7", "8", "9"])
 end
 
@@ -135,7 +137,8 @@ end
     UKBBVariantRun(parsed_args)
     # Essential results
     file = jldopen(parsed_args["out"])
-    n_expected = 488
+    # Missing data
+    n_expected = 486
     @test size(file["SAMPLE_IDS"]["CONTINUOUS_1"], 1) == n_expected
     test_base_serialization(file["TMLEREPORTS"], n_expected)
     # QUERY_3 contains a missing genotype so is not actually computed
@@ -170,14 +173,14 @@ end
     # Essential results
     file = jldopen(parsed_args["out"])
 
-    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 489
-    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 487
+    @test size(file["SAMPLE_IDS"]["BINARY_1"], 1) == 487
+    @test size(file["SAMPLE_IDS"]["BINARY_2"], 1) == 485
     
     tmlereports = file["TMLEREPORTS"]
     # QUERY_3 contains a missing genotype so is not actually computed
     @test keys(tmlereports) == ["1_1", "1_2", "2_1", "2_2"]
-    test_base_serialization(tmlereports, 489, phenotype_id=1)
-    test_base_serialization(tmlereports, 487, phenotype_id=2)
+    test_base_serialization(tmlereports, 487, phenotype_id=1)
+    test_base_serialization(tmlereports, 485, phenotype_id=2)
 
     machines = file["MACHINES"]
     Gmach = machines["G"]
