@@ -36,7 +36,7 @@ function stack_from_config(config::Dict, metalearner; adaptive_cv=true)
     models = buildmodels(config)
 
     # Define the Stack
-    Stack(;metalearner=metalearner, resampling=resampling, measures=measures, models...)
+    Stack(;metalearner=metalearner, resampling=resampling, measures=measures, cache=false, models...)
 end
 
 
