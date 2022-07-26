@@ -47,7 +47,7 @@ function parse_commandline()
         "--sample-ids"
             arg_type = String
             help = "Path to list of sample_ids to filter on."
-            required = false
+            required = true
         "chr-prefix"
             help = "Prefix path to BGEN chromosomes from the UKBB."
             arg_type = String

@@ -202,13 +202,14 @@ end
         "chr-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"),
         "trans-actors" => joinpath("data", "trans_actors_fake.csv"),
         "exclude" => joinpath("data", "pb_snps.csv"),
-        "minor-genotype-freq" => 0.001
+        "minor-genotype-freq" => 0.001,
+        "sample-ids" => joinpath("data", "sample_ids_bis.txt")
     )
 
     build_genotypes_and_queries(parsed_args)
     # 500 individuals, 1 sample_id, 2 bQTLs, 2 eQTLs
     genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
-    @test size(genotypes) == (500, 5)
+    @test size(genotypes) == (5, 5)
     # queries
     query₁ = TOML.parse(open(joinpath(outdir, "query_RSID_2__RSID_99.toml")))
     @test query₁ == Dict(
@@ -238,7 +239,7 @@ end
     build_genotypes_and_queries(parsed_args)
     # 500 individuals, 1 sample_id, 2 bQTLs, 2 eQTLs
     genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
-    @test size(genotypes) == (500, 5)
+    @test size(genotypes) == (5, 5)
     # no query on this filter
     @test size(readdir(outdir), 1) == 1
 
@@ -259,12 +260,13 @@ end
         "call-threshold" => 0.8,
         "chr-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"),
         "exclude" => joinpath("data", "pb_snps.csv"),
+        "sample-ids" => joinpath("data", "sample_ids_bis.txt")
     )
 
     build_genotypes_and_queries(parsed_args)
 
     genotypes = CSV.read(joinpath(outdir, "genotypes.csv"), DataFrame)
-    @test size(genotypes) == (500, 3)
+    @test size(genotypes) == (5, 3)
     @test names(genotypes) == ["SAMPLE_ID", "RSID_2", "RSID_198"]
 
     query₁ = TOML.parse(open(joinpath(outdir, "query_RSID_2.toml")))

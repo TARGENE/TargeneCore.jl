@@ -64,7 +64,7 @@ function filter_chromosome(parsed_args)
         qc_df, 
         on = :snpid => :rs_id,
         makeunique = true
-        )
+    )
 
     # If an RSID appears multiple times, it is because it has 
     # more than 2 possible alleles: we remove them 

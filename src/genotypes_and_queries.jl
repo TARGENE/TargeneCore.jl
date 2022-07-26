@@ -139,15 +139,19 @@ function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
     return queries
 end
 
-function write_outputs(genotypes, queries, outdir)
-    CSV.write(joinpath(outdir, "genotypes.csv"), genotypes)
+function write_outputs(genotypes, queries, parsed_args)
+    # Genotypes
+    sample_ids = Set(readdlm(parsed_args["sample-ids"]))
+    filtered_genotypes = filter(x -> x.SAMPLE_ID ∈ sample_ids, genotypes)
+    CSV.write(joinpath(parsed_args["outdir"], "genotypes.csv"), filtered_genotypes)
+    # Queries
     for query in queries
         query_filename = "query_"
         for (snp, _) in query["SNPS"]
             query_filename = string(query_filename, snp, "__")
         end
         query_filename = string(query_filename[1:end-2], ".toml")
-        open(joinpath(outdir, query_filename), "w") do io
+        open(joinpath(parsed_args["outdir"], query_filename), "w") do io
             TOML.print(io, query)
         end
     end
@@ -177,9 +181,6 @@ function snps_from_queries(queries)
 end
 
 
-function maybe_filter()
-
-end
 
 function asb_generated_mode(parsed_args)
     # Load SNPS
@@ -195,7 +196,7 @@ function asb_generated_mode(parsed_args)
     bQTLs = filter(:QTL_TYPE => ==(:bQTL), snps)
     queries = build_queries(eQTLs, bQTLs, genotypes, rsid_to_minor_major, parsed_args["minor-genotype-freq"])
     # write genotypes and queries
-    write_outputs(genotypes, queries, parsed_args["outdir"])
+    write_outputs(genotypes, queries, parsed_args)
 end
 
 
@@ -211,7 +212,7 @@ function given_queries_mode(parsed_args)
     # write genotypes and rewrite queries to outdir
     # maybe in the future check that genotypes in queries 
     #are not too rare as for the asb mode
-    write_outputs(genotypes, queries, parsed_args["outdir"])
+    write_outputs(genotypes, queries, parsed_args)
 end
 
 
