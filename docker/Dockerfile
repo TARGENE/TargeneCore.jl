@@ -18,22 +18,6 @@ RUN mv gcta_v1.94.0Beta_linux_kernel_3_x86_64/gcta_v1.94.0Beta_linux_kernel_3_x8
 
 RUN chmod a+x /usr/local/bin/gcta64
 
-# Install R and hal9001
-
-RUN apt-get install -y r-base \
-                    r-base-core \
-                    r-recommended \
-                    r-base-dev
-
-RUN apt-get install -y libssl-dev \
-                libxml2-dev \
-                libcurl4-openssl-dev \
-                libgit2-dev 
-
-RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
-         require(devtools);\
-         install_version('hal9001', version = '0.4.1', repos = 'http://cran.us.r-project.org')"
-
 # Import project, build and precompile
 COPY . /TMLEEpistasis.jl 
 

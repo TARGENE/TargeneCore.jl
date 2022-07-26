@@ -11,10 +11,6 @@ using CSV
 using TMLE
 using TOML
 using BGEN
-using HighlyAdaptiveLasso
-using EvoTrees
-using MLJModels
-using MLJLinearModels
 using Serialization
 using JLD2
 using SnpArrays
@@ -27,9 +23,6 @@ import MLJBase: fit, transform, target_scitype, input_scitype
 ###############################################################################
 # INCLUDES
 
-include("ukbb.jl")
-include("models.jl")
-include("estimators.jl")
 include("utils.jl")
 include("genotypes_and_queries.jl")
 include("confounders.jl")
@@ -41,7 +34,6 @@ include("summary.jl")
 ###############################################################################
 # EXPORTS
 
-export UKBBVariantRun
 export build_genotypes_and_queries
 export filter_chromosome, merge_beds, adapt_flashpca
 export prepare_phenotypes, tmle_phenotypes_batches

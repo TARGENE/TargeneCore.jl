@@ -1,7 +1,4 @@
-include("ukbb.jl")
-include("estimators.jl")
 include("utils.jl")
-include("models.jl")
 include("genotypes_and_queries.jl")
 include("confounders.jl")
 include("phenotypes.jl")

@@ -91,3 +91,39 @@ function MLJBase.train_test_pairs(cv::AdaptiveCV, rows, y)
     return MLJBase.train_test_pairs(adapted_cv, rows, y)
 end
 
+
+#####################################################################
+#####                     JLD2 Saver                             ####
+#####################################################################
+
+
+"""
+A callback to save the TMLE estimation results to disk instead of keeping them in memory
+"""
+mutable struct JLD2Saver <: TMLE.Callback
+    file::String
+    save_machines::Bool
+end
+
+function TMLE.after_tmle(callback::JLD2Saver, report::TMLEReport, target_id::Int, query_id::Int)
+    jldopen(callback.file, "a") do io
+        group = haskey(io, "TMLEREPORTS") ? io["TMLEREPORTS"] : JLD2.Group(io, "TMLEREPORTS")
+        group[string(target_id, "_", query_id)] = report
+    end
+end
+
+function TMLE.after_fit(callback::JLD2Saver, mach::Machine, id::Symbol)
+    if callback.save_machines
+        jldopen(callback.file, "a") do io
+            group = haskey(io, "MACHINES") ? io["MACHINES"] : JLD2.Group(io, "MACHINES")
+            group[string(id)] = mach
+        end
+    end
+end
+
+function TMLE.finalize(callback::JLD2Saver, estimation_report::NamedTuple)
+    jldopen(callback.file, "a") do io
+        io["low_propensity_scores"] = estimation_report.low_propensity_scores
+    end
+    return estimation_report
+end

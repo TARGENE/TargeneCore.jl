@@ -28,6 +28,9 @@ function parse_commandline()
                    "Issued from an LD analysis."
             arg_type = String
             required = false
+        "--sample_ids"
+            arg_type = String
+            help = "Path to list of sample_ids to filter on."
         "filter"
             help = "Filter the SNPS from a PLINK .bed file based on quality metrics"
             action = :command

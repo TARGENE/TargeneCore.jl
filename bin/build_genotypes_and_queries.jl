@@ -44,6 +44,10 @@ function parse_commandline()
             arg_type = String
             help = "Path to trans-acting SNPS"
             required = false
+        "--sample_ids"
+            arg_type = String
+            help = "Path to list of sample_ids to filter on."
+            required = false
         "chr-prefix"
             help = "Prefix path to BGEN chromosomes from the UKBB."
             arg_type = String
