@@ -27,7 +27,7 @@ end
 """
     filter_chromosome(parsed_args)
 
-The purpose of this method is to filter SNPS before applying a 
+The purpose of this method is to filter SNPS and Individuals before applying a 
 dimensionality reduction technique such as PCA that is later used
 to extract population stratification compomemts.
 We filter SNPs using quality control metrics from the following resource:
@@ -83,7 +83,13 @@ function filter_chromosome(parsed_args)
     final = filter(:array => ==(2), batches_ok)
     
     rsids = Set(final.snpid)
-    SnpArrays.filter(parsed_args["input"]; des=parsed_args["output"], f_snp = x -> x[:snpid] ∈ rsids)
+    sample_ids = Set(readdlm(parsed_args["sample-ids"]))
+    SnpArrays.filter(
+        parsed_args["input"]; 
+        des=parsed_args["output"], 
+        f_person = x -> x[:iid] ∈ sample_ids, 
+        f_snp = x -> x[:snpid] ∈ rsids
+    )
 end
 
 

@@ -44,7 +44,7 @@ function parse_commandline()
             arg_type = String
             help = "Path to trans-acting SNPS"
             required = false
-        "--sample_ids"
+        "--sample-ids"
             arg_type = String
             help = "Path to list of sample_ids to filter on."
             required = false

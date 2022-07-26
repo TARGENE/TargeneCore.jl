@@ -16,6 +16,7 @@ using JLD2
 using SnpArrays
 using Mmap
 using HypothesisTests
+using DelimitedFiles
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 
