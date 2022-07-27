@@ -17,12 +17,19 @@ const ROLE_MAPPING = [
 Datasets are joined and rewritten to disk in the same order.
 """
 function finalize_tmle_inputs(parsed_args)
-    final_dataset = CSV.read(parsed_args["phenotypes"], DataFrame)
+    binary_phenotypes = CSV.read(parsed_args["binary-phenotypes"], DataFrame)
+    continuous_phenotypes = CSV.read(parsed_args["continuous-phenotypes"], DataFrame)
     columns = Dict(
-        "phenotypes" => columnnames_no_sid(final_dataset),
+        "binary-phenotypes" => columnnames_no_sid(binary_phenotypes),
+        "continuous-phenotypes" => columnnames_no_sid(continuous_phenotypes),
         "covariates" => String[],
         "treatments" => String[],
         "confounders" => String[]
+        )
+    final_dataset = innerjoin(
+        binary_phenotypes, 
+        continuous_phenotypes,
+        on=:SAMPLE_ID
         )
     for (key, role) in ROLE_MAPPING
         if parsed_args[key] !== nothing
@@ -38,8 +45,12 @@ function finalize_tmle_inputs(parsed_args)
 
     # Write targets
     CSV.write(
-        string(parsed_args["out-prefix"], ".phenotypes.csv"), 
-        final_dataset[!, prepend_sample_id(columns["phenotypes"])]
+        string(parsed_args["out-prefix"], ".binary-phenotypes.csv"), 
+        final_dataset[!, prepend_sample_id(columns["binary-phenotypes"])]
+    )
+    CSV.write(
+        string(parsed_args["out-prefix"], ".continuous-phenotypes.csv"), 
+        final_dataset[!, prepend_sample_id(columns["continuous-phenotypes"])]
     )
     # Write treatments
     CSV.write(

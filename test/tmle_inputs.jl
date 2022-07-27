@@ -1,4 +1,6 @@
 using Test
+using CSV
+using DataFrames
 using TMLEEpistasis
 
 function read_output(parsed_args)
@@ -6,21 +8,26 @@ function read_output(parsed_args)
         string(parsed_args["out-prefix"], ".treatments.csv"),
         DataFrame
     )
-    phenotypes = CSV.read(
-        string(parsed_args["out-prefix"], ".phenotypes.csv"),
+    binary_phenotypes = CSV.read(
+        string(parsed_args["out-prefix"], ".binary-phenotypes.csv"),
+        DataFrame
+    )
+    continuous_phenotypes = CSV.read(
+        string(parsed_args["out-prefix"], ".continuous-phenotypes.csv"),
         DataFrame
     )
     confounders = CSV.read(
         string(parsed_args["out-prefix"], ".confounders.csv"),
         DataFrame
     )
-    return treatments, phenotypes, confounders
+    return treatments, binary_phenotypes, continuous_phenotypes, confounders
 end
 
 @testset "Test finalize_tmle_inputs" begin
     parsed_args = Dict{String, Union{String, Nothing}}(
         "out-prefix" => "final",
-        "phenotypes" => "test.phenotypes.csv",
+        "binary-phenotypes" => "test.binary-phenotypes.csv",
+        "continuous-phenotypes" => "test.continuous-phenotypes.csv",
         "genotypes" => "test.genotypes.csv",
         "covariates" => "test.covariates.csv",
         "extra-confounders" => "test.extra-confounders.csv",
@@ -28,11 +35,15 @@ end
         "extra-treatments" => "test.extra-treatments.csv"
     )
     # Write Data
-    CSV.write(parsed_args["phenotypes"], 
+    CSV.write(parsed_args["binary-phenotypes"], 
         DataFrame(
             SAMPLE_ID = [1, 2, 3, 4, 5],
             PHENO_1 = [1, 2, 3, 4, 5],
-            PHENO_2 = [1, 1, 1, 1, 1]
+    ))
+    CSV.write(parsed_args["continuous-phenotypes"], 
+    DataFrame(
+        SAMPLE_ID = [1, 2, 3, 4, 5],
+        PHENO_2 = [1, 1, 1, 1, 1]
     ))
     CSV.write(parsed_args["genetic-confounders"], 
         DataFrame(
@@ -64,10 +75,11 @@ end
     parsed_args["extra-treatments"] = nothing
     parsed_args["covariates"] = nothing
     finalize_tmle_inputs(parsed_args)
-    treatments, phenotypes, confounders = read_output(parsed_args)
+    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
 
-    @test treatments.SAMPLE_ID == phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
-    @test names(phenotypes) == ["SAMPLE_ID", "PHENO_1", "PHENO_2"]
+    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
     @test names(treatments) == ["SAMPLE_ID", "G_1"]
     @test names(confounders) == ["SAMPLE_ID", "PC_1"]
     @test !isfile("final.covariates.csv")
@@ -76,10 +88,11 @@ end
     parsed_args["extra-confounders"] = "test.extra-confounders.csv"
     parsed_args["extra-treatments"] = "test.extra-treatments.csv"
     finalize_tmle_inputs(parsed_args)
-    treatments, phenotypes, confounders = read_output(parsed_args)
+    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
 
-    @test treatments.SAMPLE_ID == phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
-    @test names(phenotypes) == ["SAMPLE_ID", "PHENO_1", "PHENO_2"]
+    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
     @test names(treatments) == ["SAMPLE_ID", "G_1", "T_1"]
     @test names(confounders) == ["SAMPLE_ID", "PC_1", "CONF_1"]
     @test !isfile("final.covariates.csv")
@@ -87,14 +100,15 @@ end
     # Third scenario
     parsed_args["covariates"] = "test.covariates.csv"
     finalize_tmle_inputs(parsed_args)
-    treatments, phenotypes, confounders = read_output(parsed_args)
+    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
     covariates  = CSV.read(
         string(parsed_args["out-prefix"], ".covariates.csv"),
         DataFrame
     )
     
-    @test treatments.SAMPLE_ID == phenotypes.SAMPLE_ID == confounders.SAMPLE_ID == covariates.SAMPLE_ID
-    @test names(phenotypes) == ["SAMPLE_ID", "PHENO_1", "PHENO_2"]
+    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID == covariates.SAMPLE_ID
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
     @test names(treatments) == ["SAMPLE_ID", "G_1", "T_1"]
     @test names(confounders) == ["SAMPLE_ID", "PC_1", "CONF_1"]
     @test names(covariates) == ["SAMPLE_ID", "COV_1"]
@@ -106,7 +120,7 @@ end
         end
     end
     # Remove output files
-    for key in ("confounders", "covariates", "phenotypes", "treatments")
+    for key in ("confounders", "covariates", "binary-phenotypes", "continuous-phenotypes","treatments")
         rm(string(parsed_args["out-prefix"], ".", key, ".csv"))
     end
 end

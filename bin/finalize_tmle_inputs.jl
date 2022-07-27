@@ -14,10 +14,14 @@ function parse_commandline()
             arg_type = String
             help = "Path to a genotypes file"
             required = true
-        "--phenotypes"
+        "--binary-phenotypes"
             arg_type = String
             required = true
-            help = help = "Path to a phenotypes file"
+            help = help = "Path to the binary phenotypes file"
+        "--continuous-phenotypes"
+            arg_type = String
+            required = true
+            help = help = "Path to the continuous phenotypes file"
         "--genetic-confounders"
             arg_type = String
             help = help = "Path to a genetic confounders file"
