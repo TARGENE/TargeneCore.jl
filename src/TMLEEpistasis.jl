@@ -31,6 +31,7 @@ include("phenotypes.jl")
 include("grm.jl")
 include("sieve_plateau.jl")
 include("summary.jl")
+include("tmle_inputs.jl")
 
 ###############################################################################
 # EXPORTS
@@ -40,5 +41,6 @@ export filter_chromosome, merge_beds, adapt_flashpca
 export prepare_phenotypes, tmle_phenotypes_batches
 export sieve_variance_plateau
 export build_summary
+export finalize_tmle_inputs
 
 end
