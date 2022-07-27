@@ -86,7 +86,7 @@ function impute_genotypes(snps, threshold)
     rsid_to_minor_major = Dict()
     for group in groupby(snps, :CHROM)
         bgenfile = first(group.BGEN_FILE)
-        chr_genotypes= DataFrame(SAMPLE_ID=bgenfile.samples)
+        chr_genotypes = DataFrame(SAMPLE_ID=bgenfile.samples)
         # Iterate over variants in this chromosome
         for rsid in group.ID
             v = variant_by_rsid(bgenfile, rsid)
@@ -141,7 +141,7 @@ end
 
 function write_outputs(genotypes, queries, parsed_args)
     # Genotypes
-    sample_ids = Set(readdlm(parsed_args["sample-ids"]))
+    sample_ids = Set(CSV.read(parsed_args["sample-ids"], DataFrame, header=false, types=String)[!, 1])
     filtered_genotypes = filter(x -> x.SAMPLE_ID ∈ sample_ids, genotypes)
     CSV.write(joinpath(parsed_args["outdir"], "genotypes.csv"), filtered_genotypes)
     # Queries
