@@ -35,15 +35,17 @@ end
         "output" => joinpath("data", "filtered-mouse"),
         "qcfile" => joinpath("data", "ukbb", "qcfile.txt"),
         "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
-        "maf-threshold" => 0.31
+        "maf-threshold" => 0.31,
+        "sample-ids" => joinpath("data", "sample_ids.txt")
     )
     filter_chromosome(parsed_args)
 
     filtered = SnpData(parsed_args["output"])
 
     @test filtered.snp_info.snpid == ["rs13476318"]
-    @test size(filtered.snparray) == (1940, 1)
-
+    @test size(filtered.snparray) == (5, 1)
+    @test filtered.person_info.iid == 
+        ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     # Clean
     for ext in [".bed", ".bim", ".fam"]
         rm(parsed_args["output"]*ext)
