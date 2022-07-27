@@ -30,7 +30,7 @@ function parse_commandline()
             required = false
         "--sample-ids"
             arg_type = String
-            required = true
+            required = false
             help = "Path to list of sample_ids to filter on."
         "filter"
             help = "Filter the SNPS from a PLINK .bed file based on quality metrics"
