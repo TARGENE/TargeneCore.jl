@@ -1,6 +1,5 @@
-# using TargeneCore
+using TargeneCore
 using ArgParse
-
 
 function parse_commandline()
     s = ArgParseSettings(description="Preparation of data for TMLE, two modes are currently available.")
@@ -29,24 +28,11 @@ function parse_commandline()
             arg_type = String
             help = "Path to the continuous phenotypes file"
         
-        "--sample-ids"
-            arg_type = String
-            help = "Path to list of sample_ids to filter on."
-                
         "--call-threshold"
             arg_type = Float64
             help = "This is written down on the query file, it is the threshold that"*
                     " is later used to hard call genotypes based on their probabilities"
             default = 0.9
-        
-        "--exclude"
-            arg_type = String
-            help = "A file containing SNPs to be excluded from the analysis (one per line)"
-
-        "--minor-genotype-freq"
-            arg_type = Float64
-            help = "Minor genotype frequency filter"
-            default = 0.001
 
         "--bgen-prefix"
             help = "Prefix path to BGEN chromosomes."
@@ -67,6 +53,12 @@ function parse_commandline()
         "--extra-treatments"
             arg_type = String
             help = "Path to a additional treatments file to be merged with the genotypes file"
+        
+        "--phenotype-batch-size"
+            arg_type = Int
+            required = false
+            help = "Further performance may be obtained by batching phenotypes in a"*
+                   " single Targeted Estimation run"
     end
 
     @add_arg_table s["with-asb-trans"] begin
@@ -91,8 +83,6 @@ function parse_commandline()
     return parse_args(s)
 end
 
-
 parsed_args = parse_commandline()
-println(parsed_args)
 
-# finalize_tmle_inputs(parsed_args)
+finalize_tmle_inputs(parsed_args)

@@ -24,21 +24,21 @@ function read_output(parsed_args)
 end
 
 @testset "Test tmle_inputs with-param-files" begin
-    parsed_args = Dict{String, Any}(
+    parsed_args = Dict(
         "exclude" => nothing, 
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_")), 
-        "binary-phenotypes" => "BP", 
+        "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
         "call-threshold" => 0.8, 
         "extra-treatments" => nothing, 
-        "continuous-phenotypes" => nothing, 
-        "sample-ids" => joinpath("data", "sample_ids_bis.txt"), 
+        "continuous-phenotypes" => joinpath("data", "continuous_phenotypes.csv"), 
         "extra-confounders" => nothing, 
         "%COMMAND%" => "with-param-files", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "minor-genotype-freq" => 0.001, 
-        "genetic-confounders" => nothing, 
+        "genetic-confounders" => joinpath("data", "confounders.csv"), 
         "out-prefix" => "final", 
-        "covariates" => nothing
+        "covariates" => nothing,
+        "phenotype-batch-size" => nothing
     )
     tmle_inputs(parsed_args)
 end

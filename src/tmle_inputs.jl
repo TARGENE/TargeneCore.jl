@@ -16,24 +16,6 @@ function optionally_write_csv(path, final_dataset, columns)
     end
 end
 
-function update_with_extra_treatment!(param_file, extra_treatments)
-    append!(param_file["treatments"], extra_treatments)
-    for param in param_file["Parameters"]
-
-    end
-end
-
-function write_phenotype_batch(phenotypes, batch, batch_start, batch_end)
-    batch_file = batch_filename(batch)
-    open(batch_file, "w") do io
-        for i in batch_start:batch_end
-            println(io, phenotypes[i])
-        end
-    end
-end
-
-batch_filename(batch) = string("phenotypes_batch_", batch, ".csv")
-
 """
 
 If no batch-size is provided a batch consists of all phenotypes
@@ -52,26 +34,25 @@ function batched_param_files(param_files, phenotypes, batch_size::Int)
     return new_param_files
 end
 
-function write_param_files(param_files, 
-                           rsid_to_minor_major,
-                           extra_treatments,
-                           batch_size,
+function write_param_files(parsed_args,
+                           param_files, 
                            binary_phenotypes,
                            continuous_phenotypes)
-
+    batch_size = parsed_args["phenotype-batch-size"]
     binary_phenotypes_param_files = batched_param_files(param_files, binary_phenotypes, batch_size)
     continuous_phenotypes_param_files = batched_param_files(param_files, continuous_phenotypes, batch_size)
-    for param_file in vcat(binary_phenotypes_param_files, continuous_phenotypes_param_files)
-        update_treatment_section(param_file, extra_treatments)
-    end
 
+    for (i, param_file) in enumerate(binary_phenotypes_param_files..., continuous_phenotypes_param_files...)
+        YAML.write_file(outpath(parsed_args, ".parameter_$i.yaml"), param_file)
+    end
 end
 """
     finalize_tmle_inputs(parsed_args)
 
 Datasets are joined and rewritten to disk in the same order.
 """
-function merge_and_write(parsed_args, genotypes, rsid_to_minor_major, param_files)
+function merge_and_write(parsed_args, genotypes, param_files)
+    # Merge data and retrieve column names
     binary_phenotypes = CSV.read(parsed_args["binary-phenotypes"], DataFrame)
     continuous_phenotypes = CSV.read(parsed_args["continuous-phenotypes"], DataFrame)
     columns = Dict(
@@ -97,21 +78,14 @@ function merge_and_write(parsed_args, genotypes, rsid_to_minor_major, param_file
             )
         end
     end
-    # Write targets
-    optionally_write_csv(outpath(parsed_args, ".binary-phenotypes.csv"), final_dataset, columns["binary-phenotypes"])
-    optionally_write_csv(outpath(parsed_args, ".continuous-phenotypes.csv"), final_dataset, columns["continuous-phenotypes"])
-    # Write treatments
-    optionally_write_csv(outpath(parsed_args, ".treatments.csv"), final_dataset, columns["treatments"])
-    # Write confounders
-    optionally_write_csv(outpath(parsed_args, ".confounders.csv"), final_dataset, columns["confounders"])
-    # Write covariates
-    optionally_write_csv(outpath(parsed_args, ".covariates.csv"), final_dataset, columns["covariates"])
+    # Write data files
+    for finalrole in ("binary-phenotypes", "continuous-phenotypes", "treatments", "confounders", "covariates")
+        optionally_write_csv(outpath(parsed_args, ".$finalrole.csv"), final_dataset, columns[finalrole])
+    end
     # Write param files
     write_param_files(
+        parsed_args,
         param_files, 
-        rsid_to_minor_major,
-        filter(x -> x ∉ names(genotypes), columns["treatments"]),
-        parsed_args["phenotype-batch-size"],
         columns["binary-phenotypes"],
         columns["continuous-phenotypes"]
         )
@@ -146,7 +120,7 @@ end
 
 function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector, threshold::Real)
     n = size(probabilities, 2)
-    t = Vector{Union{String, Missing}}(missing, n)
+    t = Vector{Union{Int, Missing}}(missing, n)
     for i in 1:n
         # If no allele has been annotated with sufficient confidence
         # the sample is declared as missing for this variant
@@ -181,6 +155,22 @@ function all_snps_called(genotypes::DataFrame, snp_list::AbstractVector)
 end
 
 """
+    genotypes_encoding(variant)
+
+Since we are only considering bi-allelic variants, genotypes are encoded 
+as the number of minor alleles.
+"""
+function genotypes_encoding(variant)
+    minor = minor_allele(variant)
+    all₁, _ = alleles(variant)
+    if all₁ == minor
+        return [2, 1, 0]
+    else
+        return [0, 1, 2]
+    end
+end
+
+"""
     bgen_files(snps, bgen_prefix)
 
 This assumes the UK-Biobank structure
@@ -188,7 +178,6 @@ This assumes the UK-Biobank structure
 function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold::Real)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
-    rsid_to_minor_major = Dict()
     genotypes = nothing
     for filename in readdir(chr_dir)
         all_snps_called(genotypes, snp_list) ? break : nothing
@@ -203,11 +192,7 @@ function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold
                         continue
                     end
                     minor_allele_dosage!(bgenfile, variant)
-                    major = major_allele(variant)
-                    minor = minor_allele(variant)
-                    all₁, all₂ = alleles(variant)
-                    variant_genotypes = [all₁*all₁, major*minor, all₂*all₂]
-                    rsid_to_minor_major[rsid_] = (minor=minor, major=major)
+                    variant_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
                     chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
@@ -216,7 +201,7 @@ function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold
                     innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
         end
     end
-    return genotypes, rsid_to_minor_major
+    return genotypes
 end
 
 function tmle_inputs(parsed_args)
@@ -225,8 +210,8 @@ function tmle_inputs(parsed_args)
     elseif parsed_args["%COMMAND%"] == "with-param-files"
         param_files = TargeneCore.load_param_files(parsed_args["with-param-files"]["param-prefix"])
         snp_list = TargeneCore.snps_from_param_files(param_files)
-        genotypes, rsid_to_minor_major = TargeneCore.call_genotypes(parsed_args["bgen-prefix"], snp_list, parsed_args["call-threshold"])
-        merge_and_write(parsed_args, genotypes, rsid_to_minor_major, param_files)
+        genotypes = TargeneCore.call_genotypes(parsed_args["bgen-prefix"], snp_list, parsed_args["call-threshold"])
+        merge_and_write(parsed_args, genotypes, param_files)
     else
         throw(ArgumentError("Unrecognized command."))
     end

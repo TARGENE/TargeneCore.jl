@@ -28,8 +28,6 @@ import MLJBase: fit, transform, target_scitype, input_scitype
 include("utils.jl")
 include("genotypes_and_queries.jl")
 include("confounders.jl")
-include("phenotypes.jl")
-include("grm.jl")
 include("sieve_plateau.jl")
 include("summary.jl")
 include("tmle_inputs.jl")

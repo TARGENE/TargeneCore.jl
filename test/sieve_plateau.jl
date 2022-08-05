@@ -41,6 +41,13 @@ function distance_vector_to_matrix!(matrix_distance, vector_distance, n_samples)
     end
 end
 
+@testset "Test readGRM" begin
+    prefix = joinpath("data", "grm", "test.grm")
+    GRM, ids = TargeneCore.readGRM(prefix)
+    @test size(GRM, 1) == 18915
+    @test size(ids, 1) == 194
+end
+
 @testset "Test build_work_list" begin
     grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs54"
