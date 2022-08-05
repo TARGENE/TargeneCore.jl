@@ -77,7 +77,7 @@ function build_results_files(grm_ids, prefix)
     TMLE.fit(tmle_reg, T, W, (height=height, bmi=bmi);
         verbosity=0,
         cache=false,
-        callbacks=[TMLEEpistasis.JLD2Saver(cont_path, true)])
+        callbacks=[TargeneCore.JLD2Saver(cont_path, true)])
     jldopen(cont_path, "a") do io
             io["SAMPLE_IDS"] = Dict(
                 "height" => string.(grm_ids.SAMPLE_ID),
@@ -94,7 +94,7 @@ function build_results_files(grm_ids, prefix)
     TMLE.fit(tmle_bin, T, W, (cancer=cancer,);
         verbosity=0,
         cache=false,
-        callbacks=[TMLEEpistasis.JLD2Saver(bin_path, true)])
+        callbacks=[TargeneCore.JLD2Saver(bin_path, true)])
     jldopen(bin_path, "a") do io
         io["SAMPLE_IDS"] = Dict(
             "cancer" => string.(grm_ids.SAMPLE_ID)

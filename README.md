@@ -1,21 +1,36 @@
-# TMLEEpistasis.jl
+# TargeneCore.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://olivierlabayle.github.io/TMLEEpistasis.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://olivierlabayle.github.io/TMLEEpistasis.jl/dev)
-[![Build Status](https://github.com/olivierlabayle/TMLEEpistasis.jl/workflows/CI/badge.svg)](https://github.com/olivierlabayle/TMLEEpistasis.jl/actions)
-[![Coverage](https://codecov.io/gh/olivierlabayle/TMLEEpistasis.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/olivierlabayle/TMLEEpistasis.jl)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://olivierlabayle.github.io/TargeneCore.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://olivierlabayle.github.io/TargeneCore.jl/dev)
+[![Build Status](https://github.com/olivierlabayle/TargeneCore.jl/workflows/CI/badge.svg)](https://github.com/olivierlabayle/TargeneCore.jl/actions)
+[![Coverage](https://codecov.io/gh/olivierlabayle/TargeneCore.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/olivierlabayle/TargeneCore.jl)
 
+This project provides various functionalities that are used thoughout the [targene pipeline](https://github.com/TARGENE/targene-pipeline).
 
-The purpose of this project is to provide a mean for the estimation of effect sizes of potentially interacting variants using the Targeted Learning framework.
+## Preparation of TMLE input data
 
-## Prerequisites
-
-This project has important non Julia dependencies that may be difficult to install. The easiest way to use the facilities offered here is to use the dedicated [docker image](https://hub.docker.com/repository/docker/olivierlabayle/tmle-epistasis).
-
-## Description of the command line interface
-
-From the project's root directory:
+The associated script can be used by:
 
 ```bash
-julia --project ukbb.jl --help
+julia --project --startup-file=no tmle_inputs.jl --help
 ```
+
+The purpose of this step is to generate a set of data and [parameters configuration files](https://github.com/TARGENE/TargetedEstimation.jl) that can be further used by the [Targeted Estimation executable](https://github.com/TARGENE/TargetedEstimation.jl).
+
+The data files generation process works as follows. All input data files are merged together and further divided as:
+
+- Genetic & Extra confounders &rarr; Confounders
+- SNPs & Extra treatments &rarr; Treatments
+- Binary phenotypes &rarr; Binary phenotypes
+- Continuous phenotypes &rarr; Continuous phenotypes
+- Covariates &rarr; Covariates
+
+Apart from the SNP data, all input data files are supposed to be given as CSV filles with a `SAMPLE_ID` column that will be used for merging. There are two ways by which parameters configuration files and SNP data are generated.
+
+### Provided configuration files
+
+For this mode, use the `with-param-files` command and `--param-prefix` option. The SNPs of interest are read from those configuration files that will be validated against the actual data to ensure correctness.
+
+### ASBxTrans-actors mode
+
+For this mode, use the `with-asb-trans` command and `--asb-prefix` and `--trans-actors` options. This will generate pairwise interaction parameters between bQTLs output by the [Baal-ChIP pipeline](https://git.ecdf.ed.ac.uk/oalmelid/baal-nf) and trans-actors eQTLs from a CSV file. Additionally, if canvas parameters configuration files containing extra treatments are provided, nth-order interaction parameters will be generated.

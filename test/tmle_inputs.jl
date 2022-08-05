@@ -1,7 +1,7 @@
 using Test
 using CSV
 using DataFrames
-using TMLEEpistasis
+using TargeneCore
 
 function read_output(parsed_args)
     treatments = CSV.read(
@@ -23,8 +23,29 @@ function read_output(parsed_args)
     return treatments, binary_phenotypes, continuous_phenotypes, confounders
 end
 
-@testset "Test finalize_tmle_inputs" begin
-    parsed_args = Dict{String, Union{String, Nothing}}(
+@testset "Test tmle_inputs with-param-files" begin
+    parsed_args = Dict{String, Any}(
+        "exclude" => nothing, 
+        "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_")), 
+        "binary-phenotypes" => "BP", 
+        "call-threshold" => 0.8, 
+        "extra-treatments" => nothing, 
+        "continuous-phenotypes" => nothing, 
+        "sample-ids" => joinpath("data", "sample_ids_bis.txt"), 
+        "extra-confounders" => nothing, 
+        "%COMMAND%" => "with-param-files", 
+        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "minor-genotype-freq" => 0.001, 
+        "genetic-confounders" => nothing, 
+        "out-prefix" => "final", 
+        "covariates" => nothing
+    )
+    tmle_inputs(parsed_args)
+end
+
+@testset "TO change" begin
+
+    parsed_args = Dict{Any, Any}(
         "out-prefix" => "final",
         "binary-phenotypes" => "test.binary-phenotypes.csv",
         "continuous-phenotypes" => "test.continuous-phenotypes.csv",

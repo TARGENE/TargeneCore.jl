@@ -19,12 +19,12 @@ RUN mv gcta_v1.94.0Beta_linux_kernel_3_x86_64/gcta_v1.94.0Beta_linux_kernel_3_x8
 RUN chmod a+x /usr/local/bin/gcta64
 
 # Import project, build and precompile
-COPY . /TMLEEpistasis.jl 
+COPY . /TargeneCore.jl 
 
-WORKDIR /TMLEEpistasis.jl
+WORKDIR /TargeneCore.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
 
 # RUN julia -q --project build_sysimage.jl
 
-# RUN echo 'alias julia="julia -J TMLEEpistasisSysimage.so"' >> ~/.bashrc
+# RUN echo 'alias julia="julia -J TargeneCoreSysimage.so"' >> ~/.bashrc

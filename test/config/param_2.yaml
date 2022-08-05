@@ -1,0 +1,8 @@
+Treatments:
+  - [RSID_2, RSID_198]
+
+Parameters:
+  - name: HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR
+    RSID_2: GG -> GA
+    RSID_198: GG -> GA
+

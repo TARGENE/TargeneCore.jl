@@ -1,7 +1,7 @@
 module TestSievePlateau
 
 using Test
-using TMLEEpistasis
+using TargeneCore
 using DataFrames
 using CSV 
 using JLD2
@@ -42,11 +42,11 @@ function distance_vector_to_matrix!(matrix_distance, vector_distance, n_samples)
 end
 
 @testset "Test build_work_list" begin
-    grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
+    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs54"
     build_results_files(grm_ids, prefix)
     # mode=QUERYREPORTS, pval=0.05
-    influence_curves, n_obs, file_tmlereport_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=0.05)
+    influence_curves, n_obs, file_tmlereport_pairs = TargeneCore.build_work_list(prefix, grm_ids; pval=0.05)
     jldopen(string(prefix, "_batch_1_Real.hdf5")) do io
         tmlereports = io["TMLEREPORTS"]
         @test influence_curves[1, :] == convert(Vector{Float32}, tmlereports["2_1"].influence_curve)
@@ -56,7 +56,7 @@ end
     @test file_tmlereport_pairs == ["rs12_rs54_batch_1_Real.hdf5" => "2_1", "rs12_rs54_batch_1_Real.hdf5"=>"2_2"]
 
     # mode=MACHINE, pval=1
-    influence_curves, n_obs, file_tmlereport_pairs = TMLEEpistasis.build_work_list(prefix, grm_ids; pval=1)
+    influence_curves, n_obs, file_tmlereport_pairs = TargeneCore.build_work_list(prefix, grm_ids; pval=1)
     @test size(influence_curves) == (6, 194)
     @test n_obs == repeat([194], 6)
     file_tmlereport_pairs == [
@@ -73,11 +73,11 @@ end
 @testset "Test bit_distance" begin
     sample_grm = Float32[-0.6, -0.8, -0.25, -0.3, -0.1, 0.1, 0.7, 0.5, 0.2, 1.]
     nτs = 6
-    τs = TMLEEpistasis.default_τs(nτs, max_τ=0.75)
+    τs = TargeneCore.default_τs(nτs, max_τ=0.75)
     @test τs == Float32[0.0, 0.15, 0.3, 0.45, 0.6, 0.75]
-    τs = TMLEEpistasis.default_τs(nτs)
+    τs = TargeneCore.default_τs(nτs)
     @test τs == Float32[0., 0.4, 0.8, 1.2, 1.6, 2.0]
-    d = TMLEEpistasis.bit_distances(sample_grm, τs)
+    d = TargeneCore.bit_distances(sample_grm, τs)
     @test d == [0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  1.0
                 0.0  0.0  0.0  0.0  0.0  0.0  1.0  0.0  0.0  1.0
                 0.0  0.0  0.0  0.0  0.0  0.0  1.0  1.0  1.0  1.0
@@ -95,7 +95,7 @@ end
                  0. 0. 1. 1.
                  1. 0. 1. 1.]
     sample = 4
-    var_ = TMLEEpistasis.aggregate_variances(influence_curves, indicator, sample)
+    var_ = TargeneCore.aggregate_variances(influence_curves, indicator, sample)
     @test var_ == [24.0  189.0
                    40.0  225.0
                    48.0  333.0]
@@ -106,7 +106,7 @@ end
     n_obs = [10, 10, 100]
     variances = [1. 2. 3.
                  4. 5. 6.]
-    TMLEEpistasis.normalize!(variances, n_obs)
+    TargeneCore.normalize!(variances, n_obs)
     @test variances == [0.1 0.2 0.03
                         0.4 0.5 0.06]
 end
@@ -116,7 +116,7 @@ end
     n_samples = 5
     nτs = 5
     n_obs = [3, 4, 4]
-    τs = TMLEEpistasis.default_τs(nτs)
+    τs = TargeneCore.default_τs(nτs)
     # The GRM has 15 lower triangular elements
     grm = Float32[0.4, 0.1, 0.5, 0.2, -0.2, 0.6, 0.3, -0.6, 
                   0.4, 0.3, 0.6, 0.3, 0.7, 0.3, 0.1]
@@ -125,7 +125,7 @@ end
                                0.0 0. 0.1 0.3 0.2]
                   
     
-    variances = TMLEEpistasis.compute_variances(influence_curves, grm, τs, n_obs)
+    variances = TargeneCore.compute_variances(influence_curves, grm, τs, n_obs)
     @test size(variances) == (nτs, n_curves)
 
     # when τ=2, all elements are used
@@ -143,7 +143,7 @@ end
     # Check against basic_variance_implementation
     matrix_distance = zeros(Float32, n_samples, n_samples)
     for τ_id in 1:nτs
-        vector_distance = TMLEEpistasis.bit_distances(grm, [τs[τ_id]])
+        vector_distance = TargeneCore.bit_distances(grm, [τs[τ_id]])
         distance_vector_to_matrix!(matrix_distance, vector_distance, n_samples)
         for curve_id in 1:n_curves
             influence_curve = influence_curves[curve_id, :]
@@ -159,7 +159,7 @@ end
 
 @testset "Test grm_rows_bounds" begin
     n_samples = 5
-    grm_bounds = TMLEEpistasis.grm_rows_bounds(n_samples)
+    grm_bounds = TargeneCore.grm_rows_bounds(n_samples)
     @test grm_bounds == [1 => 1
                          2 => 3
                          4 => 6
@@ -171,7 +171,7 @@ end
     io = jldopen(joinpath("data", "sieve_variances.hdf5"))
     variances = io["variances"]
     n_obs = [10, 10, 10, 10, 10, 100, 100, 1000, 1000, 1000]
-    stderrors = TMLEEpistasis.corrected_stderrors(variances, n_obs)
+    stderrors = TargeneCore.corrected_stderrors(variances, n_obs)
     # sanity check
     @test size(stderrors, 1) == 10
 
@@ -182,7 +182,7 @@ end
 end
 
 @testset "Test sieve_variance_plateau" begin
-    grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
+    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs45"
     nb_estimators = 10
     build_results_files(grm_ids, prefix)

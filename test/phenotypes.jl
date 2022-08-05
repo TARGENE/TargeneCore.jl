@@ -1,7 +1,7 @@
 module TestPhenotypes
 
 using Test
-using TMLEEpistasis
+using TargeneCore
 using CSV
 using DataFrames
 
@@ -19,7 +19,7 @@ using DataFrames
         "phenotypes-file" => temp_file,
         "batch-size" => "3"
     )
-    TMLEEpistasis.tmle_phenotypes_batches(parsed_args)
+    TargeneCore.tmle_phenotypes_batches(parsed_args)
 
     expected_batches = [
         ["x1", "x2", "x3"], 
@@ -28,7 +28,7 @@ using DataFrames
         ["x10"]
     ]
     for batch in 1:4
-        batch_file = TMLEEpistasis.batch_filename(batch)
+        batch_file = TargeneCore.batch_filename(batch)
         @test readlines(open(batch_file)) == expected_batches[batch]
         rm(batch_file)
     end
@@ -38,9 +38,9 @@ using DataFrames
         "phenotypes-file" => temp_file,
         "batch-size" => "max"
     )
-    TMLEEpistasis.tmle_phenotypes_batches(parsed_args)
+    TargeneCore.tmle_phenotypes_batches(parsed_args)
 
-    batch_file = TMLEEpistasis.batch_filename(1)
+    batch_file = TargeneCore.batch_filename(1)
     @test readlines(open(batch_file)) == phenotypes_names
     rm(batch_file)
     rm(temp_file)

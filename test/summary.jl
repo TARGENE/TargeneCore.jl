@@ -1,7 +1,7 @@
 module TestSummary
 
 using Test
-using TMLEEpistasis
+using TargeneCore
 using CSV
 using DataFrames
 
@@ -20,12 +20,12 @@ function build_sieve_file(prefix)
 end
 
 @testset "Test sieve_result_" begin
-    @test all(x===missing for x in TMLEEpistasis.sieve_results_(0.3, nothing))
-    @test all(x isa Float64 for x in TMLEEpistasis.sieve_results_(0.3, 0.1))
+    @test all(x===missing for x in TargeneCore.sieve_results_(0.3, nothing))
+    @test all(x isa Float64 for x in TargeneCore.sieve_results_(0.3, 0.1))
 end
 
 @testset "Test build_summary" begin
-    grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
+    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs45"
     summaryfilename = summary_filename(prefix)
     build_results_files(grm_ids, prefix)
@@ -78,7 +78,7 @@ end
     rm(summaryfilename)
 
     # Check the summary with and without sieve match on the same columns
-    sievecolnames = names(TMLEEpistasis.init_sieve("toto"))
+    sievecolnames = names(TargeneCore.init_sieve("toto"))
     @test summary_no_sieve == summary[!, Not(sievecolnames)]
 
 end

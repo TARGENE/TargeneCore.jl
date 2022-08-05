@@ -1,6 +1,6 @@
-using TMLEEpistasis
+using TargeneCore
 
-testdir = joinpath(pkgdir(TMLEEpistasis), "test")
+testdir = joinpath(pkgdir(TargeneCore), "test")
 cd(testdir)
 
 include(joinpath(testdir, "runtests.jl"))

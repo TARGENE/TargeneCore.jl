@@ -1,4 +1,4 @@
-module TMLEEpistasis
+module TargeneCore
 
 using Base.Sys
 
@@ -17,6 +17,7 @@ using SnpArrays
 using Mmap
 using HypothesisTests
 using DelimitedFiles
+using YAML
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 

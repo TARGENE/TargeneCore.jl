@@ -27,83 +27,9 @@ function trans_actors(path)
     return eQTLs
 end
 
-function add_chrfiles(snps, chr_prefix)
-    chr_dir_, prefix_ = splitdir(chr_prefix)
-    chr_dir = chr_dir_ == "" ? "." : chr_dir_
-    required_chrs = unique(snps.CHROM)
-    chr_files = DataFrame(CHROM=[], BGEN_FILE=[])
-    for filename in readdir(chr_dir)
-        if occursin(prefix_, filename) && endswith(filename, "bgen")
-            regexp_match = match(CHR_REG, filename)
-            if regexp_match !== nothing && regexp_match.match ∈ required_chrs
-                filepath = joinpath(chr_dir_, filename)
-                sample_filepath = string(filepath[1:end-4], "sample")
-                idx_filepath = string(filepath, ".bgi")
-                bgenfile = Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
-                push!(chr_files, [regexp_match.match, bgenfile])
-            end
-        end
-    end
-    nb_required_chrs = size(required_chrs, 1)
-    nb_actual_chrs = size(chr_files, 1)
-    @assert nb_required_chrs == nb_actual_chrs "Required "*
-        "$nb_required_chrs chromosome files, "* 
-        "got: $nb_actual_chrs. Chromosome files: \n $(chr_files.CHROM)"
-    return innerjoin(snps, chr_files, on=:CHROM)
-end
 
 exclude!(snps, exclusion_file::Nothing) = nothing
 exclude!(snps, exclusion_file) = filter!(:ID => x -> x ∉ readlines(exclusion_file), snps)
-
-function impute_genotypes(probabilities, variant_genotypes, threshold)
-    n = size(probabilities)[2]
-    t = Vector{Union{String, Missing}}(missing, n)
-    for i in 1:n
-        # If no allele has been annotated with sufficient confidence
-        # the sample is declared as missing for this variant
-        sample_gen_index = findfirst(x -> x >= threshold, probabilities[:, i])
-        sample_gen_index isa Nothing || (t[i] = variant_genotypes[sample_gen_index])
-    end
-    return t
-end
-
-
-"""
-Only bi-allelic SNPs are considered. We enforce that the allele₁, allele₍
-genotype is encoded with the major variant coming first.
-"""
-function genotypes(variant::Variant, minor, major)
-    alleles_ = alleles(variant)
-    @assert size(alleles_, 1) == 2 "$(variant.rsid) is not bi-allelic"
-    all₁, all₂ = alleles_
-    @assert (all₁, all₂) == (minor, major) || (all₁, all₂) == (major, minor)
-    return [all₁*all₁, major*minor, all₂*all₂]
-end
-
-
-function impute_genotypes(snps, threshold)
-    snps_genotypes = nothing
-    rsid_to_minor_major = Dict()
-    for group in groupby(snps, :CHROM)
-        bgenfile = first(group.BGEN_FILE)
-        chr_genotypes = DataFrame(SAMPLE_ID=bgenfile.samples)
-        # Iterate over variants in this chromosome
-        for rsid in group.ID
-            v = variant_by_rsid(bgenfile, rsid)
-            minor_allele_dosage!(bgenfile, v)
-            major = major_allele(v)
-            minor = minor_allele(v)
-            rsid_to_minor_major[rsid] = (minor=minor, major=major)
-            variant_genotypes = genotypes(v, minor, major)
-            probabilities = probabilities!(bgenfile, v)
-            chr_genotypes[!, rsid] = impute_genotypes(probabilities, variant_genotypes, threshold)
-        end
-        # I think concatenating should suffice but I still join as a safety
-        snps_genotypes = snps_genotypes isa Nothing ? chr_genotypes :
-            innerjoin(snps_genotypes, chr_genotypes, on=:SAMPLE_ID)
-    end
-    return snps_genotypes, rsid_to_minor_major
-end
 
 function build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, threshold)
     queries = []
@@ -156,31 +82,6 @@ function write_outputs(genotypes, queries, parsed_args)
         end
     end
 end
-
-function read_queries(query_prefix)
-    queries = Dict[]
-    querydir_, prefix = splitdir(query_prefix)
-    querydir = querydir_ == "" ? "." : querydir_
-    for filename in readdir(querydir)
-        if occursin(prefix, filename)
-            push!(queries, TOML.parse(open(joinpath(querydir_, filename))))
-        end
-    end
-    return queries
-end
-
-
-function snps_from_queries(queries)
-    snps = DataFrame(ID=String[], CHROM=String[])
-    for query in queries
-        for (snp, chr) in query["SNPS"]
-            push!(snps, (snp, chr))
-        end
-    end
-    return unique(snps, :ID)
-end
-
-
 
 function asb_generated_mode(parsed_args)
     # Load SNPS

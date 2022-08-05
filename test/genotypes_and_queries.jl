@@ -1,7 +1,7 @@
 module TestGenerateQueries
 
 using Test
-using TMLEEpistasis
+using TargeneCore
 using DataFrames
 using CSV
 using TOML
@@ -29,7 +29,7 @@ function remove_queries()
 end
 
 @testset "Test allele_specific_binding_snps" begin
-    bQTLs = TMLEEpistasis.allele_specific_binding_snps(joinpath("data", "asb_files", "asb_"))
+    bQTLs = TargeneCore.allele_specific_binding_snps(joinpath("data", "asb_files", "asb_"))
     @test bQTLs == DataFrame(
         ID=["RSID_17", "RSID_99", "RSID_198"],
         CHROM=["chr12", "chr12", "chr12"],
@@ -38,7 +38,7 @@ end
 end
 
 @testset "Test trans_actors(path)" begin
-    eQTLs = TMLEEpistasis.trans_actors(joinpath("data", "trans_actors_fake.csv"))
+    eQTLs = TargeneCore.trans_actors(joinpath("data", "trans_actors_fake.csv"))
     @test eQTLs == DataFrame(
         ID=["RSID_102", "RSID_2"], 
         CHROM=["chr12", "chr12"], 
@@ -47,9 +47,9 @@ end
 end
 
 @testset "Test check_chr_format" begin
-    TMLEEpistasis.check_chr_format(["chr1", "chr43"])
-    @test_throws AssertionError TMLEEpistasis.check_chr_format(["chr", "chr43"])
-    @test_throws AssertionError TMLEEpistasis.check_chr_format(["12", "chr43"])
+    TargeneCore.check_chr_format(["chr1", "chr43"])
+    @test_throws AssertionError TargeneCore.check_chr_format(["chr", "chr43"])
+    @test_throws AssertionError TargeneCore.check_chr_format(["12", "chr43"])
 end
 
 @testset "Test exclude" begin
@@ -58,10 +58,10 @@ end
         CHROM=["chr12", "chr13"]
         )
 
-    TMLEEpistasis.exclude!(snps, nothing)
+    TargeneCore.exclude!(snps, nothing)
     @test size(snps, 1) == 2
 
-    TMLEEpistasis.exclude!(snps, joinpath("data", "pb_snps.csv"))
+    TargeneCore.exclude!(snps, joinpath("data", "pb_snps.csv"))
     @test size(snps, 1) == 1
 end
 
@@ -72,13 +72,13 @@ end
         ID=["RSID_17", "RSID_12"], 
         CHROM=["chr12", "chr13"]
         )
-    @test_throws AssertionError TMLEEpistasis.add_chrfiles(snps, chr_prefix)
+    @test_throws AssertionError TargeneCore.add_chrfiles(snps, chr_prefix)
     # Everything fine
     snps = DataFrame(
         ID=["RSID_17", "RSID_12"], 
         CHROM=["chr12", "chr12"]
         )
-    snps = TMLEEpistasis.add_chrfiles(snps, chr_prefix)
+    snps = TargeneCore.add_chrfiles(snps, chr_prefix)
     @test snps.ID == ["RSID_17", "RSID_12"]
     @test all(x isa Bgen for x in snps.BGEN_FILE)
 end
@@ -89,7 +89,7 @@ end
     minor_allele_dosage!(b, v)
     major = major_allele(v)
     minor = minor_allele(v)
-    @test TMLEEpistasis.genotypes(v, minor, major) == ["AA", "GA", "GG"]
+    @test TargeneCore.genotypes(v, minor, major) == ["AA", "GA", "GG"]
 end
 
 @testset "Test impute_genotypes for a single SNP" begin
@@ -99,7 +99,7 @@ end
     variant_genotypes = ["AA", "AT", "TT"]
 
     threshold = 0.9
-    genotypes = TMLEEpistasis.impute_genotypes(
+    genotypes = TargeneCore.impute_genotypes(
         probabilities, 
         variant_genotypes, 
         threshold)
@@ -107,7 +107,7 @@ end
     @test genotypes[3] == "AA"
 
     threshold = 0.55
-    genotypes = TMLEEpistasis.impute_genotypes(
+    genotypes = TargeneCore.impute_genotypes(
         probabilities, 
         variant_genotypes, 
         threshold)
@@ -123,7 +123,7 @@ end
         CHROM=["chr12", "chr12"], 
         BGEN_FILE=[bgenfile, bgenfile]
         )
-    genotypes, rsid_to_minor_major = TMLEEpistasis.impute_genotypes(snps, 0.95)
+    genotypes, rsid_to_minor_major = TargeneCore.impute_genotypes(snps, 0.95)
     # I only look at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -155,7 +155,7 @@ end
     )
     
     # no occurence of some genotypes interactions
-    @test TMLEEpistasis.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.) == []
+    @test TargeneCore.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.) == []
 
     # one interaction ok min freq is 1/7
     genotypes = DataFrame(
@@ -163,24 +163,24 @@ end
         RSID_2=["CC", "CG", "GG", "CC", "GG", "CC", "CC"],
         RSID_3=["CC", "GG", "GG", "GC", "GC", "GC", "GG"]
         )
-    queries = TMLEEpistasis.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.1)
+    queries = TargeneCore.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.1)
     query = only(queries)
     @test query == Dict(
         "SNPS" => Dict("RSID_1" => "chr12", "RSID_3" => "chr4"),
         "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR" => Dict("RSID_1"=>"AA -> AG", "RSID_3"=>"GG -> GC")
         )
     # chaning the threshold removes the interaction
-    @test TMLEEpistasis.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.2) == []
+    @test TargeneCore.build_queries(eQTLs, bQTLs, genotypes, rsid_to_major_minor, 0.2) == []
 end
 
 @testset "Test read_queries and snps_from_queries" begin
     write_queries()
-    queries = TMLEEpistasis.read_queries("test_query")
+    queries = TargeneCore.read_queries("test_query")
     @test size(queries, 1) == 2
     @test all(haskey(q, "SNPS") for q in queries)
     @test all(haskey(q, "HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR") for q in queries)
 
-    snps = TMLEEpistasis.snps_from_queries(queries)
+    snps = TargeneCore.snps_from_queries(queries)
 
     @test snps == DataFrame(
         ID=["RSID_2", "RSID_198"],
