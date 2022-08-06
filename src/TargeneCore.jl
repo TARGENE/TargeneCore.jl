@@ -18,6 +18,7 @@ using Mmap
 using HypothesisTests
 using DelimitedFiles
 using YAML
+using Combinatorics
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 
@@ -25,7 +26,6 @@ import MLJBase: fit, transform, target_scitype, input_scitype
 # INCLUDES
 
 include("utils.jl")
-include("genotypes_and_queries.jl")
 include("confounders.jl")
 include("sieve_plateau.jl")
 include("summary.jl")

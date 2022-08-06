@@ -59,18 +59,26 @@ function parse_commandline()
             required = false
             help = "Further performance may be obtained by batching phenotypes in a"*
                    " single Targeted Estimation run"
+        "--positivity-constraint"
+            arg_type = Float64
+            default = 0.01
+            required = false
+            help = "Minimum frequency a treatment value occuring in a Parameter must reach in the population"
+
     end
 
     @add_arg_table s["with-asb-trans"] begin
-        "--asb-prefix"
+        "asb-prefix"
             arg_type = String
             help = "Prefix path to filtered allelic-specific binding SNPS output by baal-nf "*
                    "see https://git.ecdf.ed.ac.uk/oalmelid/baal-nf"
-            required = true
-        "--trans-actors"
+        "trans-actors"
             arg_type = String
             help = "Path to trans-acting SNPS"
-            required = true
+        "--param-prefix"
+            arg_type = String
+            help = "Prefix to template parameter file to provide additional treatment variable information"
+            required = false
     end
 
     @add_arg_table s["with-param-files"] begin

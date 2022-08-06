@@ -22,7 +22,6 @@ end
     # - no extra treatments
     # - no batch size
     parsed_args = Dict(
-        "exclude" => nothing, 
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_")), 
         "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
         "call-threshold" => 0.8, 
@@ -34,7 +33,8 @@ end
         "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
         "out-prefix" => "final", 
         "covariates" => nothing,
-        "phenotype-batch-size" => nothing
+        "phenotype-batch-size" => nothing,
+        "positivity-constraint" => 0.01
     )
     @test_logs(
         (:warn, "Some treatment variables could not be read from the data files and associated parameter files will not be processed: TREAT_1"), 
@@ -76,7 +76,6 @@ end
     # - SNP and extra treatments
     # - batch size: 1
     parsed_args = Dict(
-        "exclude" => nothing, 
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_1")), 
         "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
         "call-threshold" => 0.8, 
@@ -88,7 +87,8 @@ end
         "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
         "out-prefix" => "final", 
         "covariates" => joinpath("data", "covariates.csv"),
-        "phenotype-batch-size" => 1
+        "phenotype-batch-size" => 1,
+        "positivity-constraint" => 0.01
     )
     tmle_inputs(parsed_args)
 
@@ -140,6 +140,38 @@ end
     @test binary_2_2["Phenotypes"] == ["BINARY_2"]
     @test continuous_2_1["Phenotypes"] == ["CONTINUOUS_1"]
     @test continuous_2_2["Phenotypes"] == ["CONTINUOUS_2"]
+
+    cleanup()
+end
+
+@testset "Test tmle_inputs with-asb-trans: scenario 1" begin
+    # Scenario:
+    # - binary and continuous phenotypes
+    # - genetic and extra confounders
+    # - no covariates
+    # - no extra treatments
+    # - no batch size
+    # - no param
+    parsed_args = Dict(
+        "with-asb-trans" => Dict{String, Any}(
+            "asb-prefix" => joinpath("data", "asb_files", "asb"), 
+            "trans-actors" => joinpath("data", "trans_actors_fake.csv"),
+            "param-prefix" => nothing
+            ),
+        "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
+        "call-threshold" => 0.8, 
+        "extra-treatments" => nothing, 
+        "continuous-phenotypes" => joinpath("data", "continuous_phenotypes.csv"), 
+        "extra-confounders" => joinpath("data", "extra_confounders.csv"), 
+        "%COMMAND%" => "with-asb-trans", 
+        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
+        "out-prefix" => "final", 
+        "covariates" => nothing,
+        "phenotype-batch-size" => nothing,
+        "positivity-constraint" => 0.01
+    )
+    tmle_inputs(parsed_args)
 
     cleanup()
 end

@@ -8,8 +8,6 @@ const ROLE_MAPPING = [
     "extra-treatments" => "treatments"
 ]
 
-outpath(parsed_args, suffix) = string(parsed_args["out-prefix"], suffix)
-
 function optionally_write_csv(path, final_dataset, columns)
     if columns != ["SAMPLE_ID"]
         CSV.write(path, final_dataset[!, columns])
@@ -34,20 +32,20 @@ function batched_param_files(param_files, phenotypes, batch_size::Int)
     return new_param_files
 end
 
-function write_param_files(parsed_args,
+function write_param_files(outprefix,
                            param_files, 
                            binary_phenotypes,
-                           continuous_phenotypes)
-    batch_size = parsed_args["phenotype-batch-size"]
+                           continuous_phenotypes,
+                           batch_size)
     binary_phenotypes_param_files = batched_param_files(param_files, binary_phenotypes, batch_size)
     continuous_phenotypes_param_files = batched_param_files(param_files, continuous_phenotypes, batch_size)
 
     for (i, param_file) in enumerate(binary_phenotypes_param_files)
-        YAML.write_file(outpath(parsed_args, ".binary.parameter_$i.yaml"), param_file)
+        YAML.write_file(string(outprefix, ".binary.parameter_$i.yaml"), param_file)
     end
 
     for (i, param_file) in enumerate(continuous_phenotypes_param_files)
-        YAML.write_file(outpath(parsed_args, ".continuous.parameter_$i.yaml"), param_file)
+        YAML.write_file(string(outprefix, ".continuous.parameter_$i.yaml"), param_file)
     end 
 end
 
@@ -57,12 +55,12 @@ end
 For now validation is only performed on treatment variables 
 but could be xtended to other variables.
 """
-function validated_param_files(param_files, treatmentcols)
+function validated_param_files(param_files, treatments)
     validated_param_files_ = Dict[]
     for param_file in param_files
         required_treatments = []
         update_treatments_list!(required_treatments, param_file["Treatments"])
-        not_found = setdiff(required_treatments, treatmentcols)
+        not_found = setdiff(required_treatments, names(treatments))
         if length(not_found) == 0
             push!(validated_param_files_, param_file)
         else
@@ -74,12 +72,21 @@ function validated_param_files(param_files, treatmentcols)
     return validated_param_files_
 end
 
+function validated_param_files(eQTLs, bQTLs, treatments, param_prefix; positivity_constraint=0.01)
+    # Build parameter files
+    param_files = Dict[]
+    for generator in treatment_tuple_generators(eQTLs, bQTLs, param_prefix)
+        TargeneCore.build_asb_trans_param_files!(param_files, generator, treatments; positivity_constraint=positivity_constraint)
+    end
+    return param_files
+end
+
 """
     finalize_tmle_inputs(parsed_args)
 
 Datasets are joined and rewritten to disk in the same order.
 """
-function merge_and_write(parsed_args, genotypes, param_files)
+function build_final_dataset(parsed_args, genotypes)
     # Merge data and retrieve column names
     binary_phenotypes = CSV.read(parsed_args["binary-phenotypes"], DataFrame)
     continuous_phenotypes = CSV.read(parsed_args["continuous-phenotypes"], DataFrame)
@@ -106,20 +113,22 @@ function merge_and_write(parsed_args, genotypes, param_files)
             )
         end
     end
+
+    return final_dataset, columns
+
+end
+
+function write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch_size)
     # Write data files
     for finalrole in ("binary-phenotypes", "continuous-phenotypes", "treatments", "confounders", "covariates")
-        optionally_write_csv(outpath(parsed_args, ".$finalrole.csv"), final_dataset, columns[finalrole])
+        optionally_write_csv(string(outprefix, ".$finalrole.csv"), final_dataset, columns[finalrole])
     end
-
-    # Validate param files based on observed treatments
-    param_files = validated_param_files(param_files, columns["treatments"])
-
-    # Write param files
     write_param_files(
-        parsed_args,
+        outprefix,
         param_files, 
         filter(!=("SAMPLE_ID"), columns["binary-phenotypes"]),
-        filter(!=("SAMPLE_ID"), columns["continuous-phenotypes"])
+        filter(!=("SAMPLE_ID"), columns["continuous-phenotypes"]),
+        batch_size
         )
 end
 
@@ -234,14 +243,126 @@ function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold
     return genotypes
 end
 
+function trans_actors(path)
+    eQTLs = CSV.read(path, DataFrame, select=[:ID]).ID
+    return unique(eQTLs)
+end
+
+function asb_snps(asb_prefix)
+    bQTLs = []
+    asbdir_, prefix_ = splitdir(asb_prefix)
+    asbdir = asbdir_ == "" ? "." : asbdir_
+    for file in readdir(asbdir)
+        if occursin(prefix_, file)
+            new_bQTLs = CSV.read(joinpath(asbdir_, file), DataFrame, select=[:ID, :CHROM, :isASB])
+            for row in eachrow(new_bQTLs)
+                if row.isASB === true && row.CHROM ∉ ("chrX", "chrY")
+                    push!(bQTLs, row.ID)
+                end
+            end
+        end
+    end
+    return unique(bQTLs)
+end
+
+function additive_interaction_settings(treatment_tuple, treatments::DataFrame)
+    control_cases = []
+    for t in treatment_tuple
+        unique_vals = sort(unique(skipmissing(treatments[!, t])))
+        push!(control_cases, collect(combinations(unique_vals, 2)))
+    end
+    return Iterators.product(control_cases...)
+end
+
+function satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.01)
+    for base_setting in Iterators.product(interaction_setting...)
+        if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
+            return false
+        end
+    end
+    return true
+end
+
+function frequency_table(treatments, treatment_tuple)
+    freqs = Dict()
+    N = nrow(treatments)
+    for (key, group) in pairs(groupby(treatments, treatment_tuple; skipmissing=true))
+        freqs[values(key)] = nrow(group) / N
+    end
+    return freqs
+end
+
+function build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.01)
+    for treatment_tuple in treatment_tuple_generator
+        treatment_tuple = collect(treatment_tuple)
+        freqs = frequency_table(treatments, treatment_tuple)
+        interaction_settings = additive_interaction_settings(treatment_tuple, treatments)
+
+        param_file = Dict("Treatments" => treatment_tuple, "Parameters" => Dict[])
+        for interaction_setting in interaction_settings
+            if satisfies_positivity(interaction_setting, freqs; positivity_constraint=positivity_constraint)
+                param = Dict{String, Any}("name" => "I")
+                for var_index in eachindex(treatment_tuple)
+                    control, case = interaction_setting[var_index]
+                    treatment = treatment_tuple[var_index]
+                    param["name"] = string(param["name"], "__", treatment, "_", control, "->", case)
+                    param[treatment] = Dict("control" => control, "case" => case)
+                end
+                push!(param_file["Parameters"], param)
+            end
+        end
+
+        # Push valid parameters
+        if param_file["Parameters"] != Dict[]
+            push!(param_files, param_file)
+        end
+    end
+    return param_files
+end
+
+
+treatment_tuple_generators(eQTLs, bQTLs, param_prefix::Nothing) = (Iterators.product(eQTLs, bQTLs),)
+
+function treatment_tuple_generators(eQTLs, bQTLs, param_prefix::String)
+    param_files = TargeneCore.load_param_files(param_prefix)
+    generators = []
+    for param_file in param_files
+        extra_treatments = []
+        update_treatments_list!(extra_treatments, param_file["Treatments"])
+        push!(generators, Iterators.product(eQTLs, bQTLs, extra_treatments...))
+    end
+    return generators
+end
+
 function tmle_inputs(parsed_args)
+    batch_size = parsed_args["phenotype-batch-size"]
+    outprefix = parsed_args["out-prefix"]
+    call_threshold = parsed_args["call-threshold"]
+    bgen_prefix = parsed_args["bgen-prefix"]
+    positivity_constraint = parsed_args["positivity-constraint"]
     if parsed_args["%COMMAND%"] == "with-asb-trans"
-        return 
+        param_prefix = parsed_args["with-asb-trans"]["param-prefix"]
+        # Retrive SNPs
+        eQTLs = TargeneCore.trans_actors(parsed_args["with-asb-trans"]["trans-actors"])
+        bQTLs = TargeneCore.asb_snps(parsed_args["with-asb-trans"]["asb-prefix"])
+        snp_list = vcat(eQTLs, bQTLs)
+        # Genotypes and final dataset
+        genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
+        final_dataset, columns = build_final_dataset(parsed_args, genotypes)
+        # Parameter files
+        param_files = validated_param_files(eQTLs, bQTLs, final_dataset[!, columns["treatments"]], param_prefix; 
+                                            positivity_constraint=positivity_constraint)
+        # write genotypes and queries
+        write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch_size)
     elseif parsed_args["%COMMAND%"] == "with-param-files"
         param_files = TargeneCore.load_param_files(parsed_args["with-param-files"]["param-prefix"])
         snp_list = TargeneCore.snps_from_param_files(param_files)
-        genotypes = TargeneCore.call_genotypes(parsed_args["bgen-prefix"], snp_list, parsed_args["call-threshold"])
-        merge_and_write(parsed_args, genotypes, param_files)
+        # Genotypes and final dataset
+        genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
+        final_dataset, columns = build_final_dataset(parsed_args, genotypes)
+        # Parameter files
+        param_files = validated_param_files(param_files, final_dataset[!, columns["treatments"]])
+        write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch_size)
     else
         throw(ArgumentError("Unrecognized command."))
     end
