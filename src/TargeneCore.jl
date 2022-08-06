@@ -21,7 +21,6 @@ using YAML
 
 import MLJBase: fit, transform, target_scitype, input_scitype
 
-
 ###############################################################################
 # INCLUDES
 
@@ -35,11 +34,9 @@ include("tmle_inputs.jl")
 ###############################################################################
 # EXPORTS
 
-export build_genotypes_and_queries
 export filter_chromosome, merge_beds, adapt_flashpca
-export prepare_phenotypes, tmle_phenotypes_batches
 export sieve_variance_plateau
 export build_summary
-export finalize_tmle_inputs
+export tmle_inputs
 
 end

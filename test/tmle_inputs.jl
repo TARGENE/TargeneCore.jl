@@ -1,29 +1,26 @@
+module TestTMLEInputs
+
 using Test
 using CSV
 using DataFrames
 using TargeneCore
+using YAML
 
-function read_output(parsed_args)
-    treatments = CSV.read(
-        string(parsed_args["out-prefix"], ".treatments.csv"),
-        DataFrame
-    )
-    binary_phenotypes = CSV.read(
-        string(parsed_args["out-prefix"], ".binary-phenotypes.csv"),
-        DataFrame
-    )
-    continuous_phenotypes = CSV.read(
-        string(parsed_args["out-prefix"], ".continuous-phenotypes.csv"),
-        DataFrame
-    )
-    confounders = CSV.read(
-        string(parsed_args["out-prefix"], ".confounders.csv"),
-        DataFrame
-    )
-    return treatments, binary_phenotypes, continuous_phenotypes, confounders
+function cleanup()
+    for file in readdir()
+        if startswith(file, "final.")
+            rm(file)
+        end
+    end
 end
 
-@testset "Test tmle_inputs with-param-files" begin
+@testset "Test tmle_inputs with-param-files: scenario 1" begin
+    # Scenario:
+    # - binary and continuous phenotypes
+    # - genetic and extra confounders
+    # - no covariates
+    # - no extra treatments
+    # - no batch size
     parsed_args = Dict(
         "exclude" => nothing, 
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_")), 
@@ -31,117 +28,122 @@ end
         "call-threshold" => 0.8, 
         "extra-treatments" => nothing, 
         "continuous-phenotypes" => joinpath("data", "continuous_phenotypes.csv"), 
-        "extra-confounders" => nothing, 
+        "extra-confounders" => joinpath("data", "extra_confounders.csv"), 
         "%COMMAND%" => "with-param-files", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
-        "minor-genotype-freq" => 0.001, 
-        "genetic-confounders" => joinpath("data", "confounders.csv"), 
+        "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
         "out-prefix" => "final", 
         "covariates" => nothing,
         "phenotype-batch-size" => nothing
     )
-    tmle_inputs(parsed_args)
-end
-
-@testset "TO change" begin
-
-    parsed_args = Dict{Any, Any}(
-        "out-prefix" => "final",
-        "binary-phenotypes" => "test.binary-phenotypes.csv",
-        "continuous-phenotypes" => "test.continuous-phenotypes.csv",
-        "genotypes" => "test.genotypes.csv",
-        "covariates" => "test.covariates.csv",
-        "extra-confounders" => "test.extra-confounders.csv",
-        "genetic-confounders" => "test.genetic-confounders.csv",
-        "extra-treatments" => "test.extra-treatments.csv"
+    @test_logs(
+        (:warn, "Some treatment variables could not be read from the data files and associated parameter files will not be processed: TREAT_1"), 
+        tmle_inputs(parsed_args)
     )
-    # Write Data
-    CSV.write(parsed_args["binary-phenotypes"], 
-        DataFrame(
-            SAMPLE_ID = [1, 2, 3, 4, 5],
-            PHENO_1 = [1, 2, 3, 4, 5],
-    ))
-    CSV.write(parsed_args["continuous-phenotypes"], 
-    DataFrame(
-        SAMPLE_ID = [1, 2, 3, 4, 5],
-        PHENO_2 = [1, 1, 1, 1, 1]
-    ))
-    CSV.write(parsed_args["genetic-confounders"], 
-        DataFrame(
-            SAMPLE_ID = [2, 3, 4, 5, 1],
-            PC_1 = [0.2, 0.4, 0.1, 0.3, 0.8]
-    ))
-    CSV.write(parsed_args["extra-confounders"], 
-        DataFrame(
-            SAMPLE_ID = [5, 3, 4, 2, 1],
-            CONF_1 = [0.2, 0.4, 0.1, 0.3, 0.8]
-    ))
-    CSV.write(parsed_args["covariates"], 
-        DataFrame(
-            SAMPLE_ID = [1, 3, 5, 2, 4],
-            COV_1 = [0.2, 0.4, 0.1, 0.3, 0.8]
-    ))
-    CSV.write(parsed_args["extra-treatments"], 
-        DataFrame(
-            SAMPLE_ID = [3, 5, 2, 1, 4],
-            T_1 = [0.2, 0.4, 0.1, 0.3, 0.8]
-    ))
-    CSV.write(parsed_args["genotypes"], 
-        DataFrame(
-            SAMPLE_ID = [4, 5, 2, 1, 3],
-            G_1 = ["AC", "CC", "CC", "AA", "AA"]
-    ))
-    # First scenario
-    parsed_args["extra-confounders"] = nothing
-    parsed_args["extra-treatments"] = nothing
-    parsed_args["covariates"] = nothing
-    finalize_tmle_inputs(parsed_args)
-    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
 
-    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
-    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
-    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
-    @test names(treatments) == ["SAMPLE_ID", "G_1"]
-    @test names(confounders) == ["SAMPLE_ID", "PC_1"]
-    @test !isfile("final.covariates.csv")
+    # Data Files
+    confounders = CSV.read("final.confounders.csv", DataFrame)
+    @test names(confounders) == ["SAMPLE_ID", "PC1", "PC2", "21003", "22001"]
+    @test size(confounders) == (490, 5)
 
-    # Second scenario
-    parsed_args["extra-confounders"] = "test.extra-confounders.csv"
-    parsed_args["extra-treatments"] = "test.extra-treatments.csv"
-    finalize_tmle_inputs(parsed_args)
-    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
+    treatments = CSV.read("final.treatments.csv", DataFrame)
+    @test size(treatments) == (490, 3)
+    @test names(treatments) == ["SAMPLE_ID", "RSID_2", "RSID_198"]
+    @test Set(unique(treatments[!, "RSID_2"])) == Set([missing, 0, 1, 2])
+    @test Set(unique(treatments[!, "RSID_198"])) == Set([0, 1, 2])
 
-    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID
-    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
-    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
-    @test names(treatments) == ["SAMPLE_ID", "G_1", "T_1"]
-    @test names(confounders) == ["SAMPLE_ID", "PC_1", "CONF_1"]
-    @test !isfile("final.covariates.csv")
+    binary_phenotypes = CSV.read("final.binary-phenotypes.csv", DataFrame)
+    @test size(binary_phenotypes) == (490, 3)
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
 
-    # Third scenario
-    parsed_args["covariates"] = "test.covariates.csv"
-    finalize_tmle_inputs(parsed_args)
-    treatments, binary_phenotypes, continuous_phenotypes, confounders = read_output(parsed_args)
-    covariates  = CSV.read(
-        string(parsed_args["out-prefix"], ".covariates.csv"),
-        DataFrame
-    )
+    continuous_phenotypes = CSV.read("final.continuous-phenotypes.csv", DataFrame)  
+    @test size(continuous_phenotypes) == (490, 3)
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
+
+    # Parameter files: untouched because no phenotype batches were specified
+    # They are deduplicated for both continuous and binary phenotypes
+    @test YAML.load_file(joinpath("config", "param_1.yaml")) == YAML.load_file("final.binary.parameter_1.yaml") == YAML.load_file("final.continuous.parameter_1.yaml")
+    @test YAML.load_file(joinpath("config", "param_2.yaml")) == YAML.load_file("final.binary.parameter_2.yaml") == YAML.load_file("final.continuous.parameter_2.yaml")
     
-    @test treatments.SAMPLE_ID == binary_phenotypes.SAMPLE_ID == continuous_phenotypes.SAMPLE_ID == confounders.SAMPLE_ID == covariates.SAMPLE_ID
-    @test names(binary_phenotypes) == ["SAMPLE_ID", "PHENO_1"]
-    @test names(continuous_phenotypes) == ["SAMPLE_ID", "PHENO_2"]
-    @test names(treatments) == ["SAMPLE_ID", "G_1", "T_1"]
-    @test names(confounders) == ["SAMPLE_ID", "PC_1", "CONF_1"]
-    @test names(covariates) == ["SAMPLE_ID", "COV_1"]
-
-    # Remove input files
-    for (key, filepath) in parsed_args
-        if key != "out-prefix"
-            rm(filepath)
-        end
-    end
-    # Remove output files
-    for key in ("confounders", "covariates", "binary-phenotypes", "continuous-phenotypes","treatments")
-        rm(string(parsed_args["out-prefix"], ".", key, ".csv"))
-    end
+    cleanup()
 end
+
+@testset "Test tmle_inputs with-param-files: scenario 2" begin
+    # Scenario:
+    # - binary and continuous phenotypes
+    # - no extra confounders
+    # - covariates
+    # - SNP and extra treatments
+    # - batch size: 1
+    parsed_args = Dict(
+        "exclude" => nothing, 
+        "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_1")), 
+        "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
+        "call-threshold" => 0.8, 
+        "extra-treatments" => joinpath("data", "extra_treatments.csv"), 
+        "continuous-phenotypes" => joinpath("data", "continuous_phenotypes.csv"), 
+        "extra-confounders" => nothing, 
+        "%COMMAND%" => "with-param-files", 
+        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
+        "out-prefix" => "final", 
+        "covariates" => joinpath("data", "covariates.csv"),
+        "phenotype-batch-size" => 1
+    )
+    tmle_inputs(parsed_args)
+
+    confounders = CSV.read("final.confounders.csv", DataFrame)
+    @test names(confounders) == ["SAMPLE_ID", "PC1", "PC2"]
+    @test size(confounders) == (490, 3)
+
+    treatments = CSV.read("final.treatments.csv", DataFrame)
+    @test size(treatments) == (490, 3)
+    @test names(treatments) == ["SAMPLE_ID", "RSID_2", "TREAT_1"]
+
+    binary_phenotypes = CSV.read("final.binary-phenotypes.csv", DataFrame)
+    @test size(binary_phenotypes) == (490, 3)
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
+
+    continuous_phenotypes = CSV.read("final.continuous-phenotypes.csv", DataFrame)  
+    @test size(continuous_phenotypes) == (490, 3)
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
+
+    covariates = CSV.read("final.covariates.csv", DataFrame)
+    @test names(covariates) == ["SAMPLE_ID", "COV_1"]
+    @test size(covariates) == (490, 2)
+    # Parameter files: modified because phenotype batches was specified
+    # They are deduplicated for both continuous and binary phenotypes
+    origin_1 = YAML.load_file(joinpath("config", "param_1.yaml"))
+    binary_1_1 = YAML.load_file("final.binary.parameter_1.yaml")
+    binary_1_2 = YAML.load_file("final.binary.parameter_2.yaml")
+    continuous_1_1 = YAML.load_file("final.continuous.parameter_1.yaml")
+    continuous_1_2 = YAML.load_file("final.continuous.parameter_2.yaml")
+    # Parameters and Treatments sections unchanged
+    @test binary_1_1["Parameters"] == binary_1_2["Parameters"] == continuous_1_1["Parameters"] == origin_1["Parameters"]
+    @test binary_1_1["Treatments"] == binary_1_2["Treatments"] == continuous_1_2["Treatments"] == origin_1["Treatments"]
+    # Phenotypes sections changed
+    @test binary_1_1["Phenotypes"] == ["BINARY_1"]
+    @test binary_1_2["Phenotypes"] == ["BINARY_2"]
+    @test continuous_1_1["Phenotypes"] == ["CONTINUOUS_1"]
+    @test continuous_1_2["Phenotypes"] == ["CONTINUOUS_2"]
+
+    origin_2 = YAML.load_file(joinpath("config", "param_1_with_extra_treatment.yaml"))
+    binary_2_1 = YAML.load_file("final.binary.parameter_3.yaml")
+    binary_2_2 = YAML.load_file("final.binary.parameter_4.yaml")
+    continuous_2_1 = YAML.load_file("final.continuous.parameter_3.yaml")
+    continuous_2_2 = YAML.load_file("final.continuous.parameter_4.yaml")
+    # Parameters and Treatments sections unchanged
+    @test binary_2_1["Parameters"] == binary_2_2["Parameters"] == continuous_2_1["Parameters"] == origin_2["Parameters"]
+    @test binary_2_1["Treatments"] == binary_2_2["Treatments"] == continuous_2_2["Treatments"] == origin_2["Treatments"]
+    # Phenotypes sections changed
+    @test binary_2_1["Phenotypes"] == ["BINARY_1"]
+    @test binary_2_2["Phenotypes"] == ["BINARY_2"]
+    @test continuous_2_1["Phenotypes"] == ["CONTINUOUS_1"]
+    @test continuous_2_2["Phenotypes"] == ["CONTINUOUS_2"]
+
+    cleanup()
+end
+
+end
+
+true

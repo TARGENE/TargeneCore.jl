@@ -42,10 +42,38 @@ function write_param_files(parsed_args,
     binary_phenotypes_param_files = batched_param_files(param_files, binary_phenotypes, batch_size)
     continuous_phenotypes_param_files = batched_param_files(param_files, continuous_phenotypes, batch_size)
 
-    for (i, param_file) in enumerate(binary_phenotypes_param_files..., continuous_phenotypes_param_files...)
-        YAML.write_file(outpath(parsed_args, ".parameter_$i.yaml"), param_file)
+    for (i, param_file) in enumerate(binary_phenotypes_param_files)
+        YAML.write_file(outpath(parsed_args, ".binary.parameter_$i.yaml"), param_file)
     end
+
+    for (i, param_file) in enumerate(continuous_phenotypes_param_files)
+        YAML.write_file(outpath(parsed_args, ".continuous.parameter_$i.yaml"), param_file)
+    end 
 end
+
+"""
+    validated_param_files(param_files, treatmentcols)
+
+For now validation is only performed on treatment variables 
+but could be xtended to other variables.
+"""
+function validated_param_files(param_files, treatmentcols)
+    validated_param_files_ = Dict[]
+    for param_file in param_files
+        required_treatments = []
+        update_treatments_list!(required_treatments, param_file["Treatments"])
+        not_found = setdiff(required_treatments, treatmentcols)
+        if length(not_found) == 0
+            push!(validated_param_files_, param_file)
+        else
+            @warn string("Some treatment variables could not be read from the ",
+                         "data files and associated parameter files will not ",
+                         "be processed: ", join(not_found, ", "))
+        end
+    end
+    return validated_param_files_
+end
+
 """
     finalize_tmle_inputs(parsed_args)
 
@@ -82,12 +110,16 @@ function merge_and_write(parsed_args, genotypes, param_files)
     for finalrole in ("binary-phenotypes", "continuous-phenotypes", "treatments", "confounders", "covariates")
         optionally_write_csv(outpath(parsed_args, ".$finalrole.csv"), final_dataset, columns[finalrole])
     end
+
+    # Validate param files based on observed treatments
+    param_files = validated_param_files(param_files, columns["treatments"])
+
     # Write param files
     write_param_files(
         parsed_args,
         param_files, 
-        columns["binary-phenotypes"],
-        columns["continuous-phenotypes"]
+        filter(!=("SAMPLE_ID"), columns["binary-phenotypes"]),
+        filter(!=("SAMPLE_ID"), columns["continuous-phenotypes"])
         )
 end
 
@@ -103,19 +135,21 @@ function load_param_files(param_prefix)
     return param_files
 end
 
-update_snp_list!(snp_list, other) = push!(snp_list, other)
-function update_snp_list!(snp_list, other::AbstractArray)
+update_treatments_list!(snp_list, other) = push!(snp_list, other)
+function update_treatments_list!(snp_list, other::AbstractArray)
     for elem in other
-        update_snp_list!(snp_list, elem)
+        update_treatments_list!(snp_list, elem)
     end
 end
+
+isSNP(x) = occursin(r"^rs.*[0-9]+$", lowercase(x))
 
 function snps_from_param_files(param_files)
     snps = String[]
     for param_file in param_files
-        update_snp_list!(snps, param_file["Treatments"])
+        update_treatments_list!(snps, param_file["Treatments"])
     end
-    return unique(snps)
+    return unique(filter(isSNP, snps))
 end
 
 function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector, threshold::Real)
@@ -146,13 +180,7 @@ function read_bgen(filepath)
     return Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
 end
 
-all_snps_called(genotypes::Nothing, sns_list::AbstractVector) = false
-function all_snps_called(genotypes::DataFrame, snp_list::AbstractVector)
-    if size(genotypes, 2) == size(snp_list, 1) + 1
-        return true
-    end
-    return false
-end
+all_snps_called(found_snps::Set, snp_list::AbstractVector) = Set(snp_list) == found_snps
 
 """
     genotypes_encoding(variant)
@@ -173,20 +201,22 @@ end
 """
     bgen_files(snps, bgen_prefix)
 
-This assumes the UK-Biobank structure
+This function assumes the UK-Biobank structure
 """
 function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold::Real)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
+    found_snps = Set()
     for filename in readdir(chr_dir)
-        all_snps_called(genotypes, snp_list) ? break : nothing
+        all_snps_called(found_snps, snp_list) ? break : nothing
         if is_numbered_chromosome_file(filename, prefix_)
             bgenfile = read_bgen(joinpath(chr_dir_, filename))
             chr_genotypes = DataFrame(SAMPLE_ID=bgenfile.samples)
             for variant in BGEN.iterator(bgenfile)
                 rsid_ = rsid(variant)
                 if rsid_ ∈ snp_list
+                    push!(found_snps, rsid_)
                     if n_alleles(variant) != 2
                         @warn("Skipping $rsid_, not bi-allelic")
                         continue

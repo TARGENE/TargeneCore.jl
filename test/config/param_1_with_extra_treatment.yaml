@@ -1,9 +1,13 @@
 Treatments:
   - RSID_2
+  - TREAT_1
 
 Parameters:
   - name: HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR
     RSID_2:
+      case: 1
+      control: 0
+    TREAT_1:
       case: 1
       control: 0
 
