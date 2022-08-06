@@ -21,6 +21,7 @@ end
     # - no covariates
     # - no extra treatments
     # - no batch size
+    # - no positivity constraint
     parsed_args = Dict(
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_")), 
         "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
@@ -34,7 +35,7 @@ end
         "out-prefix" => "final", 
         "covariates" => nothing,
         "phenotype-batch-size" => nothing,
-        "positivity-constraint" => 0.01
+        "positivity-constraint" => 0.
     )
     @test_logs(
         (:warn, "Some treatment variables could not be read from the data files and associated parameter files will not be processed: TREAT_1"), 
@@ -75,6 +76,7 @@ end
     # - covariates
     # - SNP and extra treatments
     # - batch size: 1
+    # - no positivity constraint
     parsed_args = Dict(
         "with-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_1")), 
         "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
@@ -88,7 +90,7 @@ end
         "out-prefix" => "final", 
         "covariates" => joinpath("data", "covariates.csv"),
         "phenotype-batch-size" => 1,
-        "positivity-constraint" => 0.01
+        "positivity-constraint" => 0.
     )
     tmle_inputs(parsed_args)
 
@@ -152,6 +154,7 @@ end
     # - no extra treatments
     # - no batch size
     # - no param
+    # - no positivity constraint
     parsed_args = Dict(
         "with-asb-trans" => Dict{String, Any}(
             "asb-prefix" => joinpath("data", "asb_files", "asb"), 
@@ -169,9 +172,25 @@ end
         "out-prefix" => "final", 
         "covariates" => nothing,
         "phenotype-batch-size" => nothing,
-        "positivity-constraint" => 0.01
+        "positivity-constraint" => 0.
     )
     tmle_inputs(parsed_args)
+
+    confounders = CSV.read("final.confounders.csv", DataFrame)
+    @test names(confounders) == ["SAMPLE_ID", "PC1", "PC2", "21003", "22001"]
+    @test size(confounders) == (490, 5)
+
+    treatments = CSV.read("final.treatments.csv", DataFrame)
+    @test size(treatments) == (490, 6)
+    @test names(treatments) == ["SAMPLE_ID", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99"]
+
+    binary_phenotypes = CSV.read("final.binary-phenotypes.csv", DataFrame)
+    @test size(binary_phenotypes) == (490, 3)
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
+
+    continuous_phenotypes = CSV.read("final.continuous-phenotypes.csv", DataFrame)  
+    @test size(continuous_phenotypes) == (490, 3)
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
 
     cleanup()
 end
