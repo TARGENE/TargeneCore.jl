@@ -217,12 +217,12 @@ end
     # - extra treatments
     # - batch size
     # - param
-    # - positivity constraint
+    # - no positivity constraint
     parsed_args = Dict(
         "with-asb-trans" => Dict{String, Any}(
             "asb-prefix" => joinpath("data", "asb_files", "asb"), 
             "trans-actors" => joinpath("data", "trans_actors_fake.csv"),
-            "param-prefix" => nothing
+            "param-prefix" => joinpath("config", "template")
             ),
         "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
         "call-threshold" => 0.8, 
@@ -235,7 +235,7 @@ end
         "out-prefix" => "final", 
         "covariates" => joinpath("data", "covariates.csv"),
         "phenotype-batch-size" => 1,
-        "positivity-constraint" => 0.01
+        "positivity-constraint" => 0.0
     )
     tmle_inputs(parsed_args)
 
@@ -258,6 +258,29 @@ end
     covariates = CSV.read("final.covariates.csv", DataFrame)
     @test names(covariates) == ["SAMPLE_ID", "COV_1"]
     @test size(covariates) == (490, 2)
+    
+    # There are two parameter files, one with extra treatments and one without
+    # For each phenotype type (e.g. continuous or binary):
+    # We thus expect a maximum of 2 * nb_phenotypes * n_eqtls * n_bqtls = 24 parameter files 
+    for i in 1:24
+        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
+        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
+        @test binary_file["Parameters"] == continuous_file["Parameters"]
+        @test binary_file["Treatments"] == continuous_file["Treatments"]
+    end
+    cleanup()
+
+    # Adding positivity constraint, only 20 files are generated
+    parsed_args["positivity-constraint"] = 0.01
+    tmle_inputs(parsed_args)
+
+    for i in 1:20
+        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
+        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
+        @test binary_file["Parameters"] == continuous_file["Parameters"]
+        @test binary_file["Treatments"] == continuous_file["Treatments"]
+    end
+    @test !isfile(string("final.binary.parameter_21.yaml"))
     
     cleanup()
 end

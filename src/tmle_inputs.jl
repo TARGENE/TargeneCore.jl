@@ -144,6 +144,7 @@ function load_param_files(param_prefix)
     return param_files
 end
 
+update_treatments_list!(snp_list, other::Nothing) = nothing
 update_treatments_list!(snp_list, other) = push!(snp_list, other)
 function update_treatments_list!(snp_list, other::AbstractArray)
     for elem in other
@@ -329,7 +330,7 @@ function treatment_tuple_generators(eQTLs, bQTLs, param_prefix::String)
     for param_file in param_files
         extra_treatments = []
         update_treatments_list!(extra_treatments, param_file["Treatments"])
-        push!(generators, Iterators.product(eQTLs, bQTLs, extra_treatments...))
+        push!(generators, Iterators.product(eQTLs, bQTLs, [[x] for x in extra_treatments]...))
     end
     return generators
 end
