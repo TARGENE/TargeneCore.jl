@@ -192,8 +192,78 @@ end
     @test size(continuous_phenotypes) == (490, 3)
     @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
 
+    snp_combinations = Set(Iterators.product(["RSID_102", "RSID_2"], ["RSID_17", "RSID_198", "RSID_99"]))
+    for index in 1:6
+        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
+        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
+        @test binary_file == continuous_file
+        eqtl, bqtl = Tuple(binary_file["Treatments"])
+        setdiff!(snp_combinations, [(eqtl, bqtl)])
+        if bqtl == "RSID_198"
+            @test size(binary_file["Parameters"], 1) == 5
+        else
+            @test size(binary_file["Parameters"], 1) == 3
+        end
+    end
+    @test snp_combinations == Set()
     cleanup()
 end
+
+@testset "Test tmle_inputs with-asb-trans: scenario 2" begin
+    # Scenario:
+    # - binary and continuous phenotypes
+    # - no extra confounders
+    # - covariates
+    # - extra treatments
+    # - batch size
+    # - param
+    # - positivity constraint
+    parsed_args = Dict(
+        "with-asb-trans" => Dict{String, Any}(
+            "asb-prefix" => joinpath("data", "asb_files", "asb"), 
+            "trans-actors" => joinpath("data", "trans_actors_fake.csv"),
+            "param-prefix" => nothing
+            ),
+        "binary-phenotypes" => joinpath("data", "binary_phenotypes.csv"), 
+        "call-threshold" => 0.8, 
+        "extra-treatments" => joinpath("data", "extra_treatments.csv"), 
+        "continuous-phenotypes" => joinpath("data", "continuous_phenotypes.csv"), 
+        "extra-confounders" => nothing, 
+        "%COMMAND%" => "with-asb-trans", 
+        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "genetic-confounders" => joinpath("data", "genetic_confounders.csv"), 
+        "out-prefix" => "final", 
+        "covariates" => joinpath("data", "covariates.csv"),
+        "phenotype-batch-size" => 1,
+        "positivity-constraint" => 0.01
+    )
+    tmle_inputs(parsed_args)
+
+    confounders = CSV.read("final.confounders.csv", DataFrame)
+    @test names(confounders) == ["SAMPLE_ID", "PC1", "PC2"]
+    @test size(confounders) == (490, 3)
+    
+    treatments = CSV.read("final.treatments.csv", DataFrame)
+    @test size(treatments) == (490, 3)
+    @test names(treatments) == ["SAMPLE_ID", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99", "TREAT_1"]
+    
+    binary_phenotypes = CSV.read("final.binary-phenotypes.csv", DataFrame)
+    @test size(binary_phenotypes) == (490, 3)
+    @test names(binary_phenotypes) == ["SAMPLE_ID", "BINARY_1", "BINARY_2"]
+    
+    continuous_phenotypes = CSV.read("final.continuous-phenotypes.csv", DataFrame)  
+    @test size(continuous_phenotypes) == (490, 3)
+    @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
+    
+    covariates = CSV.read("final.covariates.csv", DataFrame)
+    @test names(covariates) == ["SAMPLE_ID", "COV_1"]
+    @test size(covariates) == (490, 2)
+    
+    cleanup()
+end
+
+
+
 
 end
 

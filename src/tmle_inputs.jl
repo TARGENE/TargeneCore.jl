@@ -283,7 +283,7 @@ function satisfies_positivity(interaction_setting, freqs; positivity_constraint=
     return true
 end
 
-function frequency_table(treatments, treatment_tuple)
+function frequency_table(treatments, treatment_tuple::AbstractVector)
     freqs = Dict()
     N = nrow(treatments)
     for (key, group) in pairs(groupby(treatments, treatment_tuple; skipmissing=true))
