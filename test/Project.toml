@@ -16,6 +16,7 @@ StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 TMLE = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 MLJLinearModels = "0.5"
