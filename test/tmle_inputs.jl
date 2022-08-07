@@ -5,6 +5,7 @@ using CSV
 using DataFrames
 using TargeneCore
 using YAML
+using StableRNGs
 using BGEN
 
 function cleanup()
@@ -80,6 +81,106 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 end
 
+@testset "Test build_asb_trans_param_files!" begin
+    rng = StableRNG(123)
+    param_files = Dict[]
+    n = 100
+    treatments = DataFrame(
+        RSID_1 = rand(rng, [2, 1, 0], n),
+        RSID_2 = rand(rng, [0, 1, 2], n),
+        EXTRA_TREAT = rand(rng, [0,1], n)
+    )
+    tuple_1 = ["RSID_1", "RSID_2", "EXTRA_TREAT"]
+    freqs = TargeneCore.frequency_table(treatments, tuple_1)
+    @test freqs == Dict{Any, Any}(
+        (0, 0, 0) => 0.09,
+        (1, 2, 1) => 0.07,
+        (0, 2, 1) => 0.1,
+        (1, 1, 0) => 0.07,
+        (0, 1, 0) => 0.04,
+        (1, 2, 0) => 0.05,
+        (2, 0, 1) => 0.02,
+        (0, 2, 0) => 0.05,
+        (2, 1, 1) => 0.05,
+        (2, 0, 0) => 0.03,
+        (2, 2, 1) => 0.06,
+        (2, 1, 0) => 0.04,
+        (1, 0, 1) => 0.06,
+        (0, 0, 1) => 0.05,
+        (1, 1, 1) => 0.06,
+        (0, 1, 1) => 0.05,
+        (2, 2, 0) => 0.06,
+        (1, 0, 0) => 0.05)
+    treatment_tuple_generator = [tuple_1]
+    TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.)
+    param_file = only(param_files)
+    @test param_file["Treatments"] == tuple_1
+    # There are 3 * 3 * 1 expected parameters
+    @test param_file["Parameters"] == [
+        Dict("name" => "I__RSID_1_0->1__RSID_2_0->1__EXTRA_TREAT_0->1",
+        "RSID_1" => Dict("case" => 1, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 1, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->2__RSID_2_0->1__EXTRA_TREAT_0->1",
+        "RSID_1" => Dict("case" => 2, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 1, "control" => 0)),
+        Dict("name" => "I__RSID_1_1->2__RSID_2_0->1__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 2, "control" => 1), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 1, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->1__RSID_2_0->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 1, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->2__RSID_2_0->2__EXTRA_TREAT_0->1",
+        "RSID_1" => Dict("case" => 2, "control" => 0),  
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 0)),
+        Dict("name" => "I__RSID_1_1->2__RSID_2_0->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 2, "control" => 1), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->1__RSID_2_1->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 1, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 1)),
+        Dict("name" => "I__RSID_1_0->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 2, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 1)),
+        Dict("name" => "I__RSID_1_1->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 2, "control" => 1), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 1))
+    ]
+    param_files = Dict[]
+    TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.04)
+    param_file = only(param_files)
+    @test param_file["Treatments"] == tuple_1
+    @test param_file["Parameters"] == [
+        Dict("name" => "I__RSID_1_0->1__RSID_2_0->1__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 1, "control" => 0),     
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 1, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->1__RSID_2_0->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 1, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 0)),
+        Dict("name" => "I__RSID_1_0->1__RSID_2_1->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 1, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 1)),
+        Dict("name" => "I__RSID_1_0->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
+        "RSID_1" => Dict("case" => 2, "control" => 0), 
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+        "RSID_2" => Dict("case" => 2, "control" => 1)),
+        Dict("name" => "I__RSID_1_1->2__RSID_2_1->2__EXTRA_TREAT_0->1",
+        "RSID_1" => Dict("case" => 2, "control" => 1),  
+        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0),
+        "RSID_2" => Dict("case" => 2, "control" => 1))
+    ]
+end
 #####################################################################
 ###############           END-TO-END TESTS            ###############
 #####################################################################

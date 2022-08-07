@@ -1,3 +1,4 @@
+const CHR_REG = r"chr[1-9]+"
 
 columnnames_no_sid(df) = filter(!=("SAMPLE_ID"), names(df))
 

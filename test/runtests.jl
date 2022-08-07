@@ -1,5 +1,4 @@
 include("utils.jl")
-include("genotypes_and_queries.jl")
 include("confounders.jl")
 include("sieve_plateau.jl")
 include("summary.jl")
