@@ -1,4 +1,3 @@
-include("utils.jl")
 include("confounders.jl")
 include("sieve_plateau.jl")
 include("summary.jl")

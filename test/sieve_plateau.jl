@@ -7,8 +7,6 @@ using CSV
 using JLD2
 using TMLE
 using CategoricalArrays
-using MLJLinearModels
-using MLJBase
 
 
 include("helper_fns.jl")

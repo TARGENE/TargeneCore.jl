@@ -1,31 +1,23 @@
 module TargeneCore
 
-using Base.Sys
-
-if occursin("Intel", cpu_info()[1].model)
+if occursin("Intel", Sys.cpu_info()[1].model)
     using MKL
 end
 using DataFrames
-using MLJBase
 using CSV
 using TMLE
-using TOML
 using BGEN
-using Serialization
 using JLD2
 using SnpArrays
 using Mmap
 using HypothesisTests
-using DelimitedFiles
 using YAML
 using Combinatorics
 
-import MLJBase: fit, transform, target_scitype, input_scitype
 
 ###############################################################################
 # INCLUDES
 
-include("utils.jl")
 include("confounders.jl")
 include("sieve_plateau.jl")
 include("summary.jl")

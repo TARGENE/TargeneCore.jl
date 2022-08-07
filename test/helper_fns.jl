@@ -1,52 +1,41 @@
 using BGEN
 using Random
-using MLJBase
 using MLJLinearModels
+using CategoricalArrays
 using TMLE
 using JLD2
 
-genotypesfile = joinpath("data", "genotypes.csv")
-confoundersfile = joinpath("data", "confounders.csv")
-queryfile = joinpath("config", "query.toml")
-continuous_phenotypefile = joinpath("data", "continuous_phenotypes.csv")
-binary_phenotypefile = joinpath("data", "binary_phenotypes.csv")
-phenotypelist_file = joinpath("data", "phen_list.csv")
 
+"""
+A callback to save the TMLE estimation results to disk instead of keeping them in memory
+"""
+mutable struct JLD2Saver <: TMLE.Callback
+    file::String
+    save_machines::Bool
+end
 
-function build_query_file(;path=queryfile, threshold=0.9, het="AG")
-    queries = Dict(
-        "threshold" => threshold,
-        "SNPS" => Dict(
-            "RSID_10"  => BGEN.datadir("example.8bits.bgen"),
-            "RSID_100" => BGEN.datadir("example.8bits.bgen")),
-        "QUERY_1" => Dict(
-            "RSID_10"  => "GG -> "*het,
-            "RSID_100" => "GG -> "*het),
-        "QUERY_2" => Dict(
-            "RSID_10"  => "GG -> "*het,
-            "RSID_100" => "GG -> AA"),
-        "QUERY_3" => Dict(
-            "RSID_10"  => "TT -> "*het,
-            "RSID_100" => "GG -> AA")
-    )
-    open(path, "w") do io
-        TOML.print(io, queries)
+function TMLE.after_tmle(callback::JLD2Saver, report::TMLEReport, target_id::Int, query_id::Int)
+    jldopen(callback.file, "a") do io
+        group = haskey(io, "TMLEREPORTS") ? io["TMLEREPORTS"] : JLD2.Group(io, "TMLEREPORTS")
+        group[string(target_id, "_", query_id)] = report
     end
 end
 
-
-function build_ate_query_file(;path=queryfile, threshold=0.9)
-    queries = Dict(
-        "threshold" => threshold,
-        "SNPS" => Dict("RSID_10"  => BGEN.datadir("example.8bits.bgen")),
-        "QUERY_1" => Dict("RSID_10"  => "GG -> AG"),
-        "QUERY_2" => Dict("RSID_10"  => "GG -> AA")
-    )
-    open(path, "w") do io
-        TOML.print(io, queries)
+function TMLE.after_fit(callback::JLD2Saver, mach::TMLE.Machine, id::Symbol)
+    if callback.save_machines
+        jldopen(callback.file, "a") do io
+            group = haskey(io, "MACHINES") ? io["MACHINES"] : JLD2.Group(io, "MACHINES")
+            group[string(id)] = mach
+        end
     end
 end
 
+function TMLE.finalize(callback::JLD2Saver, estimation_report::NamedTuple)
+    jldopen(callback.file, "a") do io
+        io["low_propensity_scores"] = estimation_report.low_propensity_scores
+    end
+    return estimation_report
+end
 
 function clean_hdf5estimates_files(prefix)
     rm(string(prefix, "_batch_1_Real.hdf5"))
@@ -77,7 +66,7 @@ function build_results_files(grm_ids, prefix)
     TMLE.fit(tmle_reg, T, W, (height=height, bmi=bmi);
         verbosity=0,
         cache=false,
-        callbacks=[TargeneCore.JLD2Saver(cont_path, true)])
+        callbacks=[JLD2Saver(cont_path, true)])
     jldopen(cont_path, "a") do io
             io["SAMPLE_IDS"] = Dict(
                 "height" => string.(grm_ids.SAMPLE_ID),
@@ -94,7 +83,7 @@ function build_results_files(grm_ids, prefix)
     TMLE.fit(tmle_bin, T, W, (cancer=cancer,);
         verbosity=0,
         cache=false,
-        callbacks=[TargeneCore.JLD2Saver(bin_path, true)])
+        callbacks=[JLD2Saver(bin_path, true)])
     jldopen(bin_path, "a") do io
         io["SAMPLE_IDS"] = Dict(
             "cancer" => string.(grm_ids.SAMPLE_ID)
