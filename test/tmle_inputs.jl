@@ -5,6 +5,7 @@ using CSV
 using DataFrames
 using TargeneCore
 using YAML
+using BGEN
 
 function cleanup()
     for file in readdir()
@@ -13,6 +14,75 @@ function cleanup()
         end
     end
 end
+
+#####################################################################
+##################           UNIT TESTS            ##################
+#####################################################################
+
+@testset "Test asb_snps / trans_actors" begin
+    bQTLs = TargeneCore.asb_snps(joinpath("data", "asb_files", "asb_"))
+    @test bQTLs == ["RSID_17", "RSID_99", "RSID_198"]
+
+    eQTLs = TargeneCore.trans_actors(joinpath("data", "trans_actors_fake.csv"))
+    @test eQTLs == ["RSID_102", "RSID_2"]
+end
+
+@testset "Test genotypes_encoding" begin
+    b = Bgen(BGEN.datadir("example.8bits.bgen"))
+    v = variant_by_rsid(b, "RSID_10")
+    minor_allele_dosage!(b, v)
+    # The minor allele is the first one
+    @test minor_allele(v) == alleles(v)[1]
+    @test TargeneCore.genotypes_encoding(v) == [2, 1, 0]
+
+    # The minor allele is the second one
+    v = variant_by_rsid(b, "RSID_102")
+    minor_allele_dosage!(b, v)
+    @test minor_allele(v) == alleles(v)[2]
+    @test TargeneCore.genotypes_encoding(v) == [0, 1, 2]
+end
+
+@testset "Test call_genotypes for a single SNP" begin
+    probabilities = [NaN 0.3 0.2 0.9;
+                     NaN 0.5 0.2 0.05;
+                     NaN 0.2 0.6 0.05]
+    variant_genotypes = [2, 1, 0]
+
+    threshold = 0.9
+    genotypes = TargeneCore.call_genotypes(
+        probabilities, 
+        variant_genotypes, 
+        threshold)
+    @test genotypes[1] === genotypes[2] === genotypes[3] === missing
+    @test genotypes[4] == 2
+
+    threshold = 0.55
+    genotypes = TargeneCore.call_genotypes(
+        probabilities, 
+        variant_genotypes, 
+        threshold)
+    @test genotypes[1] === genotypes[2]  === missing
+    @test genotypes[3] == 0
+    @test genotypes[4] == 2
+end
+
+@testset "Test call_genotypes for all SNPs" begin
+    snp_list = ["RSID_10", "RSID_100"]
+    genotypes = TargeneCore.call_genotypes(joinpath("data", "ukbb", "imputed" , "ukbb"), snp_list, 0.95)
+    # I only look at the first 10 rows
+    # SAMPLE_ID    
+    @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
+    # RSID_10
+    @test genotypes[1:10, "RSID_10"] == ones(10)
+    # RSID_100
+    @test all(genotypes[1:10, "RSID_100"] .=== [1, 2, 1, missing, 1, 1, missing, 1, 0, 1])
+    # Test column order
+    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
+end
+
+#####################################################################
+###############           END-TO-END TESTS            ###############
+#####################################################################
 
 @testset "Test tmle_inputs with-param-files: scenario 1" begin
     # Scenario:
@@ -244,7 +314,7 @@ end
     @test size(confounders) == (490, 3)
     
     treatments = CSV.read("final.treatments.csv", DataFrame)
-    @test size(treatments) == (490, 3)
+    @test size(treatments) == (490, 7)
     @test names(treatments) == ["SAMPLE_ID", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99", "TREAT_1"]
     
     binary_phenotypes = CSV.read("final.binary-phenotypes.csv", DataFrame)
@@ -262,7 +332,7 @@ end
     # There are two parameter files, one with extra treatments and one without
     # For each phenotype type (e.g. continuous or binary):
     # We thus expect a maximum of 2 * nb_phenotypes * n_eqtls * n_bqtls = 24 parameter files 
-    for i in 1:24
+    for index in 1:24
         binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
         continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
         @test binary_file["Parameters"] == continuous_file["Parameters"]
@@ -274,14 +344,14 @@ end
     parsed_args["positivity-constraint"] = 0.01
     tmle_inputs(parsed_args)
 
-    for i in 1:20
+    for index in 1:20
         binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
         continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
         @test binary_file["Parameters"] == continuous_file["Parameters"]
         @test binary_file["Treatments"] == continuous_file["Treatments"]
     end
     @test !isfile(string("final.binary.parameter_21.yaml"))
-    
+
     cleanup()
 end
 
