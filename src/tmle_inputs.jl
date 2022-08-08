@@ -26,7 +26,7 @@ function batched_param_files(param_files, phenotypes, batch_size::Int)
     for param_file in param_files
         for batch in Iterators.partition(phenotypes, batch_size)
             new_param_file = copy(param_file)
-            new_param_file["Phenotypes"] = batch
+            new_param_file["Targets"] = batch
             push!(new_param_files, new_param_file)
         end
     end

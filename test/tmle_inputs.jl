@@ -294,11 +294,11 @@ end
     # Parameters and Treatments sections unchanged
     @test binary_1_1["Parameters"] == binary_1_2["Parameters"] == continuous_1_1["Parameters"] == origin_1["Parameters"]
     @test binary_1_1["Treatments"] == binary_1_2["Treatments"] == continuous_1_2["Treatments"] == origin_1["Treatments"]
-    # Phenotypes sections changed
-    @test binary_1_1["Phenotypes"] == ["BINARY_1"]
-    @test binary_1_2["Phenotypes"] == ["BINARY_2"]
-    @test continuous_1_1["Phenotypes"] == ["CONTINUOUS_1"]
-    @test continuous_1_2["Phenotypes"] == ["CONTINUOUS_2"]
+    # Targets sections changed
+    @test binary_1_1["Targets"] == ["BINARY_1"]
+    @test binary_1_2["Targets"] == ["BINARY_2"]
+    @test continuous_1_1["Targets"] == ["CONTINUOUS_1"]
+    @test continuous_1_2["Targets"] == ["CONTINUOUS_2"]
 
     origin_2 = YAML.load_file(joinpath("config", "param_1_with_extra_treatment.yaml"))
     binary_2_1 = YAML.load_file("final.binary.parameter_3.yaml")
@@ -308,11 +308,11 @@ end
     # Parameters and Treatments sections unchanged
     @test binary_2_1["Parameters"] == binary_2_2["Parameters"] == continuous_2_1["Parameters"] == origin_2["Parameters"]
     @test binary_2_1["Treatments"] == binary_2_2["Treatments"] == continuous_2_2["Treatments"] == origin_2["Treatments"]
-    # Phenotypes sections changed
-    @test binary_2_1["Phenotypes"] == ["BINARY_1"]
-    @test binary_2_2["Phenotypes"] == ["BINARY_2"]
-    @test continuous_2_1["Phenotypes"] == ["CONTINUOUS_1"]
-    @test continuous_2_2["Phenotypes"] == ["CONTINUOUS_2"]
+    # Targets sections changed
+    @test binary_2_1["Targets"] == ["BINARY_1"]
+    @test binary_2_2["Targets"] == ["BINARY_2"]
+    @test continuous_2_1["Targets"] == ["CONTINUOUS_1"]
+    @test continuous_2_2["Targets"] == ["CONTINUOUS_2"]
 
     cleanup()
 end
