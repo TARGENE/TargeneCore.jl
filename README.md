@@ -1,7 +1,8 @@
 # TargeneCore.jl
 
-[![Build Status](https://github.com/olivierlabayle/TargeneCore.jl/workflows/CI/badge.svg)](https://github.com/olivierlabayle/TargeneCore.jl/actions)
-[![Coverage](https://codecov.io/gh/olivierlabayle/TargeneCore.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/olivierlabayle/TargeneCore.jl)
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/TARGENE/TargeneCore.jl/CI/main?label=Build%20main)
+![Codecov branch](https://img.shields.io/codecov/c/github/TARGENE/TargeneCore.jl/main?label=Coverage%20main)
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/TARGENE/TargeneCore.jl)
 
 This project provides various functionalities that are used thoughout the [targene pipeline](https://github.com/TARGENE/targene-pipeline).
 
