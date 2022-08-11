@@ -83,7 +83,7 @@ end
 
 @testset "Test build_asb_trans_param_files!" begin
     rng = StableRNG(123)
-    param_files = Dict[]
+    param_files = Pair{String, Dict}[]
     n = 100
     treatments = DataFrame(
         RSID_1 = rand(rng, [2, 1, 0], n),
@@ -113,7 +113,8 @@ end
         (1, 0, 0) => 0.05)
     treatment_tuple_generator = [tuple_1]
     TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.)
-    param_file = only(param_files)
+    filename, param_file = only(param_files)
+    @test filename == "I_RSID_1_RSID_2_EXTRA_TREAT.yaml"
     @test param_file["Treatments"] == tuple_1
     # There are 3 * 3 * 1 expected parameters
     @test param_file["Parameters"] == [
@@ -154,9 +155,10 @@ end
         "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
         "RSID_2" => Dict("case" => 2, "control" => 1))
     ]
-    param_files = Dict[]
+    param_files = Pair{String, Dict}[]
     TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.04)
-    param_file = only(param_files)
+    filename, param_file = only(param_files)
+    @test filename == "I_RSID_1_RSID_2_EXTRA_TREAT.yaml"
     @test param_file["Treatments"] == tuple_1
     @test param_file["Parameters"] == [
         Dict("name" => "I__RSID_1_0->1__RSID_2_0->1__EXTRA_TREAT_0->1", 
@@ -234,8 +236,8 @@ end
 
     # Parameter files: untouched because no phenotype batches were specified
     # They are deduplicated for both continuous and binary phenotypes
-    @test YAML.load_file(joinpath("config", "param_1.yaml")) == YAML.load_file("final.binary.parameter_1.yaml") == YAML.load_file("final.continuous.parameter_1.yaml")
-    @test YAML.load_file(joinpath("config", "param_2.yaml")) == YAML.load_file("final.binary.parameter_2.yaml") == YAML.load_file("final.continuous.parameter_2.yaml")
+    @test YAML.load_file(joinpath("config", "param_1.yaml")) == YAML.load_file("final.binary.param_1.yaml") == YAML.load_file("final.continuous.param_1.yaml")
+    @test YAML.load_file(joinpath("config", "param_2.yaml")) == YAML.load_file("final.binary.param_2.yaml") == YAML.load_file("final.continuous.param_2.yaml")
     
     cleanup()
 end
@@ -287,10 +289,10 @@ end
     # Parameter files: modified because phenotype batches was specified
     # They are deduplicated for both continuous and binary phenotypes
     origin_1 = YAML.load_file(joinpath("config", "param_1.yaml"))
-    binary_1_1 = YAML.load_file("final.binary.parameter_1.yaml")
-    binary_1_2 = YAML.load_file("final.binary.parameter_2.yaml")
-    continuous_1_1 = YAML.load_file("final.continuous.parameter_1.yaml")
-    continuous_1_2 = YAML.load_file("final.continuous.parameter_2.yaml")
+    binary_1_1 = YAML.load_file("final.binary.param_1.batch_1.yaml")
+    binary_1_2 = YAML.load_file("final.binary.param_1.batch_2.yaml")
+    continuous_1_1 = YAML.load_file("final.continuous.param_1.batch_1.yaml")
+    continuous_1_2 = YAML.load_file("final.continuous.param_1.batch_2.yaml")
     # Parameters and Treatments sections unchanged
     @test binary_1_1["Parameters"] == binary_1_2["Parameters"] == continuous_1_1["Parameters"] == origin_1["Parameters"]
     @test binary_1_1["Treatments"] == binary_1_2["Treatments"] == continuous_1_2["Treatments"] == origin_1["Treatments"]
@@ -301,10 +303,10 @@ end
     @test continuous_1_2["Targets"] == ["CONTINUOUS_2"]
 
     origin_2 = YAML.load_file(joinpath("config", "param_1_with_extra_treatment.yaml"))
-    binary_2_1 = YAML.load_file("final.binary.parameter_3.yaml")
-    binary_2_2 = YAML.load_file("final.binary.parameter_4.yaml")
-    continuous_2_1 = YAML.load_file("final.continuous.parameter_3.yaml")
-    continuous_2_2 = YAML.load_file("final.continuous.parameter_4.yaml")
+    binary_2_1 = YAML.load_file("final.binary.param_1_with_extra_treatment.batch_1.yaml")
+    binary_2_2 = YAML.load_file("final.binary.param_1_with_extra_treatment.batch_2.yaml")
+    continuous_2_1 = YAML.load_file("final.continuous.param_1_with_extra_treatment.batch_1.yaml")
+    continuous_2_2 = YAML.load_file("final.continuous.param_1_with_extra_treatment.batch_2.yaml")
     # Parameters and Treatments sections unchanged
     @test binary_2_1["Parameters"] == binary_2_2["Parameters"] == continuous_2_1["Parameters"] == origin_2["Parameters"]
     @test binary_2_1["Treatments"] == binary_2_2["Treatments"] == continuous_2_2["Treatments"] == origin_2["Treatments"]
@@ -364,9 +366,10 @@ end
     @test names(continuous_phenotypes) == ["SAMPLE_ID", "CONTINUOUS_1", "CONTINUOUS_2"]
 
     snp_combinations = Set(Iterators.product(["RSID_102", "RSID_2"], ["RSID_17", "RSID_198", "RSID_99"]))
-    for index in 1:6
-        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
-        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
+    for snp_combination in copy(snp_combinations)
+        file_pattern = string("I_", join(snp_combination, "_"), ".yaml")
+        binary_file = YAML.load_file(string("final.binary.", file_pattern))
+        continuous_file = YAML.load_file(string("final.continuous.", file_pattern))
         @test binary_file == continuous_file
         eqtl, bqtl = Tuple(binary_file["Treatments"])
         setdiff!(snp_combinations, [(eqtl, bqtl)])
@@ -433,25 +436,28 @@ end
     # There are two parameter files, one with extra treatments and one without
     # For each phenotype type (e.g. continuous or binary):
     # We thus expect a maximum of 2 * nb_phenotypes * n_eqtls * n_bqtls = 24 parameter files 
-    for index in 1:24
-        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
-        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
-        @test binary_file["Parameters"] == continuous_file["Parameters"]
-        @test binary_file["Treatments"] == continuous_file["Treatments"]
+    treatment_combinations = Set(Iterators.product(["RSID_102", "RSID_2"], ["RSID_17", "RSID_198", "RSID_99"], ["TREAT_1"]))
+    for treatment_combination in copy(treatment_combinations)
+        file_pattern = string("I_", join(treatment_combination, "_"))
+        binary_file_1 = YAML.load_file(string("final.binary.", file_pattern, ".batch_1.yaml"))
+        binary_file_2 = YAML.load_file(string("final.binary.", file_pattern, ".batch_2.yaml"))
+        continuous_file_1 = YAML.load_file(string("final.continuous.", file_pattern, ".batch_1.yaml"))
+        continuous_file_2 = YAML.load_file(string("final.continuous.", file_pattern, ".batch_2.yaml"))
+        @test binary_file_1["Parameters"] == continuous_file_1["Parameters"]
+        @test binary_file_1["Treatments"] == continuous_file_1["Treatments"]
+        @test binary_file_2["Parameters"] == continuous_file_2["Parameters"]
+        @test binary_file_2["Treatments"] == continuous_file_2["Treatments"]
+        setdiff!(treatment_combinations, [treatment_combination])
     end
+    @test treatment_combinations == Set()
     cleanup()
 
     # Adding positivity constraint, only 20 files are generated
     parsed_args["positivity-constraint"] = 0.01
     tmle_inputs(parsed_args)
 
-    for index in 1:20
-        binary_file = YAML.load_file(string("final.binary.parameter_$index.yaml"))
-        continuous_file = YAML.load_file(string("final.continuous.parameter_$index.yaml"))
-        @test binary_file["Parameters"] == continuous_file["Parameters"]
-        @test binary_file["Treatments"] == continuous_file["Treatments"]
-    end
-    @test !isfile(string("final.binary.parameter_21.yaml"))
+    param_files = filter(x -> occursin.(r"^final.*yaml$",x), readdir())
+    @test size(param_files, 1) == 40 
 
     cleanup()
 end

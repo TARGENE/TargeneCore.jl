@@ -22,12 +22,13 @@ If no batch-size is provided a batch consists of all phenotypes
 batched_param_files(param_files, phenotypes, batch_size::Nothing) = param_files
 
 function batched_param_files(param_files, phenotypes, batch_size::Int)
-    new_param_files = Dict[]
-    for param_file in param_files
-        for batch in Iterators.partition(phenotypes, batch_size)
+    new_param_files = Pair{String, Dict}[]
+    for (filename, param_file) in param_files
+        for (batch_id, batch) in enumerate(Iterators.partition(phenotypes, batch_size))
             new_param_file = copy(param_file)
             new_param_file["Targets"] = batch
-            push!(new_param_files, new_param_file)
+            new_filename = string(replace(filename, ".yaml" => ""), ".batch_", batch_id, ".yaml")
+            push!(new_param_files, new_filename => new_param_file)
         end
     end
     return new_param_files
@@ -41,12 +42,12 @@ function write_param_files(outprefix,
     binary_phenotypes_param_files = batched_param_files(param_files, binary_phenotypes, batch_size)
     continuous_phenotypes_param_files = batched_param_files(param_files, continuous_phenotypes, batch_size)
 
-    for (i, param_file) in enumerate(binary_phenotypes_param_files)
-        YAML.write_file(string(outprefix, ".binary.parameter_$i.yaml"), param_file)
+    for (filename, param_file) in binary_phenotypes_param_files
+        YAML.write_file(string(outprefix, ".binary.", filename), param_file)
     end
 
-    for (i, param_file) in enumerate(continuous_phenotypes_param_files)
-        YAML.write_file(string(outprefix, ".continuous.parameter_$i.yaml"), param_file)
+    for (filename, param_file) in continuous_phenotypes_param_files
+        YAML.write_file(string(outprefix, ".continuous.", filename), param_file)
     end 
 end
 
@@ -57,13 +58,13 @@ For now validation is only performed on treatment variables
 but could be xtended to other variables.
 """
 function validated_param_files(param_files, treatments)
-    validated_param_files_ = Dict[]
-    for param_file in param_files
+    validated_param_files_ = Pair{String, Dict}[]
+    for (filename, param_file) in param_files
         required_treatments = []
         update_treatments_list!(required_treatments, param_file["Treatments"])
         not_found = setdiff(required_treatments, names(treatments))
         if length(not_found) == 0
-            push!(validated_param_files_, param_file)
+            push!(validated_param_files_, filename => param_file)
         else
             @warn string("Some treatment variables could not be read from the ",
                          "data files and associated parameter files will not ",
@@ -75,7 +76,7 @@ end
 
 function validated_param_files(eQTLs, bQTLs, treatments, param_prefix; positivity_constraint=0.01)
     # Build parameter files
-    param_files = Dict[]
+    param_files = Pair{String, Dict}[]
     for generator in treatment_tuple_generators(eQTLs, bQTLs, param_prefix)
         TargeneCore.build_asb_trans_param_files!(param_files, generator, treatments; positivity_constraint=positivity_constraint)
     end
@@ -134,12 +135,12 @@ function write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch
 end
 
 function load_param_files(param_prefix)
-    param_files = Dict[]
+    param_files = Pair{String, Dict}[]
     paramdir_, prefix = splitdir(param_prefix)
     paramdir = paramdir_ == "" ? "." : paramdir_
     for filename in readdir(paramdir)
         if occursin(prefix, filename)
-            push!(param_files, YAML.load_file(joinpath(paramdir_, filename)))
+            push!(param_files, filename => YAML.load_file(joinpath(paramdir_, filename)))
         end
     end
     return param_files
@@ -157,7 +158,7 @@ isSNP(x) = occursin(r"^rs.*[0-9]+$", lowercase(x))
 
 function snps_from_param_files(param_files)
     snps = String[]
-    for param_file in param_files
+    for (filename, param_file) in param_files
         update_treatments_list!(snps, param_file["Treatments"])
     end
     return unique(filter(isSNP, snps))
@@ -310,13 +311,15 @@ function build_asb_trans_param_files!(param_files, treatment_tuple_generator, tr
                     param["name"] = string(param["name"], "__", treatment, "_", control, "->", case)
                     param[treatment] = Dict("control" => control, "case" => case)
                 end
+                
                 push!(param_file["Parameters"], param)
             end
         end
 
         # Push valid parameters
         if param_file["Parameters"] != Dict[]
-            push!(param_files, param_file)
+            filename = string("I_", join(treatment_tuple, "_"), ".yaml")
+            push!(param_files, filename => param_file)
         end
     end
     return param_files
@@ -328,7 +331,7 @@ treatment_tuple_generators(eQTLs, bQTLs, param_prefix::Nothing) = (Iterators.pro
 function treatment_tuple_generators(eQTLs, bQTLs, param_prefix::String)
     param_files = TargeneCore.load_param_files(param_prefix)
     generators = []
-    for param_file in param_files
+    for (filename, param_file) in param_files
         extra_treatments = []
         update_treatments_list!(extra_treatments, param_file["Treatments"])
         push!(generators, Iterators.product(eQTLs, bQTLs, [[x] for x in extra_treatments]...))
@@ -361,9 +364,9 @@ function tmle_inputs(parsed_args)
         snp_list = TargeneCore.snps_from_param_files(param_files)
         # Genotypes and final dataset
         genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
-        final_dataset, columns = build_final_dataset(parsed_args, genotypes)
+        final_dataset, columns = TargeneCore.build_final_dataset(parsed_args, genotypes)
         # Parameter files
-        param_files = validated_param_files(param_files, final_dataset[!, columns["treatments"]])
+        param_files = TargeneCore.validated_param_files(param_files, final_dataset[!, columns["treatments"]])
         write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch_size)
     else
         throw(ArgumentError("Unrecognized command."))
