@@ -40,6 +40,11 @@ function sieve_results(estimate, filename, key, pair_to_var_id, sieve_stderrors)
     return sieve_results_(estimate, sieve_stderror)
 end
 
+"""
+If the influence curve is not saved, the report is already a summary (a NamedTuple)
+"""
+TMLE.summarize(s::NamedTuple) = s
+
 function update_results!(results, tmlereport, phenotype_type, filename, key, pair_to_var_id, sieve_stderrors)
     s = summarize(tmlereport)
     phenotype = string(tmlereport.target_name)

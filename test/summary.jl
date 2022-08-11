@@ -24,7 +24,7 @@ end
     @test all(x isa Float64 for x in TargeneCore.sieve_results_(0.3, 0.1))
 end
 
-@testset "Test build_summary" begin
+@testset "Test build_summary: with influence curve" begin
     grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
     prefix = "rs12_rs45"
     summaryfilename = summary_filename(prefix)
@@ -81,6 +81,42 @@ end
     sievecolnames = names(TargeneCore.init_sieve("toto"))
     @test summary_no_sieve == summary[!, Not(sievecolnames)]
 
+end
+
+@testset "Test build_summary: without influence curve" begin
+    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
+    prefix = "rs12_rs45"
+    summaryfilename = summary_filename(prefix)
+    build_results_files(grm_ids, prefix;save_ic=false)
+    # With sieve is false
+    parsed_args = Dict(
+        "prefix" => prefix,
+        "out" => summary_filename(prefix),
+        "sieve" => false
+    )
+    build_summary(parsed_args)
+
+    summary_no_sieve = CSV.read(summaryfilename, DataFrame)
+    # Check the influence has indeed not been saved
+    jldopen("rs12_rs45_batch_1_Bool.hdf5") do io
+        @test io["TMLEREPORTS"]["1_1"].stderror isa Real
+        @test io["TMLEREPORTS"]["1_1"].pvalue isa Real
+        @test io["TMLEREPORTS"]["1_1"].confint isa Tuple
+    end
+    @test names(summary_no_sieve) == ["PHENOTYPE",
+                                    "PHENOTYPE_TYPE",
+                                    "QUERYNAME",
+                                    "FILENAME_ORIGIN",
+                                    "REPORT_KEY",
+                                    "INITIAL_ESTIMATE",
+                                    "ESTIMATE",
+                                    "STDERR",
+                                    "PVAL",
+                                    "LWB",
+                                    "UPB"]
+    @test size(summary_no_sieve) == (6, 11)
+    rm(summaryfilename)
+    clean_hdf5estimates_files(prefix)
 end
 
 
