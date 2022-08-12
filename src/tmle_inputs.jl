@@ -84,14 +84,21 @@ function validated_param_files(eQTLs, bQTLs, treatments, param_prefix; positivit
 end
 
 """
+    read_data(filepath)
+
+The SAMPLE_ID column should be read as a String.
+"""
+read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
+
+"""
     finalize_tmle_inputs(parsed_args)
 
 Datasets are joined and rewritten to disk in the same order.
 """
 function build_final_dataset(parsed_args, genotypes)
     # Merge data and retrieve column names
-    binary_phenotypes = CSV.read(parsed_args["binary-phenotypes"], DataFrame)
-    continuous_phenotypes = CSV.read(parsed_args["continuous-phenotypes"], DataFrame)
+    binary_phenotypes = read_data(parsed_args["binary-phenotypes"])
+    continuous_phenotypes = read_data(parsed_args["continuous-phenotypes"])
     columns = Dict(
         "binary-phenotypes" => names(binary_phenotypes),
         "continuous-phenotypes" => names(continuous_phenotypes),
@@ -106,7 +113,7 @@ function build_final_dataset(parsed_args, genotypes)
     )
     for (key, role) in ROLE_MAPPING
         if parsed_args[key] !== nothing
-            new_data = CSV.read(parsed_args[key], DataFrame)
+            new_data = read_data(parsed_args[key])
             append!(columns[role], columnnames_no_sid(new_data))
             final_dataset = innerjoin(
                 final_dataset,
