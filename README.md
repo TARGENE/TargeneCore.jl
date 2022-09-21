@@ -14,7 +14,7 @@ The associated script can be used by:
 julia --project --startup-file=no tmle_inputs.jl --help
 ```
 
-The purpose of this step is to generate a set of data and [parameters configuration files](https://github.com/TARGENE/TargetedEstimation.jl) that can be further used by the [Targeted Estimation executable](https://github.com/TARGENE/TargetedEstimation.jl).
+The purpose of this step is to generate a set of data and [parameters configuration files](test/config) that can be further used by the [Targeted Estimation executable](https://github.com/TARGENE/TargetedEstimation.jl).
 
 The data files generation process works as follows. All input data files are merged together and further divided as:
 

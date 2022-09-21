@@ -14,4 +14,13 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
+BGEN = "0.1"
+CSV = "0.9, 0.10"
+CategoricalArrays = "0.10"
 MLJLinearModels = "0.5"
+DataFrames = "1.2"
+JLD2 = "0.4"
+SnpArrays = "0.3"
+TMLE = "0.7"
+YAML = "0.4"
+StableRNGs = "1.0"

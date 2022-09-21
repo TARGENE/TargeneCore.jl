@@ -14,7 +14,6 @@ using HypothesisTests
 using YAML
 using Combinatorics
 
-
 ###############################################################################
 # INCLUDES
 

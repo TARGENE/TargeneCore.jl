@@ -19,6 +19,7 @@ TMLE = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
+Combinatorics = "1.0"
 ArgParse = "1.1"
 BGEN = "0.1"
 CSV = "0.9, 0.10"
