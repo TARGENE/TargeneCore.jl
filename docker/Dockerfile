@@ -28,7 +28,8 @@ RUN apt-get install -y r-base \
 RUN apt-get install -y libssl-dev \
                 libxml2-dev \
                 libcurl4-openssl-dev \
-                libgit2-dev 
+                libgit2-dev \
+                libfontconfig1-dev
 
 RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
          require(devtools);\
