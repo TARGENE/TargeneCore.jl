@@ -232,9 +232,86 @@ end
             DESCRIPTION = ["RXR-QTL", "RXR-QTL", "RXR-QTL"]
         )
     ]
+    envs = DataFrame(ID=["sex"], DESCRIPTION=["Env"])
+    # order 2, no environmental variable
     combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 2)
-
-
+    @test combinations == [Dict("T" => ["rs1", "rs4"]),
+                           Dict("T" => ["rs1", "rs5"]),
+                           Dict("T" => ["rs2", "rs4"]),
+                           Dict("T" => ["rs2", "rs5"]),
+                           Dict("T" => ["rs3", "rs4"]),
+                           Dict("T" => ["rs3", "rs5"]),
+                           Dict("T" => ["rs1", "rs6"]),
+                           Dict("T" => ["rs1", "rs7"]),
+                           Dict("T" => ["rs1", "rs8"]),
+                           Dict("T" => ["rs2", "rs6"]),
+                           Dict("T" => ["rs2", "rs7"]),
+                           Dict("T" => ["rs2", "rs8"]),
+                           Dict("T" => ["rs3", "rs6"]),
+                           Dict("T" => ["rs3", "rs7"]),
+                           Dict("T" => ["rs3", "rs8"])]
+    # order 2, only one trans-actors dataset
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, [trans_actors[1]], nothing, 2)
+    @test combinations == [Dict("T" => ["rs1", "rs4"]),
+                           Dict("T" => ["rs1", "rs5"]),
+                           Dict("T" => ["rs2", "rs4"]),
+                           Dict("T" => ["rs2", "rs5"]),
+                           Dict("T" => ["rs3", "rs4"]),
+                           Dict("T" => ["rs3", "rs5"])]
+    # order 3, no environmental variable
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 3)
+    @test combinations == [Dict("T" => ["rs1", "rs4", "rs6"]),
+                           Dict("T" => ["rs1", "rs4", "rs7"]),
+                           Dict("T" => ["rs1", "rs4", "rs8"]),
+                           Dict("T" => ["rs1", "rs5", "rs6"]),
+                           Dict("T" => ["rs1", "rs5", "rs7"]),
+                           Dict("T" => ["rs1", "rs5", "rs8"]),
+                           Dict("T" => ["rs2", "rs4", "rs6"]),
+                           Dict("T" => ["rs2", "rs4", "rs7"]),
+                           Dict("T" => ["rs2", "rs4", "rs8"]),
+                           Dict("T" => ["rs2", "rs5", "rs6"]),
+                           Dict("T" => ["rs2", "rs5", "rs7"]),
+                           Dict("T" => ["rs2", "rs5", "rs8"]),
+                           Dict("T" => ["rs3", "rs4", "rs6"]),
+                           Dict("T" => ["rs3", "rs4", "rs7"]),
+                           Dict("T" => ["rs3", "rs4", "rs8"]),
+                           Dict("T" => ["rs3", "rs5", "rs6"]),
+                           Dict("T" => ["rs3", "rs5", "rs7"]),
+                           Dict("T" => ["rs3", "rs5", "rs8"])]
+    
+    # order 2, environmental variable
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, envs, 2)
+    @test combinations == [Dict("T" => ["rs1", "rs4"]),
+                           Dict("T" => ["rs1", "rs5"]),
+                           Dict("T" => ["rs2", "rs4"]),
+                           Dict("T" => ["rs2", "rs5"]),
+                           Dict("T" => ["rs3", "rs4"]),
+                           Dict("T" => ["rs3", "rs5"]),
+                           Dict("T" => ["rs1", "rs6"]),
+                           Dict("T" => ["rs1", "rs7"]),
+                           Dict("T" => ["rs1", "rs8"]),
+                           Dict("T" => ["rs2", "rs6"]),
+                           Dict("T" => ["rs2", "rs7"]),
+                           Dict("T" => ["rs2", "rs8"]),
+                           Dict("T" => ["rs3", "rs6"]),
+                           Dict("T" => ["rs3", "rs7"]),
+                           Dict("T" => ["rs3", "rs8"]),
+                           Dict("T" => ["rs1", "sex"]),
+                           Dict("T" => ["rs2", "sex"]),
+                           Dict("T" => ["rs3", "sex"])]
+    # order 3, only one trans-actors dataset
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, [trans_actors[1]], envs, 3)
+    @test combinations == [Dict("T" => ["rs1", "rs4", "sex"]),
+                           Dict("T" => ["rs1", "rs5", "sex"]),
+                           Dict("T" => ["rs2", "rs4", "sex"]),
+                           Dict("T" => ["rs2", "rs5", "sex"]),
+                           Dict("T" => ["rs3", "rs4", "sex"]),
+                           Dict("T" => ["rs3", "rs5", "sex"])]
+    # order 2, no trans-actors dataset
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, nothing, envs, 2)
+    @test combinations == [Dict("T" => ["rs1", "sex"]),
+                           Dict("T" => ["rs2", "sex"]),
+                           Dict("T" => ["rs3", "sex"])]
 end
 #####################################################################
 ###############           END-TO-END TESTS            ###############

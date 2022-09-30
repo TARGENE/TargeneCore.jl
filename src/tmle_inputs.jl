@@ -361,19 +361,24 @@ all_snps(bqtls::Nothing, transactors::Vector{DataFrame}) = vcat((x.ID for x in t
 all_snps(bqtls::DataFrame, transactors::Vector{DataFrame}) = vcat(bqtls.ID, (x.ID for x in transactors)...)
 
 
-combine_trans_actors(trans_actors, envs, oder) = combinations([trans_actors..., envs], order)
-combine_trans_actors(trans_actors, envs::Nothing, order) = combinations(trans_actors, order)
+combine_trans_actors(trans_actors::Vector{DataFrame}, envs::DataFrame, order) = combinations([trans_actors..., envs], order)
+combine_trans_actors(trans_actors::Vector{DataFrame}, envs::Nothing, order) = combinations(trans_actors, order)
+combine_trans_actors(trans_actors::Nothing, envs::DataFrame, order) = [[envs]]
 
-function combine_by_bqtl(bqtls::DataFrame, trans_actors::Vector{DataFrame}, envs::Union{DataFrame, Nothing}, order::Int)
-    interactions = DataFrame()
+function combine_by_bqtl(bqtls::DataFrame, trans_actors::Union{Vector{DataFrame}, Nothing}, envs::Union{DataFrame, Nothing}, order::Int)
+    causal_model_configurations = Dict[]
     for comb in combine_trans_actors(trans_actors, envs, order - 1)
-        comb_interactions = bqtls
-        for trans_actor in comb
-            comb_interactions = crossjoin(comb_interactions, trans_actor, makeunique=true)
+        comb_interactions = crossjoin(bqtls, comb..., makeunique=true)
+        for row in eachrow(comb_interactions)
+            push!(
+                causal_model_configurations,
+                Dict(
+                    "T" => vcat(row["ID"], [row[string("ID_", i)] for i in 1:order-1])
+                )
+            )
         end
-        interactions = vcat(interactions, comb_interactions)
     end
-    return interactions
+    return causal_model_configurations
 end
 
 
