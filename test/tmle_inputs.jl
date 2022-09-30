@@ -183,6 +183,38 @@ end
         "RSID_2" => Dict("case" => 2, "control" => 1))
     ]
 end
+
+@testset "Test treatments_from_actors" begin
+    # At least two type of actors should be specified
+    @test_throws ArgumentError TargeneCore.treatments_from_actors(nothing, nothing, 1)
+    @test_throws ArgumentError TargeneCore.treatments_from_actors(1, nothing, nothing)
+    @test_throws ArgumentError TargeneCore.treatments_from_actors(nothing, 1, nothing)
+
+    bqtl_file = joinpath("data", "bqtls.csv")
+    trans_actors_prefix = joinpath("data", "trans_actors_1.csv")
+    env_file = joinpath("data", "env.txt")
+    # bqtls and trans_actors
+    bqtls, transactors, envs = TargeneCore.treatments_from_actors(bqtl_file, nothing, trans_actors_prefix)
+    @test bqtls isa DataFrame
+    @test envs isa Nothing
+    @test transactors isa Vector{DataFrame}
+    @test size(transactors, 1) == 1
+
+    # bqtls and env
+    bqtls, transactors, envs = TargeneCore.treatments_from_actors(bqtl_file, env_file, nothing)
+    @test bqtls isa DataFrame
+    @test envs == DataFrame(ENV = ["sex"])
+    @test transactors isa Nothing
+
+    # trans actors and env
+    bqtls, transactors, envs = TargeneCore.treatments_from_actors(nothing, env_file, trans_actors_prefix)
+    @test bqtls isa Nothing
+    @test envs == DataFrame(ENV = ["sex"])
+    @test transactors isa Vector{DataFrame}
+    @test size(transactors, 1) == 1
+end
+
+
 #####################################################################
 ###############           END-TO-END TESTS            ###############
 #####################################################################

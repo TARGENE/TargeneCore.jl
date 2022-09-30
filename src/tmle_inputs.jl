@@ -74,7 +74,7 @@ function validated_param_files(param_files, treatments)
     return validated_param_files_
 end
 
-function validated_param_files(eQTLs, bQTLs, treatments, param_prefix; positivity_constraint=0.01)
+function validated_param_files(bqtls, transactors, env)
     # Build parameter files
     param_files = Pair{String, Dict}[]
     for generator in treatment_tuple_generators(eQTLs, bQTLs, param_prefix)
@@ -253,28 +253,6 @@ function call_genotypes(bgen_prefix::String, snp_list::AbstractVector, threshold
     return genotypes
 end
 
-function trans_actors(path)
-    eQTLs = CSV.read(path, DataFrame, select=[:ID]).ID
-    return unique(eQTLs)
-end
-
-function asb_snps(asb_prefix)
-    bQTLs = []
-    asbdir_, prefix_ = splitdir(asb_prefix)
-    asbdir = asbdir_ == "" ? "." : asbdir_
-    for file in readdir(asbdir)
-        if occursin(prefix_, file)
-            new_bQTLs = CSV.read(joinpath(asbdir_, file), DataFrame, select=[:ID, :CHROM, :isASB])
-            for row in eachrow(new_bQTLs)
-                if row.isASB === true && row.CHROM ∉ ("chrX", "chrY")
-                    push!(bQTLs, row.ID)
-                end
-            end
-        end
-    end
-    return unique(bQTLs)
-end
-
 function additive_interaction_settings(treatment_tuple, treatments::DataFrame)
     control_cases = []
     for t in treatment_tuple
@@ -346,6 +324,57 @@ function treatment_tuple_generators(eQTLs, bQTLs, param_prefix::String)
     return generators
 end
 
+read_snps_from_csv(path::Nothing) = nothing
+read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
+
+read_envs_from_file(path::Nothing) = nothing
+read_envs_from_file(path::String) = CSV.read(path, DataFrame; header=["ENV"])
+
+trans_actors_from_prefix(trans_actors_prefix::Nothing) = nothing
+function trans_actors_from_prefix(trans_actors_prefix::String)
+    dir, prefix = splitdir(trans_actors_prefix)
+    dir_ = dir == "" ? "." : dir
+    trans_actors = DataFrame[]
+    for filename in readdir(dir_)
+        if startswith(filename, prefix)
+            push!(trans_actors, read_snps_from_csv(joinpath(dir, filename)))
+        end
+    end
+    return trans_actors
+end
+
+actors_error() = throw(ArgumentError("At least two of (bqtls, env, trans-actors) should be specified"))
+
+treatments_from_actors(::Nothing, ::Nothing, _) = actors_error()
+treatments_from_actors(_, ::Nothing, ::Nothing) = actors_error()
+treatments_from_actors(::Nothing, _, ::Nothing) = actors_error()
+
+function treatments_from_actors(bqtl_file, env_file, trans_actors_prefix)
+    bqtls = read_snps_from_csv(bqtl_file)
+    envs  = read_envs_from_file(env_file)
+    transactors = trans_actors_from_prefix(trans_actors_prefix)
+    bqtls, transactors, envs
+end
+
+all_snps(bqtls::DataFrame, transactors::Nothing) = bqtls.ID
+all_snps(bqtls::Nothing, transactors::Vector{DataFrame}) = vcat((x.ID for x in transactors)...)
+all_snps(bqtls::DataFrame, transactors::Vector{DataFrame}) = vcat(bqtls.ID, (x.ID for x in transactors)...)
+
+
+function combine_by_bqtl(bqtls, trans_actors, envs, order)
+    interactions = []
+    for bqtl_row in eachrow(bqtls)
+        for comb in combinations([trans_actors..., envs], order - 1)
+            comb_interactions = bqtls
+            for trans_actor in comb
+                comb_interactions = crossjoin(comb_interactions, trans_actor)
+            end
+        end
+    end
+    return interactions
+end
+
+
 function tmle_inputs(parsed_args)
     batch_size = parsed_args["phenotype-batch-size"]
     outprefix = parsed_args["out-prefix"]
@@ -355,9 +384,12 @@ function tmle_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "with-asb-trans"
         param_prefix = parsed_args["with-asb-trans"]["param-prefix"]
         # Retrive SNPs
-        eQTLs = TargeneCore.trans_actors(parsed_args["with-asb-trans"]["trans-actors"])
-        bQTLs = TargeneCore.asb_snps(parsed_args["with-asb-trans"]["asb-prefix"])
-        snp_list = vcat(eQTLs, bQTLs)
+        bqtls, transactors, envs = treatments_from_actors(
+            parsed_args["with-asb-trans"]["bqtl"], 
+            parsed_args["with-asb-trans"]["env"], 
+            parsed_args["with-asb-trans"]["trans-actors"]
+        )
+        snp_list = all_snps(bqtls, transactors)
         # Genotypes and final dataset
         genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
         final_dataset, columns = build_final_dataset(parsed_args, genotypes)
