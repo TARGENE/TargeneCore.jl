@@ -10,15 +10,15 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1'
+          - '1.7'
         os:
           - ubuntu-latest
         arch:
           - x64
     steps:
       - uses: actions/checkout@v2
-      - name: Install curl
-        run: sudo apt-get install -y libcurl4-openssl-dev
+      - name: Install bunch of things
+        run: sudo apt-get install -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev build-essential libxml2-dev libssl-dev
       - name: Setup R
         uses: r-lib/actions/setup-r@v1
         with:

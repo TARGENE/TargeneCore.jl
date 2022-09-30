@@ -1,4 +1,4 @@
-const CHR_REG = r"chr[1-9]+"
+const CHR_REG = r"chr[0-9]+"
 
 check_chr_format(x) = @assert all(occursin.(CHR_REG, x))
 
