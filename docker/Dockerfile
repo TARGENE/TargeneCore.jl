@@ -31,7 +31,10 @@ RUN apt-get install -y libssl-dev \
                 libgit2-dev \
                 libfontconfig1-dev \
                 libharfbuzz-dev \
-                libfribidi-dev
+                libfribidi-dev \
+                libpng-dev \
+                libtiff5-dev \
+                libjpeg-dev
 
 RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
          require(devtools);\
