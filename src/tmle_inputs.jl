@@ -74,14 +74,6 @@ function validated_param_files(param_files, treatments)
     return validated_param_files_
 end
 
-function validated_param_files(bqtls, transactors, env)
-    # Build parameter files
-    param_files = Pair{String, Dict}[]
-    for generator in treatment_tuple_generators(eQTLs, bQTLs, param_prefix)
-        TargeneCore.build_asb_trans_param_files!(param_files, generator, treatments; positivity_constraint=positivity_constraint)
-    end
-    return param_files
-end
 
 """
     read_data(filepath)
@@ -90,40 +82,61 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-"""
-    finalize_tmle_inputs(parsed_args)
 
-Datasets are joined and rewritten to disk in the same order.
-"""
-function build_final_dataset(parsed_args, genotypes)
+function build_final_dataset(parsed_args, genotypes, envs)
     # Merge data and retrieve column names
-    binary_phenotypes = read_data(parsed_args["binary-phenotypes"])
-    continuous_phenotypes = read_data(parsed_args["continuous-phenotypes"])
-    columns = Dict(
-        "binary-phenotypes" => names(binary_phenotypes),
-        "continuous-phenotypes" => names(continuous_phenotypes),
-        "covariates" => ["SAMPLE_ID"],
-        "treatments" => names(genotypes),
-        "confounders" => ["SAMPLE_ID"]
-        )
-    final_dataset = innerjoin(
-        innerjoin(binary_phenotypes, continuous_phenotypes, on=:SAMPLE_ID), 
-        genotypes,
-        on=:SAMPLE_ID
+    traits = read_data(parsed_args["traits"])
+    pcs = read_data(parsed_args["pcs"])
+    non_targets = []
+
+    # Confounders
+    variables = Dict(
+        "W" => filter(!==("SAMPLE_ID"), names(pcs)),
+        "Y_binary" => [],
+        "Y_continuous" => []
     )
-    for (key, role) in ROLE_MAPPING
-        if parsed_args[key] !== nothing
-            new_data = read_data(parsed_args[key])
-            append!(columns[role], columnnames_no_sid(new_data))
-            final_dataset = innerjoin(
-                final_dataset,
-                new_data,
-                on=:SAMPLE_ID
-            )
+    if haskey(parsed_args, "extra-confounders")
+        extra_confounders = CSV.read(parsed_args["extra-confounders"], DataFrame, header=false)[!, 1]
+        append!(variables["W"], extra_confounders)
+        append!(non_targets, variables["W"])
+    end
+    
+    # Extra covariates
+    if haskey(parsed_args, "extra-covariates")
+        extra_covariates = CSV.read(parsed_args["extra-covariates"], DataFrame, header=false)[!, 1]
+        columns["C"] = extra_covariates
+        append!(non_targets, extra_covariates)
+    end
+
+    # Extra covariates
+    if envs !== nothing
+        append!(non_targets, envs.ID)
+    end
+
+    for colname in names(traits)
+        if colname ∉ non_targets
+            col = traits[!, colname]
+            # Targets must be either continuous or binary
+            if Set(unique(skipmissing(x))) == Set([0, 1])
+                push!(variables["Y_binary"], colname)
+            else
+                @assert nonmissingtype(eltype(col)) <: Real 
+                    "Variable $colname is neither binary nor continuous "*
+                    "but is tried to be used as a target. Make sure it is "
+                    "correctly declared as a treatment, extra-covariate or "*
+                    "extra-confounder."
+                push!(variables["Y_continuous"], colname)
+            end
         end
     end
 
-    return final_dataset, columns
+    data = innerjoin(
+        innerjoin(traits, pcs, on="SAMPLE_ID"),
+        genotypes,
+        on="SAMPLE_ID"
+    )
+
+    return data, variables
 
 end
 
@@ -280,48 +293,45 @@ function frequency_table(treatments, treatment_tuple::AbstractVector)
     return freqs
 end
 
-function build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.01)
-    for treatment_tuple in treatment_tuple_generator
-        treatment_tuple = collect(treatment_tuple)
-        freqs = frequency_table(treatments, treatment_tuple)
-        interaction_settings = additive_interaction_settings(treatment_tuple, treatments)
-
-        param_file = Dict("Treatments" => treatment_tuple, "Parameters" => Dict[])
+function validated_param_files(param_files, data, variables; positivity_constraint=0.01, batch_size=1)
+    new_param_files = []
+    for param_file in param_files
+        treatment_tuple = param_file["T"]
+        freqs = frequency_table(data, treatment_tuple)
+        interaction_settings = additive_interaction_settings(treatment_tuple, data)
+        param_file["Parameters"] = Dict[]
         for interaction_setting in interaction_settings
             if satisfies_positivity(interaction_setting, freqs; positivity_constraint=positivity_constraint)
-                param = Dict{String, Any}("name" => "I")
+                param = Dict{String, Any}("name" => "IATE")
                 for var_index in eachindex(treatment_tuple)
                     control, case = interaction_setting[var_index]
                     treatment = treatment_tuple[var_index]
-                    param["name"] = string(param["name"], "__", treatment, "_", control, "->", case)
                     param[treatment] = Dict("control" => control, "case" => case)
                 end
-                
                 push!(param_file["Parameters"], param)
             end
         end
 
         # Push valid parameters
         if param_file["Parameters"] != Dict[]
-            filename = string("I_", join(treatment_tuple, "_"), ".yaml")
-            push!(param_files, filename => param_file)
+            param_file["W"] = variables["W"]
+            param_file["C"] = variables["C"]
+            for targettype in ("Y_continuous", "Y_binary")
+                if batch_size !== nothing
+                    for batch in Iterators.partition(variables[targettype], batch_size)
+                        batched_param_file = copy(param_file)
+                        batched_param_file["Y"] = batch
+                        push!(new_param_files, batched_param_file)
+                    end
+                else
+                    batched_param_file = copy(param_file)
+                    batched_param_file["Y"] = variables[targettype]
+                    push!(new_param_files, batched_param_file)
+                end
+            end
         end
     end
-    return param_files
-end
-
-
-treatment_tuple_generators(eQTLs, bQTLs, param_prefix::Nothing) = (Iterators.product(eQTLs, bQTLs),)
-
-function treatment_tuple_generators(eQTLs, bQTLs, param_prefix::String)
-    param_files = TargeneCore.load_param_files(param_prefix)
-    generators = []
-    for (filename, param_file) in param_files
-        extra_treatments = []
-        update_treatments_list!(extra_treatments, param_file["Treatments"])
-        push!(generators, Iterators.product(eQTLs, bQTLs, [[x] for x in extra_treatments]...))
-    end
-    return generators
+    return new_param_files
 end
 
 read_snps_from_csv(path::Nothing) = nothing
@@ -388,21 +398,30 @@ function tmle_inputs(parsed_args)
     call_threshold = parsed_args["call-threshold"]
     bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    if parsed_args["%COMMAND%"] == "with-asb-trans"
-        param_prefix = parsed_args["with-asb-trans"]["param-prefix"]
-        # Retrieve SNPs
+    if parsed_args["%COMMAND%"] == "with-actors"
+        param_prefix = parsed_args["with-actors"]["param-prefix"]
+        # Retrieve SNPs and environmental treatments
         bqtls, transactors, envs = treatments_from_actors(
-            parsed_args["with-asb-trans"]["bqtl"], 
-            parsed_args["with-asb-trans"]["env"], 
-            parsed_args["with-asb-trans"]["trans-actors"]
+            parsed_args["with-actors"]["bqtl"], 
+            parsed_args["with-actors"]["env"], 
+            parsed_args["with-actors"]["trans-actors"]
         )
+        param_files = Dict[]
+        for order in parsed_args["with-actors"]["orders"]
+            append!(
+                param_files,
+                combine_by_bqtl(bqtls, trans_actors, envs, order)
+            )
+        end
+
         snp_list = all_snps(bqtls, transactors)
         # Genotypes and final dataset
         genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
-        final_dataset, columns = build_final_dataset(parsed_args, genotypes)
+
+        final_dataset, variables = build_final_dataset(parsed_args, genotypes, envs)
+
         # Parameter files
-        param_files = validated_param_files(eQTLs, bQTLs, final_dataset[!, columns["treatments"]], param_prefix; 
-                                            positivity_constraint=positivity_constraint)
+        param_files = validated_param_files(param_files, final_dataset; positivity_constraint=positivity_constraint)
         # write genotypes and queries
         write_tmle_inputs(outprefix, final_dataset, columns, param_files, batch_size)
     elseif parsed_args["%COMMAND%"] == "with-param-files"

@@ -20,14 +20,6 @@ end
 ##################           UNIT TESTS            ##################
 #####################################################################
 
-@testset "Test asb_snps / trans_actors" begin
-    bQTLs = TargeneCore.asb_snps(joinpath("data", "asb_files", "asb_"))
-    @test bQTLs == ["RSID_17", "RSID_99", "RSID_198"]
-
-    eQTLs = TargeneCore.trans_actors(joinpath("data", "trans_actors_fake.csv"))
-    @test eQTLs == ["RSID_102", "RSID_2"]
-end
-
 @testset "Test genotypes_encoding" begin
     b = Bgen(BGEN.datadir("example.8bits.bgen"))
     v = variant_by_rsid(b, "RSID_10")
@@ -81,17 +73,66 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 end
 
-@testset "Test build_asb_trans_param_files!" begin
+@testset "Test additive_interaction_settings" begin
+    data = DataFrame(
+        T1 = ["A", "B", "C"],
+        T2 = [1, 0, 0],
+        T3 = ["toto", "tata", "titi"]
+    )
+    interaction_settings = TargeneCore.additive_interaction_settings([:T1, :T2], data)
+    expected_settings = [
+        (["A", "B"], [0, 1]),
+        (["A", "C"], [0, 1]),
+        (["B", "C"], [0, 1])
+    ]
+    for (real, expected) in zip(interaction_settings, expected_settings)
+        @test real == expected
+    end
+
+    interaction_settings = TargeneCore.additive_interaction_settings([:T1, :T2, :T3], data)
+    expected_settings = [
+        (["A", "B"], [0, 1], ["tata", "titi"]),
+        (["A", "C"], [0, 1], ["tata", "titi"]),
+        (["B", "C"], [0, 1], ["tata", "titi"]),
+        (["A", "B"], [0, 1], ["tata", "toto"]),
+        (["A", "C"], [0, 1], ["tata", "toto"]),
+        (["B", "C"], [0, 1], ["tata", "toto"]),
+        (["A", "B"], [0, 1], ["titi", "toto"]),
+        (["A", "C"], [0, 1], ["titi", "toto"]),
+        (["B", "C"], [0, 1], ["titi", "toto"])
+    ]
+    for (real, expected) in zip(interaction_settings, expected_settings)
+        @test real == expected
+    end
+
+end
+
+@testset "Test satisfies_positivity" begin
+    freqs = Dict(
+        ("A", 1) => 0.01,
+        ("B", 1) => 0.02,
+        ("A", 0) => 0.03,
+        ("B", 0) => 0.04,
+        ("C", 1) => 0.05,
+        ("C", 0) => 0.06,
+    )
+    interaction_setting = (["A", "B"], [0, 1])
+    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.01) == true
+    interaction_setting = (["B", "C"], [0, 1])
+    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.02) == true
+    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.03) == false
+end
+
+@testset "Test validated_param_files" begin
     rng = StableRNG(123)
-    param_files = Pair{String, Dict}[]
     n = 100
-    treatments = DataFrame(
+    data = DataFrame(
         RSID_1 = rand(rng, [2, 1, 0], n),
         RSID_2 = rand(rng, [0, 1, 2], n),
         EXTRA_TREAT = rand(rng, [0,1], n)
     )
-    tuple_1 = ["RSID_1", "RSID_2", "EXTRA_TREAT"]
-    freqs = TargeneCore.frequency_table(treatments, tuple_1)
+    param_files = [Dict{Any, Any}("T" => ["RSID_1", "RSID_2", "EXTRA_TREAT"])]
+    freqs = TargeneCore.frequency_table(data, param_files[1]["T"])
     @test freqs == Dict{Any, Any}(
         (0, 0, 0) => 0.09,
         (1, 2, 1) => 0.07,
@@ -111,77 +152,124 @@ end
         (0, 1, 1) => 0.05,
         (2, 2, 0) => 0.06,
         (1, 0, 0) => 0.05)
-    treatment_tuple_generator = [tuple_1]
-    TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.)
-    filename, param_file = only(param_files)
-    @test filename == "I_RSID_1_RSID_2_EXTRA_TREAT.yaml"
-    @test param_file["Treatments"] == tuple_1
-    # There are 3 * 3 * 1 expected parameters
-    @test param_file["Parameters"] == [
-        Dict("name" => "I__RSID_1_0->1__RSID_2_0->1__EXTRA_TREAT_0->1",
-        "RSID_1" => Dict("case" => 1, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 1, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->2__RSID_2_0->1__EXTRA_TREAT_0->1",
-        "RSID_1" => Dict("case" => 2, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 1, "control" => 0)),
-        Dict("name" => "I__RSID_1_1->2__RSID_2_0->1__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 2, "control" => 1), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 1, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->1__RSID_2_0->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 1, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->2__RSID_2_0->2__EXTRA_TREAT_0->1",
-        "RSID_1" => Dict("case" => 2, "control" => 0),  
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 0)),
-        Dict("name" => "I__RSID_1_1->2__RSID_2_0->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 2, "control" => 1), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->1__RSID_2_1->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 1, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 1)),
-        Dict("name" => "I__RSID_1_0->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 2, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 1)),
-        Dict("name" => "I__RSID_1_1->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 2, "control" => 1), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 1))
-    ]
-    param_files = Pair{String, Dict}[]
-    TargeneCore.build_asb_trans_param_files!(param_files, treatment_tuple_generator, treatments; positivity_constraint=0.04)
-    filename, param_file = only(param_files)
-    @test filename == "I_RSID_1_RSID_2_EXTRA_TREAT.yaml"
-    @test param_file["Treatments"] == tuple_1
-    @test param_file["Parameters"] == [
-        Dict("name" => "I__RSID_1_0->1__RSID_2_0->1__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 1, "control" => 0),     
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 1, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->1__RSID_2_0->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 1, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 0)),
-        Dict("name" => "I__RSID_1_0->1__RSID_2_1->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 1, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 1)),
-        Dict("name" => "I__RSID_1_0->2__RSID_2_1->2__EXTRA_TREAT_0->1", 
-        "RSID_1" => Dict("case" => 2, "control" => 0), 
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
-        "RSID_2" => Dict("case" => 2, "control" => 1)),
-        Dict("name" => "I__RSID_1_1->2__RSID_2_1->2__EXTRA_TREAT_0->1",
-        "RSID_1" => Dict("case" => 2, "control" => 1),  
-        "EXTRA_TREAT" => Dict("case" => 1, "control" => 0),
-        "RSID_2" => Dict("case" => 2, "control" => 1))
-    ]
+    
+    variables = Dict(
+        "C" => ["C1", "C2"],
+        "W" => ["PC_1", "PC_2"],
+        "Y_continuous" => ["CONTINUOUS_1", "CONTINUOUS_2"],
+        "Y_binary" => ["BINARY_1"]
+        )
+    new_param_files = TargeneCore.validated_param_files(param_files, data, variables; positivity_constraint=0., batch_size=nothing)
+    @test new_param_files[1]["Y"] == variables["Y_continuous"]
+    @test new_param_files[2]["Y"] == variables["Y_binary"]
+    for param_file in new_param_files
+        @test param_file["T"] == param_files[1]["T"]
+        @test param_file["W"] == variables["W"]
+        @test param_file["C"] == variables["C"]
+        
+        # No positivity constraint, all parameters will make the constraint:
+        # There are 3 * 3 * 1 expected parameters
+        @test param_file["Parameters"] == [
+            Dict(
+                "name" => "IATE",
+                "RSID_1" => Dict("case" => 1, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 1, "control" => 0)
+                ),
+            Dict(
+                "name" => "IATE",
+                "RSID_1" => Dict("case" => 2, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 1, "control" => 0)
+                ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 2, "control" => 1), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 1, "control" => 0)
+                ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 1, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 0)
+                ),
+            Dict(
+                "name" => "IATE",
+                "RSID_1" => Dict("case" => 2, "control" => 0),  
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 0)
+            ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 2, "control" => 1), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 0)
+            ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 1, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+                ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 2, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+                ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 2, "control" => 1), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+                )
+        ]
+    end
+
+    new_param_files = TargeneCore.validated_param_files(param_files, data, variables; positivity_constraint=0.04, batch_size=1)
+    @test new_param_files[1]["Y"] == ["CONTINUOUS_1"]
+    @test new_param_files[2]["Y"] == ["CONTINUOUS_2"]
+    @test new_param_files[3]["Y"] == ["BINARY_1"]
+
+    for param_file in new_param_files
+        @test param_file["T"] == param_files[1]["T"]
+        @test param_file["W"] == variables["W"]
+        @test param_file["C"] == variables["C"]
+
+        @test param_file["Parameters"] == [
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 1, "control" => 0),     
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 1, "control" => 0)
+            ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 1, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 0)
+            ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 1, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+            ),
+            Dict(
+                "name" => "IATE", 
+                "RSID_1" => Dict("case" => 2, "control" => 0), 
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0), 
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+            ),
+            Dict(
+                "name" => "IATE",
+                "RSID_1" => Dict("case" => 2, "control" => 1),  
+                "EXTRA_TREAT" => Dict("case" => 1, "control" => 0),
+                "RSID_2" => Dict("case" => 2, "control" => 1)
+        )
+        ]
+    end
 end
 
 @testset "Test treatments_from_actors" begin
