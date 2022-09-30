@@ -214,7 +214,28 @@ end
     @test size(transactors, 1) == 1
 end
 
+@testset "Test combine_by_bqtl" begin
+    bQTLS = DataFrame(
+        ID = ["rs1", "rs2", "rs3"],
+        CHR = [1, 2, 3],
+        DESCRIPTION = ["VDR", "VDR", "VDR"]
+    )
+    trans_actors = [
+        DataFrame(
+            ID = ["rs4", "rs5"],
+            CHR = [1, 12],
+            DESCRIPTION = ["VitD-QTL", "VitD-QTL"]
+    ),
+        DataFrame(
+            ID = ["rs6", "rs7", "rs8"],
+            CHR = [12, 9, 8],
+            DESCRIPTION = ["RXR-QTL", "RXR-QTL", "RXR-QTL"]
+        )
+    ]
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 2)
 
+
+end
 #####################################################################
 ###############           END-TO-END TESTS            ###############
 #####################################################################

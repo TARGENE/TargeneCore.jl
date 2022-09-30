@@ -361,15 +361,17 @@ all_snps(bqtls::Nothing, transactors::Vector{DataFrame}) = vcat((x.ID for x in t
 all_snps(bqtls::DataFrame, transactors::Vector{DataFrame}) = vcat(bqtls.ID, (x.ID for x in transactors)...)
 
 
-function combine_by_bqtl(bqtls, trans_actors, envs, order)
-    interactions = []
-    for bqtl_row in eachrow(bqtls)
-        for comb in combinations([trans_actors..., envs], order - 1)
-            comb_interactions = bqtls
-            for trans_actor in comb
-                comb_interactions = crossjoin(comb_interactions, trans_actor)
-            end
+combine_trans_actors(trans_actors, envs, oder) = combinations([trans_actors..., envs], order)
+combine_trans_actors(trans_actors, envs::Nothing, order) = combinations(trans_actors, order)
+
+function combine_by_bqtl(bqtls::DataFrame, trans_actors::Vector{DataFrame}, envs::Union{DataFrame, Nothing}, order::Int)
+    interactions = DataFrame()
+    for comb in combine_trans_actors(trans_actors, envs, order - 1)
+        comb_interactions = bqtls
+        for trans_actor in comb
+            comb_interactions = crossjoin(comb_interactions, trans_actor, makeunique=true)
         end
+        interactions = vcat(interactions, comb_interactions)
     end
     return interactions
 end
@@ -383,7 +385,7 @@ function tmle_inputs(parsed_args)
     positivity_constraint = parsed_args["positivity-constraint"]
     if parsed_args["%COMMAND%"] == "with-asb-trans"
         param_prefix = parsed_args["with-asb-trans"]["param-prefix"]
-        # Retrive SNPs
+        # Retrieve SNPs
         bqtls, transactors, envs = treatments_from_actors(
             parsed_args["with-asb-trans"]["bqtl"], 
             parsed_args["with-asb-trans"]["env"], 
