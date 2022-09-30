@@ -6,7 +6,7 @@ ENV TZ=Europe/Amsterdam
 
 ENV JULIA_DEPOT_PATH=/opt
 
-RUN apt-get update && apt-get install -y wget unzip procps
+RUN apt-get update && apt-get install -y wget unzip procps libcurl4-openssl-dev libbz2-dev liblzma-dev
 
 # Install gcta
 
