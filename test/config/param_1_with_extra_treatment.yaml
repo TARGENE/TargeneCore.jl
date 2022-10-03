@@ -1,9 +1,9 @@
-Treatments:
+T:
   - RSID_2
   - TREAT_1
 
 Parameters:
-  - name: HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR
+  - name: IATE
     RSID_2:
       case: 1
       control: 0

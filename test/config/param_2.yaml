@@ -1,8 +1,10 @@
-Treatments:
-  - [RSID_2, RSID_198]
+T: [RSID_2, RSID_198]
 
+C:
+  - 22001
+  
 Parameters:
-  - name: HOMOZYGOUS_MAJOR_TO_MAJOR_MINOR
+  - name: ATE
     RSID_2:
       case: 1
       control: 0

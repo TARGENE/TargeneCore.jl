@@ -1,16 +1,12 @@
 T:
   - RSID_2
 
-C: 
-  - COV_1
-  - 21003
-
-W:
-  - 22001
+Y:
+  - BINARY_1
+  - CONTINUOUS_1
 
 Parameters:
   - name: ATE
     RSID_2:
       case: 1
       control: 0
-
