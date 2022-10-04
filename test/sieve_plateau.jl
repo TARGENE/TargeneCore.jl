@@ -211,4 +211,34 @@ end
     clean_hdf5estimates_files(prefix)
 end
 
+@testset "Test sieve_variance_plateau empty work list" begin
+    # In this case no p-value will make the threshold
+    grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
+    prefix = "rs12_rs45"
+    nb_estimators = 10
+    build_results_files(grm_ids, prefix)
+    outfilename = "rs12_rs45_sieve_variance.hdf5"
+    parsed_args = Dict(
+        "prefix" => prefix,
+        "pval" => -1,
+        "grm-prefix" => "data/grm/test.grm",
+        "out" => outfilename,
+        "nb-estimators" => nb_estimators,
+        "max-tau" => 0.75
+    )
+
+    sieve_variance_plateau(parsed_args)
+
+    results_file = jldopen(outfilename)
+    @test size(results_file["TAUS"]) == (nb_estimators,)
+    @test size(results_file["VARIANCES"]) == (0,)
+    @test results_file["SOURCEFILE_REPORTID_PAIRS"] == []
+    @test size(results_file["STDERRORS"]) == (0,)
+
+    close(results_file)
+
+    rm(outfilename)
+    clean_hdf5estimates_files(prefix)
+end
+
 end
