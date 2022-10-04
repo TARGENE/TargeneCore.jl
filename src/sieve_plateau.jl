@@ -57,7 +57,8 @@ function build_work_list(prefix, grm_ids; pval=0.05)
             end
         end
     end
-    return reduce(vcat, transpose(influence_curves)), n_obs, file_tmlereport_pairs
+    influence_curves = length(influence_curves) > 0 ? reduce(vcat, transpose(influence_curves)) : influence_curves 
+    return influence_curves, n_obs, file_tmlereport_pairs
 end
 
 
@@ -152,6 +153,15 @@ function save_results(outfilename, τs, variances, std_errors, file_queryreport_
     end
 end
 
+function save_empty_results(outfilename, τs, file_queryreport_pairs)
+    jldopen(outfilename, "w") do io
+        io["TAUS"] = τs
+        io["VARIANCES"] = []
+        io["SOURCEFILE_REPORTID_PAIRS"] = file_queryreport_pairs
+        io["STDERRORS"] = []
+    end
+end
+
 
 corrected_stderrors(variances, n_obs) =
     sqrt.(view(maximum(variances, dims=1), 1, :) ./ n_obs)
@@ -166,10 +176,13 @@ function sieve_variance_plateau(parsed_args)
     grm, grm_ids = readGRM(parsed_args["grm-prefix"])
 
     influence_curves, n_obs, file_queryreport_pairs = build_work_list(prefix, grm_ids; pval=pval)
-    variances = compute_variances(influence_curves, grm, τs, n_obs)
-    std_errors = corrected_stderrors(variances, n_obs)
-
-    save_results(outfilename, τs, variances, std_errors, file_queryreport_pairs)
+    # If the work list is not empty
+    if length(influence_curves) > 0
+        variances = compute_variances(influence_curves, grm, τs, n_obs)
+        std_errors = corrected_stderrors(variances, n_obs)
+        save_results(outfilename, τs, variances, std_errors, file_queryreport_pairs)
+    # Otherwise save empty structure
+    else
+        save_empty_results(outfilename, τs, file_queryreport_pairs)
+    end
 end
-
-

@@ -84,6 +84,48 @@ end
 end
 
 
+@testset "Test build_summary with empty sieve" begin
+    grm_ids = TMLEEpistasis.GRMIDs("data/grm/test.grm.id")
+    prefix = "rs12_rs45"
+    summaryfilename = summary_filename(prefix)
+    build_results_files(grm_ids, prefix)
+
+    TMLEEpistasis.save_empty_results(sieve_filename(prefix), [], [])
+    parsed_args = Dict(
+        "prefix" => prefix,
+        "out" => summary_filename(prefix),
+        "sieve" => true
+    )
+
+    build_summary(parsed_args)
+    
+    summary = CSV.read(summaryfilename, DataFrame)
+
+    @test summary.PHENOTYPE == ["cancer", "cancer", "height", "height", "bmi", "bmi"]
+    @test summary.PHENOTYPE_TYPE == ["BINARY", "BINARY", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS", "CONTINUOUS"]
+    @test summary.QUERYNAME == ["QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2", "QUERY_1", "QUERY_2"]
+    @test summary.FILENAME_ORIGIN == ["rs12_rs45_batch_1_Bool.hdf5", 
+                                      "rs12_rs45_batch_1_Bool.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5", 
+                                      "rs12_rs45_batch_1_Real.hdf5"]
+    @test summary.REPORT_KEY == ["1_1", "1_2", "1_1", "1_2", "2_1", "2_2"]
+    @test eltype(summary.INITIAL_ESTIMATE) == Float64
+    @test eltype(summary.ESTIMATE) == Float64
+    @test eltype(summary.PVAL) == Float64
+    @test eltype(summary.LWB) == Float64
+    @test eltype(summary.UPB) == Float64
+    for col in (:SIEVE_STDERR, :SIEVE_PVAL, :SIEVE_LWB, :SIEVE_UPB)
+        @test eltype(summary[!, col]) == Missing
+    end
+
+    clean_hdf5estimates_files(prefix)
+    rm(sieve_filename(prefix))
+    rm(summaryfilename)
+
+end
+
 end
 
 true
