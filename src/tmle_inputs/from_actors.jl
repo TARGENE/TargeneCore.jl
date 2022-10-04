@@ -68,6 +68,10 @@ function additive_interaction_settings(treatment_tuple, treatments::DataFrame)
     return Iterators.product(control_cases...)
 end
 
+function ate_settings(treatment_tuple, data::DataFrame)
+
+end
+
 function addIATEs!(param_file, data; positivity_constraint=0.)
     treatment_tuple = param_file["T"]
     freqs = TargeneCore.frequency_table(data, treatment_tuple)
