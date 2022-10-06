@@ -28,7 +28,7 @@ function parse_commandline()
                    "Issued from an LD analysis."
             arg_type = String
             required = false
-        "--sample-ids"
+        "--traits"
             arg_type = String
             required = false
             help = "Path to list of sample_ids to filter on."

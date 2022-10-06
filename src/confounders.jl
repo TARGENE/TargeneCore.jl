@@ -83,7 +83,7 @@ function filter_chromosome(parsed_args)
     final = filter(:array => ==(2), batches_ok)
     
     rsids = Set(final.snpid)
-    sample_ids = Set(CSV.read(parsed_args["sample-ids"], DataFrame, header=false, types=String)[!, 1])
+    sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
     SnpArrays.filter(
         parsed_args["input"]; 
         des=parsed_args["output"], 

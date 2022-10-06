@@ -36,7 +36,7 @@ end
         "qcfile" => joinpath("data", "ukbb", "qcfile.txt"),
         "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
         "maf-threshold" => 0.31,
-        "sample-ids" => joinpath("data", "sample_ids.txt")
+        "traits" => joinpath("data", "sample_ids.txt")
     )
     filter_chromosome(parsed_args)
 
