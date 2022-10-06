@@ -95,7 +95,7 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs with-param-files: scenario 2" begin
+@testset "Test tmle_inputs from-param-files: scenario 2" begin
     parsed_args = Dict(
         "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_2")), 
         "traits" => joinpath("data", "traits_1.csv"),
@@ -130,7 +130,7 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs with-param-files: scenario 3" begin
+@testset "Test tmle_inputs from-param-files: scenario 3" begin
     # Batched
     parsed_args = Dict(
         "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_1_with")), 
@@ -172,7 +172,7 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs with-param-files: scenario 4" begin
+@testset "Test tmle_inputs from-param-files: scenario 4" begin
     parsed_args = Dict(
         "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_with_specified_targets")), 
         "traits" => joinpath("data", "traits_1.csv"),

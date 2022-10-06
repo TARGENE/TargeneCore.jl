@@ -5,13 +5,13 @@ function parse_commandline()
     s = ArgParseSettings(description="Preparation of data for TMLE, two modes are currently available.")
 
     @add_arg_table s begin
-        "with-asb-trans"
+        "from-actors"
             action = :command
             help = "Will generate interaction parameters between SNPs output by the "*
                    "baal-nf pipeline (https://git.ecdf.ed.ac.uk/oalmelid/baal-nf), trans-actors "*
                    " and potential additional exposures from an external trait dataset."
         
-        "with-param-files"
+        "from-param-files"
             action = :command
             help = "Will assume Parameter files (see README.md) to be given."
 
@@ -20,14 +20,11 @@ function parse_commandline()
             help = "Output prefix"
             default = "final"
 
-        "--binary-phenotypes"
+        "--traits"
             arg_type = String
-            help = "Path to the binary phenotypes file"
+            required = true
+            help = "Path to the traits dataset"
 
-        "--continuous-phenotypes"
-            arg_type = String
-            help = "Path to the continuous phenotypes file"
-        
         "--call-threshold"
             arg_type = Float64
             help = "This is written down on the query file, it is the threshold that"*
@@ -36,52 +33,59 @@ function parse_commandline()
 
         "--bgen-prefix"
             help = "Prefix path to BGEN chromosomes."
+            required = true
             arg_type = String
 
-        "--genetic-confounders"
+        "--pcs"
             arg_type = String
+            required = true
             help = "Path to a genetic confounders file"
 
-        "--extra-confounders"
-            arg_type = String
-            help = "Path to a confounders file to be merged with the genetic-confounders file"
-
-        "--covariates"
-            arg_type = String
-            help = "Path to covariates file for estimation of E[Y|X]"
-
-        "--extra-treatments"
-            arg_type = String
-            help = "Path to a additional treatments file to be merged with the genotypes file"
-        
         "--phenotype-batch-size"
             arg_type = Int
             required = false
             help = "Further performance may be obtained by batching phenotypes in a"*
                    " single Targeted Estimation run"
+
         "--positivity-constraint"
             arg_type = Float64
             default = 0.01
             required = false
             help = "Minimum frequency a treatment value occuring in a Parameter must reach in the population"
-
     end
 
-    @add_arg_table s["with-asb-trans"] begin
-        "asb-prefix"
+    @add_arg_table s["from-asb-trans"] begin
+        "bqtls"
             arg_type = String
-            help = "Prefix path to filtered allelic-specific binding SNPS output by baal-nf "*
-                   "see https://git.ecdf.ed.ac.uk/oalmelid/baal-nf"
-        "trans-actors"
+            help = "Path to bqtls"
+
+        "trans-actors-prefix"
             arg_type = String
-            help = "Path to trans-acting SNPS"
-        "--param-prefix"
+            help = "Prefix path to trans-acting SNPs files"
+        
+        "--extra-confounders"
             arg_type = String
-            help = "Prefix to template parameter file to provide additional treatment variable information"
             required = false
+            help = "Path to a confounders file"
+
+        "--extra-covariates"
+            arg_type = String
+            required = false
+            help = "Path to extra covariates file"
+
+        "--extra-treatments"
+            arg_type = String
+            required = false
+            help = "Path to a additional treatments file"
+        
+        "--orders"
+            arg_type = String
+            required = false
+            help = "Interaction orders to be estimated"
+            default = "1,2"
     end
 
-    @add_arg_table s["with-param-files"] begin
+    @add_arg_table s["from-param-files"] begin
         "param-prefix"
             arg_type = String
             help = "Prefix to parameter files"
