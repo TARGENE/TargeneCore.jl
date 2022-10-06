@@ -42,18 +42,9 @@ function snps_and_variables_from_param_files(param_files, pcs, traits)
     end
     # Determine all potential `Y`s
     non_targets = Set(vcat("SAMPLE_ID", variables["extraT"], variables["extraW"], variables["extraC"]))
-    binaryY, continuousY = TargeneCore.binary_and_continuous_targets(traits, non_targets)
-    variables["binaryY"] = binaryY
-    variables["continuousY"] = continuousY
+    variables["Y"] = targets_from_traits(traits, non_targets)
 
     return unique(snps), variables
-end
-
-function add_batchified_param_files!(new_param_files, param_file, variables, batch_size)
-    if length(variables) != 0
-        param_files = batched_param_files(param_file, variables, batch_size)
-        append!(new_param_files, param_files)
-    end
 end
 
 function adjusted_param_files(param_files, variables; positivity_constraint=0., batch_size=nothing)
@@ -70,15 +61,10 @@ function adjusted_param_files(param_files, variables; positivity_constraint=0., 
 
         # If no target jas been specified, use all available ones
         if !haskey(param_file, "Y")
-            for variables in (variables["binaryY"], variables["continuousY"])
-                add_batchified_param_files!(new_param_files, param_file, variables, batch_size)
-            end
+            add_batchified_param_files!(new_param_files, param_file, variables["Y"], batch_size)
         else
-            Y = param_file["Y"]
-            for variables in (variables["binaryY"], variables["continuousY"])
-                variables = intersect(Y, variables)
-                add_batchified_param_files!(new_param_files, param_file, variables, nothing)
-            end
+            Y = intersect(param_file["Y"], variables["Y"]) 
+            add_batchified_param_files!(new_param_files, param_file, Y, batch_size)
         end
     end
     return new_param_files

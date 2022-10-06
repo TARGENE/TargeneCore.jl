@@ -65,40 +65,6 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 end
 
-@testset "Test additive_interaction_settings" begin
-    data = DataFrame(
-        T1 = ["A", "B", "C"],
-        T2 = [1, 0, 0],
-        T3 = ["toto", "tata", "titi"]
-    )
-    interaction_settings = TargeneCore.additive_interaction_settings([:T1, :T2], data)
-    expected_settings = [
-        (["A", "B"], [0, 1]),
-        (["A", "C"], [0, 1]),
-        (["B", "C"], [0, 1])
-    ]
-    for (real, expected) in zip(interaction_settings, expected_settings)
-        @test real == expected
-    end
-
-    interaction_settings = TargeneCore.additive_interaction_settings([:T1, :T2, :T3], data)
-    expected_settings = [
-        (["A", "B"], [0, 1], ["tata", "titi"]),
-        (["A", "C"], [0, 1], ["tata", "titi"]),
-        (["B", "C"], [0, 1], ["tata", "titi"]),
-        (["A", "B"], [0, 1], ["tata", "toto"]),
-        (["A", "C"], [0, 1], ["tata", "toto"]),
-        (["B", "C"], [0, 1], ["tata", "toto"]),
-        (["A", "B"], [0, 1], ["titi", "toto"]),
-        (["A", "C"], [0, 1], ["titi", "toto"]),
-        (["B", "C"], [0, 1], ["titi", "toto"])
-    ]
-    for (real, expected) in zip(interaction_settings, expected_settings)
-        @test real == expected
-    end
-
-end
-
 @testset "Test satisfies_positivity" begin
     freqs = Dict(
         ("A", 1) => 0.01,
@@ -114,7 +80,6 @@ end
     @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.02) == true
     @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.03) == false
 end
-
 
 
 end

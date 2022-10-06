@@ -127,29 +127,13 @@ pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
 all_confounders(pcs, extraW::Nothing) = pcnames(pcs)
 all_confounders(pcs, extraW) = vcat(pcnames(pcs), extraW)
 
-function binary_and_continuous_targets(traits, non_targets)
-    binaryY = String[]
-    continuousY = String[]
-    for colname in names(traits)
-        if colname ∉ non_targets
-            col = traits[!, colname]
-            # Targets must be either continuous or binary
-            if Set(unique(skipmissing(col))) == Set([0, 1])
-                push!(binaryY, colname)
-            else
-                nonmissingtype(eltype(col)) <: Real ? nothing : 
-                    throw(ArgumentError(
-                        "Variable $colname is neither binary nor continuous "*
-                        "but is tried to be used as a target. Make sure it is "*
-                        "correctly declared as an extra-treatment, extra-covariate or "*
-                        "extra-confounder."))
-                push!(continuousY, colname)
-            end
-        end
-    end
-    return binaryY, continuousY
-end
+targets_from_traits(traits, non_targets) = filter(x -> x ∉ non_targets, names(traits))
 
+
+function add_batchified_param_files!(new_param_files, param_file, variables, batch_size)
+    param_files = batched_param_files(param_file, variables, batch_size)
+    append!(new_param_files, param_files)
+end
 
 function batched_param_files(param_file, phenotypes_list, batch_size::Nothing)
     param_file = copy(param_file)

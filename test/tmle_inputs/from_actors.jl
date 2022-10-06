@@ -113,6 +113,33 @@ include("test_utils.jl")
                            Dict("T" => ["rs3", "sex"])]
 end
 
+@testset "Test control_case_settings" begin
+    data = DataFrame(
+        T1 = [0, 1, 2],
+        T2 = ["AC", "CC", "AA"],
+        T3 = [0, 1, 1] 
+    )
+    # One Treatment
+    treatment_tuple = [:T1]
+    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    @test settings == [([0, 1],),
+                       ([0, 2],),
+                       ([1, 2],)]
+    # Two treatments
+    treatment_tuple = [:T1, :T2]
+    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    expected_settings = [([0, 1], ["AA", "AC"])  ([0, 1], ["AA", "CC"])  ([0, 1], ["AC", "CC"])
+                         ([0, 2], ["AA", "AC"])  ([0, 2], ["AA", "CC"])  ([0, 2], ["AC", "CC"])
+                         ([1, 2], ["AA", "AC"])  ([1, 2], ["AA", "CC"])  ([1, 2], ["AC", "CC"])]
+    @test expected_settings == settings
+    # Three treatments
+    treatment_tuple = [:T1, :T2, :T3]
+    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    expected_settings = [([0, 1], ["AA", "AC"], [0, 1])  ([0, 1], ["AA", "CC"], [0, 1])  ([0, 1], ["AC", "CC"], [0, 1])
+                         ([0, 2], ["AA", "AC"], [0, 1])  ([0, 2], ["AA", "CC"], [0, 1])  ([0, 2], ["AC", "CC"], [0, 1])
+                         ([1, 2], ["AA", "AC"], [0, 1])  ([1, 2], ["AA", "CC"], [0, 1])  ([1, 2], ["AC", "CC"], [0, 1])]
+    @test all(x==y for (x,y) in zip(expected_settings, settings))
+end
 
 @testset "Test treatments_from_actors" begin
     # At least two type of actors should be specified
@@ -154,7 +181,7 @@ end
     # - Trans-actors
     # - Extra Treatment
     # - Extra Covariates
-    # - Order 2
+    # - Order 1,2
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
             "bqtls" => joinpath("data", "bqtls.csv"), 
@@ -162,7 +189,7 @@ end
             "extra-covariates" => joinpath("data", "extra_covariates.txt"),
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
-            "orders" => "2"
+            "orders" => "1,2"
             ),
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -183,15 +210,25 @@ end
     
     # Parameter files: 
     # Pairwise interactions between
-    # 3 bqtls x (1 environmental treatment +  2 trans actors) = 9
-    # with both continuous and binary phenotypes not batched = 18 expected param_files
-    for i in 1:18
+    # 3 bqtls x (1 environmental treatment +  2 trans actors) = 9 IATE files
+    # 3 bqtls = 3 ATE files
+    # total = 12 files
+    for i in 1:12
         param_file = YAML.load_file(string(parsed_args["out-prefix"], ".param_$i.yaml"))
         @test param_file["W"] == ["PC1", "PC2"]
         @test param_file["C"] == ["COV_1", "21003", "22001"]
-        @test (param_file["Y"] == ["CONTINUOUS_1", "CONTINUOUS_2"]) || (param_file["Y"] == ["BINARY_1", "BINARY_2"])
-        for param in param_file["Parameters"]
-            @test param["name"] == "IATE"
+        @test (param_file["Y"] == ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2"])
+        # ATE files
+        if length(param_file["T"]) == 1
+            @test param_file["T"][1] ∈ ("RSID_17", "RSID_99", "RSID_198")
+            for param in param_file["Parameters"]
+                @test param["name"] == "ATE"
+            end
+        # IATE files
+        else
+            for param in param_file["Parameters"]
+                @test param["name"] == "IATE"
+            end
         end
     end
 

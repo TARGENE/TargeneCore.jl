@@ -18,19 +18,25 @@ combine_trans_actors(trans_actors::Nothing, extraT::DataFrame, order) = [[extraT
 
 
 function combine_by_bqtl(bqtls::DataFrame, trans_actors::Union{Vector{DataFrame}, Nothing}, extraT::Union{DataFrame, Nothing}, order::Int)
-    causal_model_configurations = Dict[]
-    for comb in combine_trans_actors(trans_actors, extraT, order - 1)
-        comb_interactions = crossjoin(bqtls, comb..., makeunique=true)
-        for row in eachrow(comb_interactions)
-            push!(
-                causal_model_configurations,
-                Dict{Any, Any}(
-                    "T" => vcat(row["ID"], [row[string("ID_", i)] for i in 1:order-1])
+    param_files = Dict[]
+    if order == 1
+        for bqtl in bqtls.ID
+            push!(param_files, Dict{Any, Any}("T" => [bqtl]))
+        end
+    else
+        for comb in combine_trans_actors(trans_actors, extraT, order - 1)
+            comb_interactions = crossjoin(bqtls, comb..., makeunique=true)
+            for row in eachrow(comb_interactions)
+                push!(
+                    param_files,
+                    Dict{Any, Any}(
+                        "T" => vcat(row["ID"], [row[string("ID_", i)] for i in 1:order-1])
+                    )
                 )
-            )
+            end
         end
     end
-    return causal_model_configurations
+    return param_files
 end
 
 parse_orders(orders::String) = parse.(Int, split(orders, ","))
@@ -58,30 +64,26 @@ function trans_actors_from_prefix(trans_actors_prefix::String)
     return trans_actors
 end
 
-
-function additive_interaction_settings(treatment_tuple, treatments::DataFrame)
-    control_cases = []
+function control_case_settings(treatment_tuple, data::DataFrame)
+    control_cases_ = []
     for t in treatment_tuple
-        unique_vals = sort(unique(skipmissing(treatments[!, t])))
-        push!(control_cases, collect(combinations(unique_vals, 2)))
+        unique_vals = sort(unique(skipmissing(data[!, t])))
+        push!(control_cases_, collect(combinations(unique_vals, 2)))
     end
-    return Iterators.product(control_cases...)
+    return Iterators.product(control_cases_...)
 end
 
-function ate_settings(treatment_tuple, data::DataFrame)
 
-end
-
-function addIATEs!(param_file, data; positivity_constraint=0.)
+function addParameters!(param_file, data; positivity_constraint=0.)
     treatment_tuple = param_file["T"]
     freqs = TargeneCore.frequency_table(data, treatment_tuple)
-    interaction_settings = TargeneCore.additive_interaction_settings(treatment_tuple, data)
     param_file["Parameters"] = Dict[]
-    for interaction_setting in interaction_settings
-        if TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=positivity_constraint)
-            param = Dict{String, Any}("name" => "IATE")
+    for setting in TargeneCore.control_case_settings(treatment_tuple, data)
+        if TargeneCore.satisfies_positivity(setting, freqs; positivity_constraint=positivity_constraint)
+            param_name = length(setting) > 1 ? "IATE" : "ATE"
+            param = Dict{String, Any}("name" => param_name)
             for var_index in eachindex(treatment_tuple)
-                control, case = interaction_setting[var_index]
+                control, case = setting[var_index]
                 treatment = treatment_tuple[var_index]
                 param[treatment] = Dict("control" => control, "case" => case)
             end
@@ -92,15 +94,14 @@ end
 
 function get_variables(pcs, traits, extraW, extraC, extraT)
     W = all_confounders(pcs, extraW)
-    binaryY, continuousY = binary_and_continuous_targets(traits, Set(vcat("SAMPLE_ID", extraW, extraC, extraT)))
+    nontargets = Set(vcat("SAMPLE_ID", extraW, extraC, extraT))
     return Dict(
         "PCs" => pcnames(pcs),
         "extraT" => extraT,
         "extraC" => extraC,
         "extraW" => extraW,
         "W" => W,
-        "binaryY" => binaryY,
-        "continuousY" => continuousY
+        "Y" => targets_from_traits(traits, nontargets)
     )
 end
 
@@ -113,7 +114,7 @@ function param_files_from_actors(bqtls, transactors, data, variables, orders; ba
         param_files = TargeneCore.combine_by_bqtl(bqtls, transactors, extraT_df, order)
         for param_file in param_files
             # Generate `Parameters` section
-            addIATEs!(param_file, data; positivity_constraint=positivity_constraint)
+            addParameters!(param_file, data; positivity_constraint=positivity_constraint)
             # If at least one parameter satisfies positivity
             if param_file["Parameters"] != []
                 # Generate `W` section
@@ -122,9 +123,8 @@ function param_files_from_actors(bqtls, transactors, data, variables, orders; ba
                 if !(variables["extraC"] isa Nothing)
                     param_file["C"] = variables["extraC"]
                 end
-                for targets in (variables["binaryY"], variables["continuousY"])
-                    add_batchified_param_files!(new_param_files, param_file, targets, batch_size)
-                end
+                
+                add_batchified_param_files!(new_param_files, param_file, variables["Y"], batch_size)
             end
         end
     end
