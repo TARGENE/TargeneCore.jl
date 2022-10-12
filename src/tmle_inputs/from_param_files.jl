@@ -5,7 +5,7 @@ function load_param_files(param_prefix)
     paramdir_, prefix = splitdir(param_prefix)
     paramdir = paramdir_ == "" ? "." : paramdir_
     for filename in readdir(paramdir)
-        if occursin(prefix, filename)
+        if startswith(filename, prefix)
             push!(param_files, YAML.load_file(joinpath(paramdir_, filename)))
         end
     end

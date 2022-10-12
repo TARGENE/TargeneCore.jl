@@ -7,9 +7,57 @@ using CSV
 using JLD2
 using TMLE
 using CategoricalArrays
+using TargetedEstimation
+using StableRNGs
+using Distributions
+using LogExpFunctions
 
+function build_dataset(sample_ids)
+    rng = StableRNG(123)
+    n = size(sample_ids, 1)
+    # Confounders
+    W₁ = rand(rng, Uniform(), n)
+    W₂ = rand(rng, Uniform(), n)
+    # Covariates
+    C₁ = rand(rng, n)
+    # Treatment | Confounders
+    T₁ = rand(rng, Uniform(), n) .< logistic.(0.5sin.(W₁) .- 1.5W₂)
+    T₂ = rand(rng, Uniform(), n) .< logistic.(-3W₁ - 1.5W₂)
+    # target | Confounders, Covariates, Treatments
+    μ = 1 .+ 2W₁ .+ 3W₂ .- 4C₁.*T₁ .+ T₁ + T₂.*W₂.*T₁
+    y₁ = μ .+ rand(rng, Normal(0, 0.01), n)
+    y₂ = rand(rng, Uniform(), n) .< logistic.(μ)
+    # Add some missingness
+    y₂ = vcat(missing, y₂[2:end])
 
-include("helper_fns.jl")
+    dataset = DataFrame(
+        SAMPLE_ID = string.(sample_ids),
+        T1 = categorical(T₁),
+        T2 = categorical(T₂),
+        W1 = W₁, 
+        W2 = W₂,
+        C1 = C₁,
+        CONTINUOUS_TARGET = y₁,
+        BINARY_TARGET = categorical(y₂)
+    )
+
+    CSV.write("data.csv", dataset)
+end
+
+function build_tmle_output_file(sample_ids, param_file, outfile)
+    build_dataset(sample_ids)
+    # Only one continuous phenotype / machines not saved / no adaptive cv
+    parsed_args = Dict(
+        "data" => "data.csv",
+        "param-file" => param_file,
+        "estimator-file" => joinpath("config", "tmle_config.yaml"),
+        "out" => outfile,
+        "verbosity" => 0,
+        "save-full" => true,
+    )
+
+    TargetedEstimation.main(parsed_args)
+end
 
 
 function basic_variance_implementation(matrix_distance, influence_curve, n_obs)
@@ -39,40 +87,101 @@ function distance_vector_to_matrix!(matrix_distance, vector_distance, n_samples)
     end
 end
 
+function test_initial_output(output, expected_output)
+    # Metadata columns
+    for col in [:PARAMETER_TYPE, :TREATMENTS, :CASE, :CONTROL, :TARGET, :CONFOUNDERS, :COVARIATES]
+        for index in eachindex(output[!, col])
+            if expected_output[index, col] === missing
+                @test expected_output[index, col] === output[index, col]
+            else
+                @test expected_output[index, col] == output[index, col]
+            end
+        end
+    end
+    # TMLE i.i.d columns
+    for col in (:INITIAL_ESTIMATE, :ESTIMATE, :STD, :PVALUE, :LWB, :UPB)
+        @test eltype(output[!, col]) == Float64
+    end
+    # Sieve columns
+    for col in (:SIEVE_STD, :SIEVE_PVALUE, :SIEVE_LWB, :SIEVE_UPB)
+        @test all(x===missing for x in output[!, col])
+    end
+end
+
+
 @testset "Test readGRM" begin
     prefix = joinpath("data", "grm", "test.grm")
     GRM, ids = TargeneCore.readGRM(prefix)
+    @test eltype(ids.SAMPLE_ID) == String
     @test size(GRM, 1) == 18915
     @test size(ids, 1) == 194
 end
 
 @testset "Test build_work_list" begin
-    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
-    prefix = "rs12_rs54"
-    build_results_files(grm_ids, prefix)
-    # mode=QUERYREPORTS, pval=0.05
-    influence_curves, n_obs, file_tmlereport_pairs = TargeneCore.build_work_list(prefix, grm_ids; pval=0.05)
-    jldopen(string(prefix, "_batch_1_Real.hdf5")) do io
-        tmlereports = io["TMLEREPORTS"]
-        @test influence_curves[1, :] == convert(Vector{Float32}, tmlereports["2_1"].influence_curve)
-        @test influence_curves[2, :] == convert(Vector{Float32}, tmlereports["2_2"].influence_curve)
+    grm_ids = TargeneCore.GRMIDs(joinpath("data", "grm", "test.grm.id"))
+    param_file_1 = joinpath("config", "sieve_tests_parameters_1.yaml")
+    outfile_1 = "tmle_output_1.hdf5"
+    prefix = "tmle_output"
+    # CASE_1: only one file
+    build_tmle_output_file(grm_ids.SAMPLE_ID, param_file_1, outfile_1)
+    # Since pval = 1., all parameters are considered for sieve variance
+    output, influence_curves, n_obs, row_ids = TargeneCore.build_work_list(prefix, grm_ids; pval=1.)
+    @test row_ids == [1, 2, 3, 4, 5, 6]
+    @test n_obs == [194, 194, 194, 193, 193, 193]
+    # Check influence curves
+    io = jldopen(outfile_1)
+    continuous_results = io["results"]["CONTINUOUS_TARGET"]["tmle_results"]
+    for i in 1:3
+        @test convert(Vector{Float32}, continuous_results[i].IC) == influence_curves[i, :]
     end
-    @test n_obs == [194, 194]
-    @test file_tmlereport_pairs == ["rs12_rs54_batch_1_Real.hdf5" => "2_1", "rs12_rs54_batch_1_Real.hdf5"=>"2_2"]
+    binary_results = io["results"]["BINARY_TARGET"]["tmle_results"]
+    for i in 1:3
+        @test convert(Vector{Float32}, vcat(0, binary_results[i].IC)) == influence_curves[i+3, :]
+    end
+    # Check output
+    some_expected_cols = DataFrame(
+        PARAMETER_TYPE = ["IATE", "IATE", "ATE", "IATE", "IATE", "ATE"],
+        TREATMENTS = ["T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1"],
+        CASE = ["1_&_1", "0_&_1", "1_&_1", "1_&_1", "0_&_1", "1_&_1"],
+        CONTROL = ["0_&_0", "1_&_0", "0_&_0", "0_&_0", "1_&_0", "0_&_0"],
+        TARGET = ["CONTINUOUS_TARGET", "CONTINUOUS_TARGET", "CONTINUOUS_TARGET", "BINARY_TARGET", "BINARY_TARGET", "BINARY_TARGET"],
+        CONFOUNDERS = ["W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2"],
+        COVARIATES = ["C1", "C1", "C1", "C1", "C1", "C1"]
+    )
+    test_initial_output(output, some_expected_cols)
 
-    # mode=MACHINE, pval=1
-    influence_curves, n_obs, file_tmlereport_pairs = TargeneCore.build_work_list(prefix, grm_ids; pval=1)
-    @test size(influence_curves) == (6, 194)
-    @test n_obs == repeat([194], 6)
-    file_tmlereport_pairs == [
-        "rs12_rs54_batch_1_Bool.hdf5" => "1_1",
-        "rs12_rs54_batch_1_Bool.hdf5" => "1_2",
-        "rs12_rs54_batch_1_Real.hdf5" => "1_1",
-        "rs12_rs54_batch_1_Real.hdf5" => "1_2",
-        "rs12_rs54_batch_1_Real.hdf5" => "2_1",
-        "rs12_rs54_batch_1_Real.hdf5" => "2_2"
-    ]
-    clean_hdf5estimates_files(prefix)
+    # CASE_2: add another file 
+    param_file_2 = joinpath("config", "sieve_tests_parameters_2.yaml")
+    outfile_2 = "tmle_output_2.hdf5"
+    build_tmle_output_file(grm_ids.SAMPLE_ID, param_file_2, outfile_2)
+    # This p-value filters the influence curves for the binary outcome
+    output, influence_curves, n_obs, row_ids = TargeneCore.build_work_list(prefix, grm_ids; pval=1e-10)
+    @test size(influence_curves) == (5, 194)
+    @test n_obs == [194, 194, 194, 194, 194]
+    @test row_ids == [1, 2, 3, 7, 8]
+
+    # Check output
+    some_expected_cols = DataFrame(
+        PARAMETER_TYPE = ["IATE", "IATE", "ATE", "IATE", "IATE", "ATE", "ATE", "CM"],
+        TREATMENTS = ["T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1", "T2_&_T1", "T1", "T1"],
+        CASE = ["1_&_1", "0_&_1", "1_&_1", "1_&_1", "0_&_1", "1_&_1", "1", "0"],
+        CONTROL = ["0_&_0", "1_&_0", "0_&_0", "0_&_0", "1_&_0", "0_&_0", "0", missing],
+        TARGET = ["CONTINUOUS_TARGET", "CONTINUOUS_TARGET", "CONTINUOUS_TARGET", "BINARY_TARGET", "BINARY_TARGET", "BINARY_TARGET", "CONTINUOUS_TARGET", "CONTINUOUS_TARGET"],
+        CONFOUNDERS = ["W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2", "W1_&_W2", "W1", "W1"],
+        COVARIATES = ["C1", "C1", "C1", "C1", "C1", "C1", missing, missing]
+    )
+    test_initial_output(output, some_expected_cols)
+
+    # CASE_3: empty influence curves
+    output, influence_curves, n_obs, row_ids = TargeneCore.build_work_list(prefix, grm_ids; pval=0.)
+    @test influence_curves == []
+    @test row_ids == []
+    @test n_obs == []
+    test_initial_output(output, some_expected_cols)
+    # clean
+    rm(outfile_1)
+    rm(outfile_2)
+    rm("data.csv")
 end
 
 @testset "Test bit_distance" begin
@@ -187,33 +296,83 @@ end
 end
 
 @testset "Test sieve_variance_plateau" begin
-    grm_ids = TargeneCore.GRMIDs("data/grm/test.grm.id")
-    prefix = "rs12_rs45"
+    # Generate data
     nb_estimators = 10
-    build_results_files(grm_ids, prefix)
-    outfilename = "rs12_rs45_sieve_variance.hdf5"
+    grm_ids = TargeneCore.GRMIDs(joinpath("data", "grm", "test.grm.id"))
+    param_file_1 = joinpath("config", "sieve_tests_parameters_1.yaml")
+    tmle_outfile_1 = "tmle_output_1.hdf5"
+    param_file_2 = joinpath("config", "sieve_tests_parameters_2.yaml")
+    tmle_outfile_2 = "tmle_output_2.hdf5"
+    build_tmle_output_file(grm_ids.SAMPLE_ID, param_file_1, tmle_outfile_1)
+    build_tmle_output_file(grm_ids.SAMPLE_ID, param_file_2, tmle_outfile_2)
+
+    outprefix = "sieve_output"
     parsed_args = Dict(
-        "prefix" => prefix,
-        "pval" => 0.05,
+        "prefix" => "tmle_output",
+        "pval" => 1e-10,
         "grm-prefix" => "data/grm/test.grm",
-        "out" => outfilename,
+        "out-prefix" => outprefix,
         "nb-estimators" => nb_estimators,
-        "max-tau" => 0.75
+        "max-tau" => 0.75,
+        "verbosity" => 0
     )
 
     sieve_variance_plateau(parsed_args)
+    # check hdf5 file
+    io = jldopen(string(outprefix, ".hdf5"))
+    @test io["taus"] == TargeneCore.default_τs(nb_estimators; max_τ=parsed_args["max-tau"])
+    @test size(io["variances"]) == (10, 5)
+    close(io)
+    # check csv file
+    output = CSV.read(string(outprefix, ".csv"), DataFrame)
+    for col in (:SIEVE_PVALUE, :SIEVE_STD, :SIEVE_LWB, :SIEVE_UPB)
+        @test all(x===missing for x in output[[4, 5, 6], col])
+        @test all(x isa Float64 for x in output[[1, 2, 3, 7, 8], col])
+    end
 
-    results_file = jldopen(outfilename)
-    @test size(results_file["TAUS"]) == (nb_estimators,)
-    @test size(results_file["VARIANCES"]) == (nb_estimators, 2)
-    @test results_file["SOURCEFILE_REPORTID_PAIRS"] == 
-        ["rs12_rs45_batch_1_Real.hdf5" => "2_1","rs12_rs45_batch_1_Real.hdf5" => "2_2"]
-    @test size(results_file["STDERRORS"]) == (2,)
+    # clean
+    rm(string(outprefix, ".csv"))
+    rm(string(outprefix, ".hdf5"))
+    rm(tmle_outfile_1)
+    rm(tmle_outfile_2)
+    rm("data.csv")
+end
 
-    close(results_file)
+@testset "Test sieve_variance_plateau: empty work list" begin
+    # Generate data
+    nb_estimators = 10
+    grm_ids = TargeneCore.GRMIDs(joinpath("data", "grm", "test.grm.id"))
+    param_file_1 = joinpath("config", "sieve_tests_parameters_1.yaml")
+    tmle_outfile_1 = "tmle_output_1.hdf5"
+    build_tmle_output_file(grm_ids.SAMPLE_ID, param_file_1, tmle_outfile_1)
 
-    rm(outfilename)
-    clean_hdf5estimates_files(prefix)
+    outprefix = "sieve_output"
+    parsed_args = Dict(
+        "prefix" => "tmle_output",
+        "pval" => 0.,
+        "grm-prefix" => "data/grm/test.grm",
+        "out-prefix" => outprefix,
+        "nb-estimators" => nb_estimators,
+        "max-tau" => 0.75,
+        "verbosity" => 0
+    )
+
+    sieve_variance_plateau(parsed_args)
+    # check hdf5 file
+    io = jldopen(string(outprefix, ".hdf5"))
+    @test io["taus"] == TargeneCore.default_τs(nb_estimators; max_τ=parsed_args["max-tau"])
+    close(io)
+    # check csv file
+    output = CSV.read(string(outprefix, ".csv"), DataFrame)
+    for col in (:SIEVE_PVALUE, :SIEVE_STD, :SIEVE_LWB, :SIEVE_UPB)
+        @test all(x===missing for x in output[!, col])
+    end
+
+    # clean
+    rm(string(outprefix, ".csv"))
+    rm(string(outprefix, ".hdf5"))
+    rm(tmle_outfile_1)
+    rm("data.csv")
 end
 
 end
