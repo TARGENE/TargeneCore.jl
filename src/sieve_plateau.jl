@@ -120,7 +120,7 @@ function build_work_list(prefix, grm_ids; pval=0.05)
             end
         end
     end
-    influence_curves = length(influence_curves) == 0 ? influence_curves : reduce(vcat, transpose(influence_curves))
+    influence_curves = length(influence_curves) > 0 ? reduce(vcat, transpose(influence_curves)) : influence_curves 
     return output, influence_curves, n_obs, row_ids
 end
 
@@ -222,7 +222,6 @@ function save_results(outprefix, output, τs)
     end
 end
 
-
 corrected_stderrors(variances, n_obs) =
     sqrt.(view(maximum(variances, dims=1), 1, :) ./ n_obs)
 
@@ -247,7 +246,6 @@ function sieve_variance_plateau(parsed_args)
 
     τs = default_τs(parsed_args["nb-estimators"];max_τ=parsed_args["max-tau"])
     grm, grm_ids = readGRM(parsed_args["grm-prefix"])
-
     verbosity > 0 && @info "Preparing work list."
     output, influence_curves, n_obs, row_ids = build_work_list(prefix, grm_ids; pval=pval)
 
@@ -264,5 +262,3 @@ function sieve_variance_plateau(parsed_args)
     verbosity > 0 && @info "Done."
     return 0
 end
-
-

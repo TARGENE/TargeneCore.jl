@@ -6,7 +6,7 @@ ENV TZ=Europe/Amsterdam
 
 ENV JULIA_DEPOT_PATH=/opt
 
-RUN apt-get update && apt-get install -y wget unzip procps
+RUN apt-get update && apt-get install -y wget unzip procps libcurl4-openssl-dev libbz2-dev liblzma-dev
 
 # Install gcta
 
@@ -19,12 +19,10 @@ RUN mv gcta_v1.94.0Beta_linux_kernel_3_x86_64/gcta_v1.94.0Beta_linux_kernel_3_x8
 RUN chmod a+x /usr/local/bin/gcta64
 
 # Import project, build and precompile
+
 COPY . /TargeneCore.jl 
 
 WORKDIR /TargeneCore.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
 
-# RUN julia -q --project build_sysimage.jl
-
-# RUN echo 'alias julia="julia -J TargeneCoreSysimage.so"' >> ~/.bashrc
