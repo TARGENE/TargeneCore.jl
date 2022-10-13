@@ -16,7 +16,7 @@ function parse_commandline()
             arg_type = String
             help = "Prefix of the aggregated GRM"
             required = true
-        "out"
+        "out-prefix"
             arg_type = String
             help = "output filename"
             required = true
