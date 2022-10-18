@@ -12,17 +12,30 @@ all_batches_ok(row, batchcols) = all(x == 1 for x in row[batchcols])
 
 bounds(pos, lb, ub) =  (min(lb, pos - 10^4), max(ub, pos + 10^4))
 
+function in_ld_blocks(chr, position, ld_blocks)
+    group = ld_blocks[(chr=chr,)]
+    return any(b.lower_bound < position < b.upper_bound for b in eachrow(group))
+end
 
 function notin_ldblocks(row, ldblocks)
     if (chr=row.chromosome,) ∉ keys(ldblocks)
         return true
     else
-        group = ldblocks[(chr=row.chromosome,)]
-        inblock = any(b.lower_bound < row.position < b.upper_bound for b in eachrow(group))
-        return ~inblock
+        return ~in_ld_blocks(row.chromosome, row.position, ldblocks)
     end
 end
 
+function ld_blocks_by_chr(path)
+    # Load and redefine LD bounds
+    ld_blocks = CSV.File(
+        path;
+        header=["rsid","chr","pos","LDblock_lower","LDblock_upper","LDblock_length","lower_bound","upper_bound"]) |> DataFrame
+    transform!(ld_blocks,
+        :,
+        [:pos, :lower_bound, :upper_bound] => ByRow(bounds) => [:lower_bound, :upper_bound],
+        )
+    return groupby(ld_blocks, :chr)
+end
 
 """
     filter_chromosome(parsed_args)
@@ -33,21 +46,14 @@ to extract population stratification compomemts.
 We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
-function filter_chromosome(parsed_args)
+function filter_bed_file(parsed_args)
 
     qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
     
     snp_data = SnpData(parsed_args["input"])
+    snp_data.snp_info.chromosome = parse.(Int, snp_data.snp_info.chromosome)
     # Load and redefine LD bounds
-    ld_blocks = CSV.File(
-        parsed_args["ld-blocks"];
-        header=["rsid","chr","pos","LDblock_lower","LDblock_upper","LDblock_length","lower_bound","upper_bound"]) |> DataFrame
-    ld_blocks.chr = string.(ld_blocks.chr)
-    transform!(ld_blocks,
-        :,
-        [:pos, :lower_bound, :upper_bound] => ByRow(bounds) => [:lower_bound, :upper_bound],
-        )
-    ld_blocks = groupby(ld_blocks, :chr)
+    ld_blocks = ld_blocks_by_chr(parsed_args["ld-blocks"])
 
     # Remove SNP's with MAF < maf-threshold
     maf_threshold = parsed_args["maf-threshold"]
@@ -98,4 +104,54 @@ function adapt_flashpca(parsed_args)
     pcs = CSV.File(parsed_args["input"], drop=["IID"]) |> DataFrame
     rename!(pcs, :FID => :SAMPLE_ID)
     CSV.write(parsed_args["output"], pcs)
+end
+
+
+function filter_bgen_file(args)
+    path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".bgen")
+    sample_path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".sample")
+    idx_path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".bgen.bgi")
+    maf_threshold = 0.01
+
+    bgen = Bgen(path; sample_path=sample_path, idx_path=idx_path)
+    ld_blocks_by_chr(args["ld-blocks"])
+    qc_df = CSV.File("/home/s2042526/UK-BioBank-53116/imputed/ukb_snp_qc.txt") |> DataFrame
+    batch_cols = [x for x in names(qc_df) if occursin("Batch", x)]
+
+    variant_mask = zeros(Bool, n_variants(bgen))
+
+    genotyped_snps = Set(qc_df.rs_id)
+    for (index, v) in enumerate(iterator(bgen))
+        # Only genotyped SNPs
+        v ∈ genotyped_snps || continue
+
+        # SNP is not in LD blocks
+        in_ld_blocks(parse(Int, v.chrom), pos(v), ld_blocks_by_chr) && continue
+
+        ## Check SNP passes QC
+        snp_qc = filter(x -> x.rs_id == v.rsid, qc_df)[1, :]
+        # SNP assayed in both arrays
+        snp_qc.array == 2 || continue
+        # All batches pass QC 
+        all(==(1), values(snp_qc[batch_cols])) || continue
+        # Minor Allele frequency
+        maf = mean(minor_allele_dosage!(bgen, v))
+        maf >= maf_threshold || continue
+
+        # All checks have passed
+        variant_mask[index] = true
+    end
+
+    sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
+    sample_mask = [s ∈ sample_ids for s in samples(bgen)]
+
+    BGEN.filter(args["out"], bgen, variant_mask, sample_mask)
+end
+
+function filter_ukb_genetic_file(args)
+    if endswith(args["input"], "bgen")
+        filter_bgen_file(args)
+    else
+        filter_bed_file(args)
+    end
 end

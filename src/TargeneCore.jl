@@ -28,7 +28,7 @@ include(joinpath("tmle_inputs", "from_param_files.jl"))
 ###############################################################################
 # EXPORTS
 
-export filter_chromosome, merge_beds, adapt_flashpca
+export filter_ukb_genetic_file, merge_beds, adapt_flashpca
 export sieve_variance_plateau
 export tmle_inputs
 

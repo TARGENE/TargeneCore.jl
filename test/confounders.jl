@@ -11,9 +11,19 @@ using CSV
     @test TargeneCore.issnp("A") == true
     @test TargeneCore.issnp("AA") == false
     
-    #Test bounds
+    # Test bounds
     @test TargeneCore.bounds(0, -10, 10) == (-10^4, 10^4)
     @test TargeneCore.bounds(15000, 1000, 30000) == (1000, 30000)
+
+    # Test ld_blocks_by_chr
+    lb_blocks_by_chr = TargeneCore.ld_blocks_by_chr(joinpath("data", "VDR_LD_blocks.txt"))
+    @test lb_blocks_by_chr[1][1, :lower_bound] == -9990.0
+    @test lb_blocks_by_chr[1][1, :upper_bound] == 10010.0
+    @test lb_blocks_by_chr[1][1, :chr] == 3
+
+    @test lb_blocks_by_chr[2][1, :lower_bound] == 4.8262895e7
+    @test lb_blocks_by_chr[2][1, :upper_bound] == 4.8282895e7
+    @test lb_blocks_by_chr[2][1, :chr] == 12
 
     # Test notin_ldblocks
     ldblocks = DataFrame(chr        = [1, 3],
@@ -29,7 +39,7 @@ using CSV
     @test filter(x -> TargeneCore.notin_ldblocks(x, ldblocks), snp_info) == expected_snps
 end
 
-@testset "Test filter_chromosome" begin
+@testset "Test filter_genetic_file" begin
     parsed_args = Dict(
         "input"  => SnpArrays.datadir("mouse"),
         "output" => joinpath("data", "filtered-mouse"),
@@ -38,7 +48,7 @@ end
         "maf-threshold" => 0.31,
         "traits" => joinpath("data", "sample_ids.txt")
     )
-    filter_chromosome(parsed_args)
+    filter_ukb_genetic_file(parsed_args)
 
     filtered = SnpData(parsed_args["output"])
 
