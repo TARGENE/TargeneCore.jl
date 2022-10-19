@@ -41,9 +41,9 @@ RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
          install_version('hal9001', version = '0.4.1', repos = 'http://cran.us.r-project.org')"
 
 # Import project, build and precompile
-COPY . /TMLEEpistasis.jl 
+COPY . /TargeneCore.jl 
 
-WORKDIR /TMLEEpistasis.jl
+WORKDIR /TargeneCore.jl
 
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
 
