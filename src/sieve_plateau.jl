@@ -43,13 +43,38 @@ init_output() = DataFrame(
     SIEVE_UPB=Union{Float64, Missing}[]
 )
 
+
+covariates_string(Ψ; join_string="_&_") = 
+    length(Ψ.covariates) != 0 ? join(Ψ.covariates, join_string) : missing
+
+function param_string(param::T) where T <: TMLE.Parameter
+    str = string(T)
+    return startswith(str, "TMLE.") ? str[6:end] : str
+end
+
+case(nt::NamedTuple) = nt.case
+case(x) = x
+case_string(Ψ; join_string="_&_") = join((case(x) for x in values(Ψ.treatment)), join_string)
+
+control_string(t::Tuple{Vararg{<:NamedTuple}}; join_string="_&_") = 
+    join((val.control for val in t), join_string)
+
+control_string(t; join_string="_&_") = missing
+
+control_string(Ψ::TMLE.Parameter; join_string="_&_") = 
+    control_string(values(Ψ.treatment); join_string=join_string)
+
+treatment_string(Ψ; join_string="_&_") = join(keys(Ψ.treatment), join_string)
+confounders_string(Ψ; join_string="_&_") = join(Ψ.confounders, join_string)
+
+
 function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
-    param_type = TargetedEstimation.param_string(Ψ)
-    treatments = TargetedEstimation.treatment_string(Ψ)
-    case = TargetedEstimation.case_string(Ψ)
-    control = TargetedEstimation.control_string(Ψ)
-    confounders = TargetedEstimation.confounders_string(Ψ)
-    covariates = TargetedEstimation.covariates_string(Ψ)
+    param_type = param_string(Ψ)
+    treatments = treatment_string(Ψ)
+    case = case_string(Ψ)
+    control = control_string(Ψ)
+    confounders = confounders_string(Ψ)
+    covariates = covariates_string(Ψ)
     Ψ̂ = estimate(result)
     std = √(var(result))
     testresult = OneSampleTTest(result)

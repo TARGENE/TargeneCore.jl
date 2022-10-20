@@ -13,7 +13,6 @@ using Mmap
 using HypothesisTests
 using YAML
 using Combinatorics
-using TargetedEstimation
 
 ###############################################################################
 # INCLUDES
