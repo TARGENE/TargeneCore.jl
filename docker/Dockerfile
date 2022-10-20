@@ -45,7 +45,7 @@ COPY . /TargeneCore.jl
 
 WORKDIR /TargeneCore.jl
 
-RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
+RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
 # RUN julia -q --project build_sysimage.jl
 
