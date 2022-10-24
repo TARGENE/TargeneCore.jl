@@ -131,10 +131,10 @@ function build_work_list(prefix, grm_ids; pval=0.05)
                 targetresults = results[target]
                 sample_ids = string.(targetresults["sample_ids"])
                 for index in eachindex(targetresults["tmle_results"])
-                    tmleresult = targetresults["tmle_results"][index]
                     templateΨ = templateΨs[index]
                     Ψ̂₀ = targetresults["initial_estimates"][index]
-                    if pvalue(OneSampleTTest(tmleresult)) <= pval                        
+                    tmleresult = targetresults["tmle_results"][index]
+                    if (tmleresult !== missing) && (pvalue(OneSampleTTest(tmleresult)) <= pval)
                         push!(influence_curves, align_ic(tmleresult.IC, sample_ids, grm_ids))
                         push!(n_obs, size(sample_ids, 1))
                         push!(row_ids, row_id)
