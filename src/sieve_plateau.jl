@@ -67,6 +67,7 @@ control_string(Ψ::TMLE.Parameter; join_string="_&_") =
 treatment_string(Ψ; join_string="_&_") = join(keys(Ψ.treatment), join_string)
 confounders_string(Ψ; join_string="_&_") = join(Ψ.confounders, join_string)
 
+restore_slash(x) = replace(string(x), "_OR_" => "/")
 
 function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
     param_type = param_string(Ψ)
@@ -81,7 +82,7 @@ function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
     pval = pvalue(testresult)
     lw, up = confint(testresult)
     row = (
-        param_type, treatments, case, control, target, confounders, covariates, 
+        param_type, treatments, case, control, restore_slash(target), confounders, covariates, 
         Ψ̂₀, Ψ̂, 
         std, pval, lw, up, 
         missing, missing, missing, missing
