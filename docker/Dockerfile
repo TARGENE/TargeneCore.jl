@@ -43,9 +43,12 @@ RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
 # Import project, build and precompile
 COPY . /TargeneCore.jl 
 
-WORKDIR /TargeneCore.jl
+RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
-RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
+# Prepend a writable DEPOT_PATH ($PWD is mounted by default by singularity)
+RUN mkdir $PWD/julia_depot
+
+ENV JULIA_DEPOT_PATH=$PWD/julia_depot:$JULIA_DEPOT_PATH
 
 # RUN julia -q --project build_sysimage.jl
 

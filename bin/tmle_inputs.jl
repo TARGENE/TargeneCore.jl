@@ -54,7 +54,7 @@ function parse_commandline()
             help = "Minimum frequency a treatment value occuring in a Parameter must reach in the population"
     end
 
-    @add_arg_table s["from-asb-trans"] begin
+    @add_arg_table s["from-actors"] begin
         "bqtls"
             arg_type = String
             help = "Path to bqtls"

@@ -43,20 +43,46 @@ init_output() = DataFrame(
     SIEVE_UPB=Union{Float64, Missing}[]
 )
 
+
+covariates_string(Ψ; join_string="_&_") = 
+    length(Ψ.covariates) != 0 ? join(Ψ.covariates, join_string) : missing
+
+function param_string(param::T) where T <: TMLE.Parameter
+    str = string(T)
+    return startswith(str, "TMLE.") ? str[6:end] : str
+end
+
+case(nt::NamedTuple) = nt.case
+case(x) = x
+case_string(Ψ; join_string="_&_") = join((case(x) for x in values(Ψ.treatment)), join_string)
+
+control_string(t::Tuple{Vararg{<:NamedTuple}}; join_string="_&_") = 
+    join((val.control for val in t), join_string)
+
+control_string(t; join_string="_&_") = missing
+
+control_string(Ψ::TMLE.Parameter; join_string="_&_") = 
+    control_string(values(Ψ.treatment); join_string=join_string)
+
+treatment_string(Ψ; join_string="_&_") = join(keys(Ψ.treatment), join_string)
+confounders_string(Ψ; join_string="_&_") = join(Ψ.confounders, join_string)
+
+restore_slash(x) = replace(string(x), "_OR_" => "/")
+
 function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
-    param_type = TargetedEstimation.param_string(Ψ)
-    treatments = TargetedEstimation.treatment_string(Ψ)
-    case = TargetedEstimation.case_string(Ψ)
-    control = TargetedEstimation.control_string(Ψ)
-    confounders = TargetedEstimation.confounders_string(Ψ)
-    covariates = TargetedEstimation.covariates_string(Ψ)
+    param_type = param_string(Ψ)
+    treatments = treatment_string(Ψ)
+    case = case_string(Ψ)
+    control = control_string(Ψ)
+    confounders = confounders_string(Ψ)
+    covariates = covariates_string(Ψ)
     Ψ̂ = estimate(result)
     std = √(var(result))
     testresult = OneSampleTTest(result)
     pval = pvalue(testresult)
     lw, up = confint(testresult)
     row = (
-        param_type, treatments, case, control, target, confounders, covariates, 
+        param_type, treatments, case, control, restore_slash(target), confounders, covariates, 
         Ψ̂₀, Ψ̂, 
         std, pval, lw, up, 
         missing, missing, missing, missing
@@ -106,10 +132,10 @@ function build_work_list(prefix, grm_ids; pval=0.05)
                 targetresults = results[target]
                 sample_ids = string.(targetresults["sample_ids"])
                 for index in eachindex(targetresults["tmle_results"])
-                    tmleresult = targetresults["tmle_results"][index]
                     templateΨ = templateΨs[index]
                     Ψ̂₀ = targetresults["initial_estimates"][index]
-                    if pvalue(OneSampleTTest(tmleresult)) <= pval                        
+                    tmleresult = targetresults["tmle_results"][index]
+                    if (tmleresult !== missing) && (pvalue(OneSampleTTest(tmleresult)) <= pval)
                         push!(influence_curves, align_ic(tmleresult.IC, sample_ids, grm_ids))
                         push!(n_obs, size(sample_ids, 1))
                         push!(row_ids, row_id)

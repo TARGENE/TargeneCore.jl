@@ -34,6 +34,11 @@ function parse_commandline()
             help = "Only traits/queries pairs that satisfy this pvalue threshold with an independence"*
                     " assumption between individuals will be considered for the sieve."
             default = 0.05
+        "--verbosity", "-v"
+            arg_type = Int
+            help = "Verbosity level"
+            default = 1
+
         
     end
 
