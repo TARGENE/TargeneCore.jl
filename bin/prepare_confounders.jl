@@ -8,7 +8,8 @@ function parse_commandline()
     @add_arg_table s begin
         "--input", "-i"
             help = "If merge is called, a common prefix to the bed files should be provided."*
-                "If filter is called, a path to the chromosome .bed file should be provided"
+                "If filter is called, a path to the chromosome .bed/.bgen file should be provided: "*
+                "index, sample and fam files will be deduced"
             arg_type = String
             required = true
         "--output", "-o"
