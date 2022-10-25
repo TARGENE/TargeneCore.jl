@@ -6,10 +6,13 @@ function merge_beds(parsed_args)
     merge_plink(parsed_args["input"]; des = parsed_args["output"])
 end
 
-issnp(x::String) = length(x) == 1
+issnp(x) = length(x) == 1
 
 all_batches_ok(row, batchcols) = all(x == 1 for x in row[batchcols])
 
+"""
+At least 2*10^4 long LD blocks.
+"""
 bounds(pos, lb, ub) =  (min(lb, pos - 10^4), max(ub, pos + 10^4))
 
 function in_ld_blocks(chr, position, ld_blocks)
@@ -48,9 +51,11 @@ We filter SNPs using quality control metrics from the following resource:
 """
 function filter_bed_file(parsed_args)
 
+    input_prefix = parsed_args["input"][1:end-4]
+    output_prefix = parsed_args["output"][1:end-4]
     qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
     
-    snp_data = SnpData(parsed_args["input"])
+    snp_data = SnpData(input_prefix)
     snp_data.snp_info.chromosome = parse.(Int, snp_data.snp_info.chromosome)
     # Load and redefine LD bounds
     ld_blocks = ld_blocks_by_chr(parsed_args["ld-blocks"])
@@ -79,7 +84,7 @@ function filter_bed_file(parsed_args)
     biallelic = filter(:snpid=>∉(duplicate_rsids), fully_genotyped_snps)
 
     # Keep only actual SNPs and not other kinds of variants
-    actual_snps = subset(biallelic, :allele1 => ByRow(issnp), :allele2 => ByRow(issnp))
+    actual_snps = subset(biallelic, :allele1_ref => ByRow(issnp), :allele2_alt => ByRow(issnp))
 
     # All batches pass QC 
     batch_cols = [x for x in names(actual_snps) if occursin("Batch", x)]
@@ -91,8 +96,8 @@ function filter_bed_file(parsed_args)
     rsids = Set(final.snpid)
     sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
     SnpArrays.filter(
-        parsed_args["input"]; 
-        des=parsed_args["output"], 
+        input_prefix; 
+        des=output_prefix, 
         f_person = x -> x[:iid] ∈ sample_ids, 
         f_snp = x -> x[:snpid] ∈ rsids
     )
@@ -107,26 +112,35 @@ function adapt_flashpca(parsed_args)
 end
 
 
-function filter_bgen_file(args)
-    path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".bgen")
-    sample_path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".sample")
-    idx_path = string(ukb_dir, "imputed/ukb_53116_chr", chr, ".bgen.bgi")
-    maf_threshold = 0.01
+function filter_bgen_file(parsed_args)
+    maf_threshold = parsed_args["maf-threshold"]
+    bgenpath = parsed_args["input"]
+    bgi_path = bgenpath * ".bgi"
+    sample_path = bgenpath[1:end-4] * "sample"
 
-    bgen = Bgen(path; sample_path=sample_path, idx_path=idx_path)
-    ld_blocks_by_chr(args["ld-blocks"])
-    qc_df = CSV.File("/home/s2042526/UK-BioBank-53116/imputed/ukb_snp_qc.txt") |> DataFrame
+    # Load data
+    bgen = Bgen(bgenpath; sample_path=sample_path, idx_path=bgi_path)
+    ld_blocks = TargeneCore.ld_blocks_by_chr(parsed_args["ld-blocks"])
+    qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
+
+    # Filter QC file so that only unique SNPs will be kept (uniqueness seems worthless but doesn't cost much)
+    qc_df = unique(
+        filter([:allele1_ref, :allele2_alt] => (ref, alt) -> issnp(ref) && issnp(alt), qc_df),
+        :rs_id
+        )
+    # Retrieve Batch QC columns
     batch_cols = [x for x in names(qc_df) if occursin("Batch", x)]
 
+    # Initialize mask
     variant_mask = zeros(Bool, n_variants(bgen))
 
     genotyped_snps = Set(qc_df.rs_id)
     for (index, v) in enumerate(iterator(bgen))
         # Only genotyped SNPs
-        v ∈ genotyped_snps || continue
+        v.rsid ∈ genotyped_snps || continue
 
         # SNP is not in LD blocks
-        in_ld_blocks(parse(Int, v.chrom), pos(v), ld_blocks_by_chr) && continue
+        in_ld_blocks(parse(Int, v.chrom), pos(v), ld_blocks) && continue
 
         ## Check SNP passes QC
         snp_qc = filter(x -> x.rs_id == v.rsid, qc_df)[1, :]
@@ -135,7 +149,7 @@ function filter_bgen_file(args)
         # All batches pass QC 
         all(==(1), values(snp_qc[batch_cols])) || continue
         # Minor Allele frequency
-        maf = mean(minor_allele_dosage!(bgen, v))
+        maf = mean(minor_allele_dosage!(bgen, v)) / 2
         maf >= maf_threshold || continue
 
         # All checks have passed
@@ -145,9 +159,23 @@ function filter_bgen_file(args)
     sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
     sample_mask = [s ∈ sample_ids for s in samples(bgen)]
 
-    BGEN.filter(args["out"], bgen, variant_mask, sample_mask)
+    BGEN.filter(parsed_args["output"], bgen, BitVector(variant_mask), BitVector(sample_mask))
 end
 
+"""
+Filters a UK-Biobank genetic (.BGEN or .BED) file given by `input`.
+
+The `output` is based on the following rules, are kept only:
+    1. genotyped SNPs (in `qcfile`)
+    2. SNPs not contained in the `ld-blocks` provided file
+    3. SNPs that pass QC (info in `qcfile`):
+        1. have been assayed in both arrays
+        2. SNPs for which all batches pass QC
+    5. SNPs with minor allele frequency >= `maf-threshold`
+    6. bi-allelic SNPs
+    6. Individuals present in the `traits` dataset
+
+"""
 function filter_ukb_genetic_file(args)
     if endswith(args["input"], "bgen")
         filter_bgen_file(args)

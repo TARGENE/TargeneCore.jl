@@ -1,0 +1,10 @@
+rs_id,array,Batch_b001_qc,Batch_b002_qc,chromosome,allele1_ref,allele2_alt
+RSID_101,0,1,1,1,A,C
+RSID_2,1,1,1,1,C,G
+RSID_102,2,0,1,1,A,G
+RSID_3,2,1,1,1,C,A
+RSID_103,2,1,1,1,CG,GT
+RSID_4,2,1,1,1,C,T
+RSID_104,1,1,0,1,C,G
+RSID_5,2,1,1,1,G,C
+RSID_105,2,1,1,1,G,A

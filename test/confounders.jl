@@ -5,6 +5,19 @@ using SnpArrays
 using TargeneCore
 using DataFrames
 using CSV
+using BGEN
+
+function clean(file)
+    if endswith(file, ".bgen")
+        out_samples = file[1:end-4]*"sample"
+        rm(file)
+        rm(out_samples)
+    elseif endswith(file, ".bed")
+        rm(file)
+        rm(file[1:end-3]*"bim")
+        rm(file[1:end-3]*"fam")
+    end
+end
 
 @testset "Various functions" begin
     # Test issnp
@@ -39,28 +52,64 @@ using CSV
     @test filter(x -> TargeneCore.notin_ldblocks(x, ldblocks), snp_info) == expected_snps
 end
 
-@testset "Test filter_genetic_file" begin
+@testset "Test filter_genetic_file: bgen & bed" begin
+    # Scenario 1: same results BGEN / BED
     parsed_args = Dict(
-        "input"  => SnpArrays.datadir("mouse"),
-        "output" => joinpath("data", "filtered-mouse"),
-        "qcfile" => joinpath("data", "ukbb", "qcfile.txt"),
-        "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
-        "maf-threshold" => 0.31,
-        "traits" => joinpath("data", "sample_ids.txt")
+        "input"  => joinpath("data", "bgen", "example.8bits.bgen"),
+        "output" => joinpath("data", "filtered-example.8bits.bgen"),
+        "qcfile" => joinpath("data", "qc_file_example.8bits.csv"),
+        "ld-blocks" => joinpath("data", "LD_blocks.example.8bits.txt"),
+        "maf-threshold" => 0.22,
+        "traits" => joinpath("data", "sample_ids.example.8bits.txt")
     )
+    # RSID_101: not in both arrays
+    # RSID_2: not in both arrays
+    # RSID_102: not all batches pass qc
+    # RSID_3: pass
+    # RSID_103: not a SNP
+    # RSID_4: maf under threshold
+    # RSID_104: no in both arrays
+    # RSID_5: pass
+    # RSID_105: in LD
+    expected_snps = ["RSID_3", "RSID_5"]
+    expected_person = ["sample_001", "sample_002", "sample_003", "sample_004", "sample_005"]
     filter_ukb_genetic_file(parsed_args)
+    out_samples = parsed_args["output"][1:end-4]*"sample"
+    out_bgen = Bgen(parsed_args["output"]; sample_path=out_samples)
+    @test [x.rsid for x in BGEN.iterator(out_bgen)] == expected_snps
+    out_bgen.samples == expected_person
+    clean(parsed_args["output"])
 
-    filtered = SnpData(parsed_args["output"])
+    parsed_args["input"] = joinpath("data", "bed", "example.8bits.bed")
+    parsed_args["output"] = joinpath("data", "filtered-example.8bits.bed")
+    filter_ukb_genetic_file(parsed_args)
+    snp_data = SnpData(parsed_args["output"][1:end-4])
+    @test snp_data.snp_info.snpid == expected_snps
+    @test snp_data.person_info.iid == expected_person
+    clean(parsed_args["output"])
 
-    @test filtered.snp_info.snpid == ["rs13476318"]
-    @test size(filtered.snparray) == (5, 1)
-    @test filtered.person_info.iid == 
-        ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
-    # Clean
-    for ext in [".bed", ".bim", ".fam"]
-        rm(parsed_args["output"]*ext)
-    end
+    # Scenario 2: same results BGEN / BED
+    # Now RSID_4 will pass
+    parsed_args["maf-threshold"] = 0.01
+    expected_snps = ["RSID_3", "RSID_4", "RSID_5"]
+    filter_ukb_genetic_file(parsed_args)
+    snp_data = SnpData(parsed_args["output"][1:end-4])
+    @test snp_data.snp_info.snpid == expected_snps
+    @test snp_data.person_info.iid == expected_person
+    clean(parsed_args["output"])
+
+    parsed_args["input"] = joinpath("data", "bgen", "example.8bits.bgen")
+    parsed_args["output"] = joinpath("data", "filtered-example.8bits.bgen")
+
+    filter_ukb_genetic_file(parsed_args)
+    out_samples = parsed_args["output"][1:end-4]*"sample"
+    out_bgen = Bgen(parsed_args["output"]; sample_path=out_samples)
+    @test [x.rsid for x in BGEN.iterator(out_bgen)] == expected_snps
+    out_bgen.samples == expected_person
+    clean(parsed_args["output"])
+
 end
+
 
 @testset "Test merge_beds" begin
     genotypes_dir = joinpath("data", "ukbb", "genotypes")
@@ -103,7 +152,6 @@ end
 
     rm(parsed_args["output"])
 end
-
 
 end;
 
