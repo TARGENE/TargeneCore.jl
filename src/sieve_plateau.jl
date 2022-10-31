@@ -69,6 +69,22 @@ confounders_string(Ψ; join_string="_&_") = join(Ψ.confounders, join_string)
 
 restore_slash(x) = replace(string(x), "_OR_" => "/")
 
+function push_sieveless!(output, Ψ, Ψ̂₀, result::Missing, target)
+    param_type = param_string(Ψ)
+    treatments = treatment_string(Ψ)
+    case = case_string(Ψ)
+    control = control_string(Ψ)
+    confounders = confounders_string(Ψ)
+    covariates = covariates_string(Ψ)
+    row = (
+        param_type, treatments, case, control, restore_slash(target), confounders, covariates, 
+        Ψ̂₀, missing, 
+        missing, missing, missing, missing, 
+        missing, missing, missing, missing
+    )
+    push!(output, row)
+end
+
 function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
     param_type = param_string(Ψ)
     treatments = treatment_string(Ψ)
