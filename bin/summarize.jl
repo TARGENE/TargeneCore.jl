@@ -1,4 +1,4 @@
-using TMLEEpistasis
+using TargeneCore
 using ArgParse
 
 

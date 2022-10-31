@@ -1,4 +1,4 @@
-FROM julia:1.7.2-bullseye
+FROM julia:1.8.2-bullseye
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -41,11 +41,14 @@ RUN R -e "install.packages('devtools', repos='http://cran.us.r-project.org'); \
          install_version('hal9001', version = '0.4.1', repos = 'http://cran.us.r-project.org')"
 
 # Import project, build and precompile
-COPY . /TMLEEpistasis.jl 
+COPY . /TargeneCore.jl 
 
-WORKDIR /TMLEEpistasis.jl
+RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
-RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile()'
+# Prepend a writable DEPOT_PATH ($PWD is mounted by default by singularity)
+RUN mkdir $PWD/julia_depot
+
+ENV JULIA_DEPOT_PATH=$PWD/julia_depot:$JULIA_DEPOT_PATH
 
 # RUN julia -q --project build_sysimage.jl
 

@@ -1,0 +1,12 @@
+T:
+  - RSID_2
+
+Y:
+  - BINARY_1
+  - CONTINUOUS_1
+
+Parameters:
+  - name: ATE
+    RSID_2:
+      case: 1
+      control: 0

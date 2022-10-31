@@ -2,18 +2,18 @@ module TestConfoundersPreparation
 
 using Test
 using SnpArrays
-using TMLEEpistasis
+using TargeneCore
 using DataFrames
 using CSV
 
 @testset "Various functions" begin
     # Test issnp
-    @test TMLEEpistasis.issnp("A") == true
-    @test TMLEEpistasis.issnp("AA") == false
+    @test TargeneCore.issnp("A") == true
+    @test TargeneCore.issnp("AA") == false
     
     #Test bounds
-    @test TMLEEpistasis.bounds(0, -10, 10) == (-10^4, 10^4)
-    @test TMLEEpistasis.bounds(15000, 1000, 30000) == (1000, 30000)
+    @test TargeneCore.bounds(0, -10, 10) == (-10^4, 10^4)
+    @test TargeneCore.bounds(15000, 1000, 30000) == (1000, 30000)
 
     # Test notin_ldblocks
     ldblocks = DataFrame(chr        = [1, 3],
@@ -26,7 +26,7 @@ using CSV
 
     expected_snps = DataFrame(chromosome = [1, 2, 3],
                               position   = [5, 9, 4])
-    @test filter(x -> TMLEEpistasis.notin_ldblocks(x, ldblocks), snp_info) == expected_snps
+    @test filter(x -> TargeneCore.notin_ldblocks(x, ldblocks), snp_info) == expected_snps
 end
 
 @testset "Test filter_chromosome" begin
@@ -35,15 +35,17 @@ end
         "output" => joinpath("data", "filtered-mouse"),
         "qcfile" => joinpath("data", "ukbb", "qcfile.txt"),
         "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
-        "maf-threshold" => 0.31
+        "maf-threshold" => 0.31,
+        "traits" => joinpath("data", "sample_ids.txt")
     )
     filter_chromosome(parsed_args)
 
     filtered = SnpData(parsed_args["output"])
 
     @test filtered.snp_info.snpid == ["rs13476318"]
-    @test size(filtered.snparray) == (1940, 1)
-
+    @test size(filtered.snparray) == (5, 1)
+    @test filtered.person_info.iid == 
+        ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     # Clean
     for ext in [".bed", ".bim", ".fam"]
         rm(parsed_args["output"]*ext)

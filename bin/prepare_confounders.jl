@@ -1,4 +1,4 @@
-using TMLEEpistasis
+using TargeneCore
 using ArgParse
 
 
@@ -28,6 +28,10 @@ function parse_commandline()
                    "Issued from an LD analysis."
             arg_type = String
             required = false
+        "--traits"
+            arg_type = String
+            required = false
+            help = "Path to list of sample_ids to filter on."
         "filter"
             help = "Filter the SNPS from a PLINK .bed file based on quality metrics"
             action = :command

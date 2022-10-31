@@ -1,0 +1,16 @@
+W:
+  - W1
+
+T:
+  - T1
+
+Y:
+  - CONTINUOUS_TARGET
+  
+Parameters:
+  - name: ATE
+    T1:
+      control: 0
+      case: 1
+  - name: CM
+    T1: 0
