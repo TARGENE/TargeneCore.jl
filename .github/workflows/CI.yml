@@ -23,8 +23,8 @@ jobs:
       - name: Install bgenix
         shell: bash -l {0}
         run: conda install -c conda-forge bgenix
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      - name: Set PATH
+        run: echo "PATH=/usr/share/miniconda/envs/test/bin:$PATH" >> $GITHUB_ENV
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
