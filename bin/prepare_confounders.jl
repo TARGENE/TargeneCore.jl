@@ -54,7 +54,7 @@ parsed_args = parse_commandline()
 if haskey(parsed_args, "merge") == true
     merge_beds(parsed_args)
 elseif haskey(parsed_args, "filter") == true
-    filter_chromosome(parsed_args)
+    filter_ukb_genetic_file(parsed_args)
 elseif haskey(parsed_args, "adapt")
     adapt_flashpca(parsed_args)
 end
