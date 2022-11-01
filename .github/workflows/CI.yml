@@ -23,6 +23,7 @@ jobs:
           activate-environment: ""
       - name: Install bgenix
         run: conda install -c conda-forge bgenix
+      - uses: valeriangalliat/action-sshd-cloudflared@v1
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
