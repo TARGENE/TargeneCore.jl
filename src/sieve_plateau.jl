@@ -31,12 +31,12 @@ init_output() = DataFrame(
     TARGET=String[], 
     CONFOUNDERS=String[], 
     COVARIATES=Union{String, Missing}[], 
-    INITIAL_ESTIMATE=Float64[], 
-    ESTIMATE=Float64[],
-    STD=Float64[],
-    PVALUE=Float64[],
-    LWB=Float64[],
-    UPB=Float64[],
+    INITIAL_ESTIMATE=Union{Float64, Missing}[], 
+    ESTIMATE=Union{Float64, Missing}[],
+    STD=Union{Float64, Missing}[],
+    PVALUE=Union{Float64, Missing}[],
+    LWB=Union{Float64, Missing}[],
+    UPB=Union{Float64, Missing}[],
     SIEVE_STD=Union{Float64, Missing}[],
     SIEVE_PVALUE=Union{Float64, Missing}[],
     SIEVE_LWB=Union{Float64, Missing}[],
@@ -68,6 +68,22 @@ treatment_string(Ψ; join_string="_&_") = join(keys(Ψ.treatment), join_string)
 confounders_string(Ψ; join_string="_&_") = join(Ψ.confounders, join_string)
 
 restore_slash(x) = replace(string(x), "_OR_" => "/")
+
+function push_sieveless!(output, Ψ, Ψ̂₀, result::Missing, target)
+    param_type = param_string(Ψ)
+    treatments = treatment_string(Ψ)
+    case = case_string(Ψ)
+    control = control_string(Ψ)
+    confounders = confounders_string(Ψ)
+    covariates = covariates_string(Ψ)
+    row = (
+        param_type, treatments, case, control, restore_slash(target), confounders, covariates, 
+        Ψ̂₀, missing, 
+        missing, missing, missing, missing, 
+        missing, missing, missing, missing
+    )
+    push!(output, row)
+end
 
 function push_sieveless!(output, Ψ, Ψ̂₀, result, target)
     param_type = param_string(Ψ)
