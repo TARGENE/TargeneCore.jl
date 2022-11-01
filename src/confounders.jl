@@ -159,7 +159,12 @@ function filter_bgen_file(parsed_args)
     sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
     sample_mask = [s ∈ sample_ids for s in samples(bgen)]
 
-    BGEN.filter(parsed_args["output"], bgen, BitVector(variant_mask), BitVector(sample_mask))
+    outpath = parsed_args["output"]
+    # Filter the BGEN file
+    BGEN.filter(outpath, bgen, BitVector(variant_mask), BitVector(sample_mask))
+
+    # Index the files
+    run(`bgenix -index -g $outpath`)
 end
 
 """

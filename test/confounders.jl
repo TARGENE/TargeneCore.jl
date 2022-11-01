@@ -12,6 +12,7 @@ function clean(file)
         out_samples = file[1:end-4]*"sample"
         rm(file)
         rm(out_samples)
+        rm(file*".bgi")
     elseif endswith(file, ".bed")
         rm(file)
         rm(file[1:end-3]*"bim")
@@ -76,6 +77,7 @@ end
     filter_ukb_genetic_file(parsed_args)
     out_samples = parsed_args["output"][1:end-4]*"sample"
     out_bgen = Bgen(parsed_args["output"]; sample_path=out_samples)
+    @test out_bgen.idx isa BGEN.Index
     @test [x.rsid for x in BGEN.iterator(out_bgen)] == expected_snps
     out_bgen.samples == expected_person
     clean(parsed_args["output"])
@@ -104,6 +106,7 @@ end
     filter_ukb_genetic_file(parsed_args)
     out_samples = parsed_args["output"][1:end-4]*"sample"
     out_bgen = Bgen(parsed_args["output"]; sample_path=out_samples)
+    @test out_bgen.idx isa BGEN.Index
     @test [x.rsid for x in BGEN.iterator(out_bgen)] == expected_snps
     out_bgen.samples == expected_person
     clean(parsed_args["output"])
