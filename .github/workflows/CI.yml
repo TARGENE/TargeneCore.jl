@@ -22,7 +22,6 @@ jobs:
           auto-activate-base: true
           activate-environment: ""
       - name: Install bgenix
-        shell: bash -l {0}
         run: conda install -c conda-forge bgenix
       - uses: julia-actions/setup-julia@v1
         with:
