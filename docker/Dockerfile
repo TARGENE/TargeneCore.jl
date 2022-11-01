@@ -6,9 +6,11 @@ ENV TZ=Europe/Amsterdam
 
 ENV JULIA_DEPOT_PATH=/opt
 
-RUN apt-get update && apt-get install -y wget unzip procps libcurl4-openssl-dev libbz2-dev liblzma-dev zlib1g
+RUN apt-get update && apt-get install -y wget \
+    unzip procps libcurl4-openssl-dev libbz2-dev \
+    liblzma-dev zlib1g-dev python gcc g++
 
-# Install gcta
+# Install GCTA
 
 RUN wget https://yanglab.westlake.edu.cn/software/gcta/bin/gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
 
@@ -20,7 +22,6 @@ RUN chmod a+x /usr/local/bin/gcta64
 
 # Install BGEN
 
-
 RUN wget http://code.enkre.net/bgen/tarball/release/bgen.tgz
 
 RUN tar -xzf bgen.tgz
@@ -28,7 +29,7 @@ RUN tar -xzf bgen.tgz
 RUN cd bgen.tgz && \
     ./waf configure && \
     ./waf && \
-    ./build/test/test_bgen && \
+    ./build/test/unit/test_bgen && \
     ./waf install
 
 # Install R and hal9001
