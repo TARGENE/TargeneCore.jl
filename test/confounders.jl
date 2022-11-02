@@ -50,7 +50,7 @@ end
 
     expected_snps = DataFrame(chromosome = [1, 2, 3],
                               position   = [5, 9, 4])
-    @test filter(x -> TargeneCore.notin_ldblocks(x, ldblocks), snp_info) == expected_snps
+    @test filter(x -> ~TargeneCore.in_ld_blocks(x, ldblocks), snp_info) == expected_snps
 end
 
 @testset "Test filter_genetic_file: bgen & bed" begin

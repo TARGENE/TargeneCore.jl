@@ -16,17 +16,14 @@ At least 2*10^4 long LD blocks.
 bounds(pos, lb, ub) =  (min(lb, pos - 10^4), max(ub, pos + 10^4))
 
 function in_ld_blocks(chr, position, ld_blocks)
+    (chr=chr, ) ∉ keys(ld_blocks) && return false
     group = ld_blocks[(chr=chr,)]
     return any(b.lower_bound < position < b.upper_bound for b in eachrow(group))
 end
 
-function notin_ldblocks(row, ldblocks)
-    if (chr=row.chromosome,) ∉ keys(ldblocks)
-        return true
-    else
-        return ~in_ld_blocks(row.chromosome, row.position, ldblocks)
-    end
-end
+in_ld_blocks(row::DataFrameRow, ld_blocks) =
+    in_ld_blocks(row.chromosome, row.position, ld_blocks)
+
 
 function ld_blocks_by_chr(path)
     # Load and redefine LD bounds
@@ -66,7 +63,7 @@ function filter_bed_file(parsed_args)
     mafpassed = filter(:MAF => >=(maf_threshold), snp_data.snp_info)
     
     # Remove LD regions specified by ld_blocks
-    ld_pruned = filter(x -> notin_ldblocks(x, ld_blocks), mafpassed)
+    ld_pruned = filter(x -> ~in_ld_blocks(x, ld_blocks), mafpassed)
 
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
