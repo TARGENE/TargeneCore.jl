@@ -10,6 +10,16 @@ RUN apt-get update && apt-get install -y wget \
     unzip procps libcurl4-openssl-dev libbz2-dev \
     liblzma-dev zlib1g-dev python gcc g++
 
+# Install QCTOOLV2
+
+RUN wget https://code.enkre.net/qctool/zip/release/qctool.tgz
+
+RUN unzip qctool.tgz && \
+    cd qctool && \
+    ./waf configure && \
+    ./waf && \
+    cp build/release/apps/qctool_v2.2.0 /usr/bin/qctool
+
 # Install GCTA
 
 RUN wget https://yanglab.westlake.edu.cn/software/gcta/bin/gcta_v1.94.0Beta_linux_kernel_3_x86_64.zip
