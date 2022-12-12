@@ -12,8 +12,6 @@ function load_param_files(param_prefix)
     return param_files
 end
 
-isSNP(x) = occursin(r"^rs.*[0-9]+$", lowercase(x))
-
 function snps_and_variables_from_param_files(param_files, pcs, traits)
     snps = []
     variables = Dict(
@@ -22,6 +20,7 @@ function snps_and_variables_from_param_files(param_files, pcs, traits)
         "extraW" => String[],
         "extraC" => String[]
     )
+    all_trait_names = Set(names(traits))
     for param_file in param_files
         # Parse `C` section
         if haskey(param_file, "C")
@@ -33,10 +32,10 @@ function snps_and_variables_from_param_files(param_files, pcs, traits)
         end
         # Parse `T` section
         for T in string.(param_file["T"])
-            if TargeneCore.isSNP(T)
-                unique!(push!(snps, T))
-            else
+            if T ∈ all_trait_names
                 unique!(push!(variables["extraT"], T))
+            else
+                unique!(push!(snps, T))
             end
         end
     end
