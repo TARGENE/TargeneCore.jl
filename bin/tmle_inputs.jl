@@ -45,7 +45,8 @@ function parse_commandline()
             arg_type = Int
             required = false
             help = "Further performance may be obtained by batching phenotypes in a"*
-                   " single Targeted Estimation run"
+                   " single Targeted Estimation run. If not specified, all phenotypes "*
+                   "constitute a batch."
 
         "--positivity-constraint"
             arg_type = Float64
