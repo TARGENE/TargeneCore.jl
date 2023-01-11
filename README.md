@@ -32,5 +32,4 @@ For this mode, use the `with-param-files` command and `--param-prefix` option. T
 
 ### MechanismActors strategy
 
-
 For this strategy, use the `with-actors` command. and `--asb-prefix` and `--trans-actors` options. This will generate pairwise interaction parameters between bQTLs output by the [Baal-ChIP pipeline](https://git.ecdf.ed.ac.uk/oalmelid/baal-nf) and trans-actors eQTLs from a CSV file. Additionally, if template parameters configuration files containing extra treatments are provided, nth-order interaction parameters will be generated.
