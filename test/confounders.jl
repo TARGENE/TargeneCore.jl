@@ -50,6 +50,28 @@ end
     for ext in [".bed", ".bim", ".fam"]
         rm(parsed_args["output"]*ext)
     end
+
+    # Now for no qc file provided
+
+    parsed_args = Dict(
+        "input"  => SnpArrays.datadir("mouse"),
+        "output" => joinpath("data", "filtered-mouse"),
+        "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
+        "maf-threshold" => 0.495,
+        "traits" => joinpath("data", "sample_ids.txt")
+    )
+    filter_chromosome(parsed_args)
+
+    filtered = SnpData(parsed_args["output"])
+
+    @test filtered.snp_info.snpid[1] == "rs6253968"
+    @test size(filtered.snparray) == (5, 88)
+    @test filtered.person_info.iid == 
+        ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
+    # Clean
+    for ext in [".bed", ".bim", ".fam"]
+        rm(parsed_args["output"]*ext)
+    end
 end
 
 @testset "Test merge_beds" begin
