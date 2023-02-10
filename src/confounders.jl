@@ -34,8 +34,9 @@ We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
 function filter_chromosome(parsed_args)
-
-    qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
+    if haskey(parsed_args, "qcfile")
+        qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
+    end
     
     snp_data = SnpData(parsed_args["input"])
     # Load and redefine LD bounds
@@ -59,12 +60,16 @@ function filter_chromosome(parsed_args)
 
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
-    fully_genotyped_snps = innerjoin(
-        ld_pruned, 
-        qc_df, 
-        on = :snpid => :rs_id,
-        makeunique = true
-    )
+    if haskey(parsed_args, "qcfile")
+        fully_genotyped_snps = innerjoin(
+            ld_pruned, 
+            qc_df, 
+            on = :snpid => :rs_id,
+            makeunique = true
+        )
+    else
+        fully_genotyped_snps = ld_pruned
+    end
 
     # If an RSID appears multiple times, it is because it has 
     # more than 2 possible alleles: we remove them 
@@ -80,7 +85,11 @@ function filter_chromosome(parsed_args)
     batches_ok = filter(row -> all_batches_ok(row, batch_cols), actual_snps)
 
     # Assayed in both genotyping arrays
-    final = filter(:array => ==(2), batches_ok)
+    if haskey(parsed_args, "qcfile")
+        final = filter(:array => ==(2), batches_ok)
+    else
+        final = batches_ok
+    end
     
     rsids = Set(final.snpid)
     sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
