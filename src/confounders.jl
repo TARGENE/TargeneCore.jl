@@ -34,7 +34,7 @@ We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
 function filter_chromosome(parsed_args)
-    if haskey(parsed_args, "qcfile")
+    if parsed_args["qcfile"] !== nothing
         qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
     end
     
@@ -60,7 +60,7 @@ function filter_chromosome(parsed_args)
 
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
-    if haskey(parsed_args, "qcfile")
+    if parsed_args["qcfile"] !== nothing
         fully_genotyped_snps = innerjoin(
             ld_pruned, 
             qc_df, 
@@ -85,7 +85,7 @@ function filter_chromosome(parsed_args)
     batches_ok = filter(row -> all_batches_ok(row, batch_cols), actual_snps)
 
     # Assayed in both genotyping arrays
-    if haskey(parsed_args, "qcfile")
+    if parsed_args["qcfile"] !== nothing
         final = filter(:array => ==(2), batches_ok)
     else
         final = batches_ok
