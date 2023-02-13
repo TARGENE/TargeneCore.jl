@@ -56,6 +56,7 @@ end
     parsed_args = Dict(
         "input"  => SnpArrays.datadir("mouse"),
         "output" => joinpath("data", "filtered-mouse"),
+        "qcfile" => nothing,
         "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
         "maf-threshold" => 0.495,
         "traits" => joinpath("data", "sample_ids.txt")
