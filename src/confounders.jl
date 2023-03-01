@@ -34,9 +34,6 @@ We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
 function filter_chromosome(parsed_args)
-    if parsed_args["qcfile"] !== nothing
-        qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
-    end
     
     snp_data = SnpData(parsed_args["input"])
     # Load and redefine LD bounds
@@ -61,35 +58,31 @@ function filter_chromosome(parsed_args)
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
     if parsed_args["qcfile"] !== nothing
+        qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
         fully_genotyped_snps = innerjoin(
             ld_pruned, 
             qc_df, 
             on = :snpid => :rs_id,
             makeunique = true
         )
+        # Assayed in both genotyping arrays
+        assayed = filter(:array => ==(2), fully_genotyped_snps)
     else
-        fully_genotyped_snps = ld_pruned
+        assayed = ld_pruned
     end
 
     # If an RSID appears multiple times, it is because it has 
     # more than 2 possible alleles: we remove them 
     # (why? maybe because the PCA then cannot tackle them)
-    duplicate_rsids = Set(fully_genotyped_snps.snpid[nonunique(fully_genotyped_snps, ["snpid"])])
-    biallelic = filter(:snpid=>∉(duplicate_rsids), fully_genotyped_snps)
+    duplicate_rsids = Set(assayed.snpid[nonunique(assayed, ["snpid"])])
+    biallelic = filter(:snpid=>∉(duplicate_rsids), assayed)
 
     # Keep only actual SNPs and not other kinds of variants
     actual_snps = subset(biallelic, :allele1 => ByRow(issnp), :allele2 => ByRow(issnp))
 
     # All batches pass QC 
     batch_cols = [x for x in names(actual_snps) if occursin("Batch", x)]
-    batches_ok = filter(row -> all_batches_ok(row, batch_cols), actual_snps)
-
-    # Assayed in both genotyping arrays
-    if parsed_args["qcfile"] !== nothing
-        final = filter(:array => ==(2), batches_ok)
-    else
-        final = batches_ok
-    end
+    final = filter(row -> all_batches_ok(row, batch_cols), actual_snps)
     
     rsids = Set(final.snpid)
     sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])

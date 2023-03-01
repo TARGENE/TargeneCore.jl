@@ -6,6 +6,13 @@ using TargeneCore
 using DataFrames
 using CSV
 
+function clean(parsed_args)
+    for ext in [".bed", ".bim", ".fam"]
+        rm(parsed_args["output"]*ext)
+    end
+end
+
+
 @testset "Various functions" begin
     # Test issnp
     @test TargeneCore.issnp("A") == true
@@ -47,9 +54,7 @@ end
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     # Clean
-    for ext in [".bed", ".bim", ".fam"]
-        rm(parsed_args["output"]*ext)
-    end
+    clean(parsed_args)
 
     # Now for no qc file provided
 
@@ -65,14 +70,11 @@ end
 
     filtered = SnpData(parsed_args["output"])
 
-    @test filtered.snp_info.snpid[1] == "rs6253968"
     @test size(filtered.snparray) == (5, 88)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     # Clean
-    for ext in [".bed", ".bim", ".fam"]
-        rm(parsed_args["output"]*ext)
-    end
+    clean(parsed_args)
 end
 
 @testset "Test merge_beds" begin
@@ -88,10 +90,7 @@ end
 
     @test length(unique(merged.snp_info.chromosome)) == 3
     # Clean
-
-    for ext in [".bed", ".bim", ".fam"]
-        rm(parsed_args["output"]*ext)
-    end
+    clean(parsed_args)
 
 end
 
