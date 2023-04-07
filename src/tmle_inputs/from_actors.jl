@@ -109,7 +109,7 @@ function param_files_from_actors(bqtls, transactors, data, variables, orders; ba
     new_param_files = Dict[]
     # For each interaction order generate parameter files
     for order in orders
-        # Generate `T` section
+        # First generate the `T` section
         extraT_df = variables["extraT"] isa Nothing ? nothing : DataFrame(ID=variables["extraT"])
         param_files = TargeneCore.combine_by_bqtl(bqtls, transactors, extraT_df, order)
         for param_file in param_files

@@ -32,6 +32,13 @@ include("test_utils.jl")
         )
     ]
     envs = DataFrame(ID=["sex"], DESCRIPTION=["Env"])
+    # order 1
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 1)
+    @test combinations == [
+        Dict("T" => ["rs1"]),
+        Dict("T" => ["rs2"]),
+        Dict("T" => ["rs3"])
+    ]
     # order 2, no environmental variable
     combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 2)
     @test combinations == [Dict("T" => ["rs1", "rs4"]),
