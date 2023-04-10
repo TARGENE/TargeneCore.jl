@@ -208,7 +208,8 @@ end
             "extra-covariates" => joinpath("data", "extra_covariates.txt"),
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
-            "orders" => "1,2"
+            "orders" => "1,2",
+            "genotypes-as-int" => true
             ),
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -250,6 +251,8 @@ end
                 if paramname == "IATE"
                     for (tname, case_control_dict) in param
                         @test case_control_dict["case"] != case_control_dict["control"]
+                        @test case_control_dict["case"] isa Int
+                        @test case_control_dict["control"] isa Int
                     end
                 else
                     @test paramname == "ATE"
@@ -259,6 +262,8 @@ end
                         else
                             @test case_control_dict["case"] == case_control_dict["control"]
                         end
+                        @test case_control_dict["case"] isa Int
+                        @test case_control_dict["control"] isa Int
                     end
                 end
             end
@@ -284,7 +289,8 @@ end
             "extra-covariates" => nothing,
             "extra-treatments" => nothing,
             "extra-confounders" => joinpath("data", "extra_confounders.txt"),
-            "orders" => "2,3"
+            "orders" => "2,3",
+            "genotypes-as-int" => false
             ),
         "traits" => joinpath("data", "traits_2.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -293,7 +299,7 @@ end
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "phenotype-batch-size" => 1,
-        "positivity-constraint" => 0.
+        "positivity-constraint" => 0.,
     )
     bqtls = unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID)
     
@@ -320,6 +326,8 @@ end
             if paramname == "IATE"
                 for (tname, case_control_dict) in param
                     @test case_control_dict["case"] != case_control_dict["control"]
+                    @test case_control_dict["case"] isa String
+                    @test case_control_dict["control"] isa String
                 end
             else
                 @test paramname == "ATE"
@@ -329,6 +337,8 @@ end
                     else
                         @test case_control_dict["case"] == case_control_dict["control"]
                     end
+                    @test case_control_dict["case"] isa String
+                    @test case_control_dict["control"] isa String
                 end
             end
         end

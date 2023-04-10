@@ -46,7 +46,80 @@ function snps_and_variables_from_param_files(param_files, pcs, traits)
     return unique(snps), variables
 end
 
-function adjusted_param_files(param_files, variables; positivity_constraint=0., batch_size=nothing)
+MissingTraitVariablesError(variables) =
+    ArgumentError(string("Requested trait variables: ", join(variables, ", "), " could not be found in the trait dataset."))
+
+function maybe_throw_missing_traits(found, requested)
+    if length(found) != length(requested)
+        diff = setdiff(requested, found)
+        throw(MissingTraitVariablesError(diff))
+    end
+end
+
+AbsentAlleleError(variant, allele) =
+    ArgumentError(string("Variant ", variant, "'s allele ", allele, " cannot be found in the data."))
+
+"""
+If the proposed allele is a String and cannot be found in the genotypes, 
+if the reverse string allele can be found, then we replace it by this new 
+representation. Otherwise, there is nothing that can be done.
+"""
+function try_fix_mismatch_and_report_success!(control_case_dict, c, actual_alleles)
+    allele = control_case_dict[c]
+    if !(allele ∈ actual_alleles)
+        if allele isa Real
+            return false
+        elseif allele isa String
+            length(allele) == 2 || throw("Only SNPs can be dealt with at the moment.")
+            rev_allele = reverse(allele)
+            if rev_allele ∈ actual_alleles
+                control_case_dict[c] = rev_allele
+            else
+                return false
+            end
+        else
+            throw(ArgumentError(string("Can't deal with allele ", allele, " of type: ", typeof(allele))))
+        end
+    end
+    return true
+end
+
+"""
+    adjust_treatment_encoding!(param_file, genotypes::DataFrame)
+
+This function adjusts the `Parameters` section of a parameter file. 
+    
+Currently, there is one main issue to deal with. Since we are assuming 
+the genotypes are unphased, if a variant's allele is represented 
+as "AG" in the parameter file and as "GA" in the genotypes, there will be a mismatch 
+between those representations that we want to resolve. This is done 
+by modifying the parameter file's representation.
+
+Furthermore if the parameter file's allele is simply not present in the 
+genotypes, an error in thrown.
+"""
+function adjust_treatment_encoding!(param_file, genotypes::DataFrame)
+    variants = Set(filter(x -> x != "SAMPLE_ID", string.(names(genotypes))))
+    variant_alleles = Dict(v => unique(skipmissing(genotypes[!, v])) for v in variants)
+    for param in param_file["Parameters"]
+        for (key, control_case_dict) in param
+            if key ∈ variants
+                for c in ("case", "control")
+                    # If there is a mismatch between a case/control value in the 
+                    # proposed param file and the actual genotypes
+                    actual_alleles = variant_alleles[key]
+                    if !(control_case_dict[c] ∈ actual_alleles)
+                        s = try_fix_mismatch_and_report_success!(control_case_dict, c, actual_alleles)
+                        println(s)
+                        s || throw(AbsentAlleleError(key, control_case_dict[c]))
+                    end
+                end
+            end
+        end
+    end
+end
+
+function adjusted_param_files(param_files, variables, genotypes; positivity_constraint=0., batch_size=nothing)
     new_param_files = Dict[]
     for param_file in param_files
         (haskey(param_file, "Parameters") && param_file["Parameters"] != Dict[]) ? nothing :
@@ -57,17 +130,56 @@ function adjusted_param_files(param_files, variables; positivity_constraint=0., 
         else
             param_file["W"] = variables["PCs"]
         end
-
-        # If no target jas been specified, use all available ones
+        # If the genotypes encoding is a string representation make sure they match the actual genotypes
+        adjust_treatment_encoding!(param_file, genotypes)
+        # If no target has been specified, use all available ones
         if !haskey(param_file, "Y")
             add_batchified_param_files!(new_param_files, param_file, variables["Y"], batch_size)
         else
-            Y = intersect(param_file["Y"], variables["Y"]) 
+            Y = intersect(param_file["Y"], variables["Y"])
+            maybe_throw_missing_traits(Y, param_file["Y"])
             add_batchified_param_files!(new_param_files, param_file, Y, batch_size)
         end
     end
     return new_param_files
 end
+
+MismatchedCaseControlEncodingError() = 
+    ArgumentError(
+                "All case/control values in the provided parameter 
+                files should respect the same encoding. They should either 
+                represent the number of minor alleles (i.e. 0, 1, 2) or use the genotypes string representation."
+                )
+
+function check_genotypes_encoding(val, type)
+    if !(typeof(val["case"]) <: type && typeof(val["control"]) <: type)
+        throw(MismatchedCaseControlEncodingError())
+    end
+end
+
+"""
+We enforce that all genotypes are encoded in the same way.
+That is either with an integer representing the number of minor alleles 
+or the string representation.
+"""
+function get_genotype_encoding(param_files, snps)
+    genotypes_encoding = nothing
+    for param_file in param_files
+        for param in param_file["Parameters"]
+            for (key, val) in param
+                if key in snps
+                    if genotypes_encoding === nothing 
+                        genotypes_encoding = val["case"] isa Real ? Real : String
+                    else
+                        check_genotypes_encoding(val, genotypes_encoding)
+                    end
+                end
+            end
+        end
+    end
+    return genotypes_encoding <: Real
+end
+
 
 function tmle_inputs_from_param_files(parsed_args)
     # Read parsed_args
@@ -85,11 +197,12 @@ function tmle_inputs_from_param_files(parsed_args)
 
     # Genotypes and full data
     snp_list, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
-    genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
+    genotypes_asint = TargeneCore.get_genotype_encoding(param_files, snp_list)
+    genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold; asint=genotypes_asint)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
-    param_files = TargeneCore.adjusted_param_files(param_files, variables; positivity_constraint=positivity_constraint, batch_size=batch_size)
+    param_files = TargeneCore.adjusted_param_files(param_files, variables, genotypes; positivity_constraint=positivity_constraint, batch_size=batch_size)
 
     # write data and parameter files
     write_tmle_inputs(outprefix, data, param_files)

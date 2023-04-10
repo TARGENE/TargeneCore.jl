@@ -1,0 +1,13 @@
+T: [RSID_2, RSID_198]
+
+C:
+  - 22001
+  
+Parameters:
+  - name: ATE
+    RSID_2:
+      case: "AA"
+      control: "GG"
+    RSID_198:
+      case: "AG"
+      control: "AA"

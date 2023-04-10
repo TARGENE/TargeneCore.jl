@@ -19,9 +19,9 @@ function write_tmle_inputs(outprefix, final_dataset, param_files)
 end
 
 
-function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector, threshold::Real)
+function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold::Real) where T
     n = size(probabilities, 2)
-    t = Vector{Union{Int, Missing}}(missing, n)
+    t = Vector{Union{T, Missing}}(missing, n)
     for i in 1:n
         # If no allele has been annotated with sufficient confidence
         # the sample is declared as missing for this variant
@@ -50,27 +50,33 @@ end
 all_snps_called(found_snps::Set, snp_list) = Set(snp_list) == found_snps
 
 """
-    genotypes_encoding(variant)
+    genotypes_encoding(variant; asint=true)
 
-Since we are only considering bi-allelic variants, genotypes are encoded 
-as the number of minor alleles.
+If asint is true then the number of minor alleles is reported, otherwise string genotypes are reported.
 """
-function genotypes_encoding(variant)
+function genotypes_encoding(variant; asint=true)
     minor = minor_allele(variant)
-    all₁, _ = alleles(variant)
-    if all₁ == minor
-        return [2, 1, 0]
+    all₁, all₂ = alleles(variant)
+    if asint
+        if all₁ == minor
+            return [2, 1, 0]
+        else
+            return [0, 1, 2]
+        end
     else
-        return [0, 1, 2]
+        return [all₁*all₁, all₁*all₂, all₂*all₂]
     end
 end
+
+NotAllVariantsFoundError(found_snps, snp_list) = 
+    ArgumentError(string("Some variants were not found in the genotype files: ", join(setdiff(snp_list, found_snps), ", ")))
 
 """
     bgen_files(snps, bgen_prefix)
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
+function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=true)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
@@ -89,7 +95,7 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
                         continue
                     end
                     minor_allele_dosage!(bgenfile, variant)
-                    variant_genotypes = genotypes_encoding(variant)
+                    variant_genotypes = genotypes_encoding(variant; asint=asint)
                     probabilities = probabilities!(bgenfile, variant)
                     chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
@@ -98,6 +104,7 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
                     innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
         end
     end
+    all_snps_called(found_snps, snp_list) || throw(NotAllVariantsFoundError(found_snps, snp_list))
     return genotypes
 end
 
