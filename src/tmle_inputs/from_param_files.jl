@@ -64,8 +64,8 @@ If the proposed allele is a String and cannot be found in the genotypes,
 if the reverse string allele can be found, then we replace it by this new 
 representation. Otherwise, there is nothing that can be done.
 """
-function try_fix_mismatch_and_report_success!(control_case_dict, c, actual_alleles)
-    allele = control_case_dict[c]
+function try_fix_mismatch_and_report_success!(dict, key, actual_alleles)
+    allele = dict[key]
     if !(allele ∈ actual_alleles)
         if allele isa Real
             return false
@@ -73,7 +73,7 @@ function try_fix_mismatch_and_report_success!(control_case_dict, c, actual_allel
             length(allele) == 2 || throw("Only SNPs can be dealt with at the moment.")
             rev_allele = reverse(allele)
             if rev_allele ∈ actual_alleles
-                control_case_dict[c] = rev_allele
+                dict[key] = rev_allele
             else
                 return false
             end
@@ -102,19 +102,40 @@ function adjust_treatment_encoding!(param_file, genotypes::DataFrame)
     variants = Set(filter(x -> x != "SAMPLE_ID", string.(names(genotypes))))
     variant_alleles = Dict(v => unique(skipmissing(genotypes[!, v])) for v in variants)
     for param in param_file["Parameters"]
-        for (key, control_case_dict) in param
+        for (key, val) in param
             if key ∈ variants
-                for c in ("case", "control")
-                    # If there is a mismatch between a case/control value in the 
-                    # proposed param file and the actual genotypes
-                    actual_alleles = variant_alleles[key]
-                    if !(control_case_dict[c] ∈ actual_alleles)
-                        s = try_fix_mismatch_and_report_success!(control_case_dict, c, actual_alleles)
-                        println(s)
-                        s || throw(AbsentAlleleError(key, control_case_dict[c]))
-                    end
-                end
+                adjust_treatment_encoding!(param, variant_alleles, key, val)
             end
+        end
+    end
+end
+
+"""
+    adjust_treatment_encoding!(param, variant_alleles, key, val)
+
+This adjusts the treatment encoding for parameters that don't have a case/control specification.
+"""
+function adjust_treatment_encoding!(param, variant_alleles, key, val)
+    actual_alleles = variant_alleles[key]
+    if !(val ∈ actual_alleles)
+        s = try_fix_mismatch_and_report_success!(param, key, actual_alleles)
+        s || throw(AbsentAlleleError(key, control_case_dict[c]))
+    end
+end
+
+"""
+    adjust_treatment_encoding!(param, variant_alleles, key, val)
+
+This adjusts the treatment encoding for parameters that have a case/control specification.
+"""
+function adjust_treatment_encoding!(param, variant_alleles, key, control_case_dict::Dict)
+    actual_alleles = variant_alleles[key]
+    for c in ("case", "control")
+        # If there is a mismatch between a case/control value in the 
+        # proposed param file and the actual genotypes
+        if !(control_case_dict[c] ∈ actual_alleles)
+            s = try_fix_mismatch_and_report_success!(control_case_dict, c, actual_alleles)
+            s || throw(AbsentAlleleError(key, control_case_dict[c]))
         end
     end
 end
@@ -151,11 +172,19 @@ MismatchedCaseControlEncodingError() =
                 represent the number of minor alleles (i.e. 0, 1, 2) or use the genotypes string representation."
                 )
 
-function check_genotypes_encoding(val, type)
+function check_genotypes_encoding(val::Dict, type)
     if !(typeof(val["case"]) <: type && typeof(val["control"]) <: type)
         throw(MismatchedCaseControlEncodingError())
     end
 end
+
+check_genotypes_encoding(val::T, type) where T = 
+    T <: type || throw(MismatchedCaseControlEncodingError())
+
+get_genotype_encoding(val::Dict) = typeof(val["case"]) <: Real ? Real : String
+get_genotype_encoding(val::T) where {T<:String} = String
+get_genotype_encoding(val::T) where {T<:Real} = Real
+get_genotype_encoding(val) = throw(ArgumentError(string("Genotype value(s):", val, " not allowed")))
 
 """
 We enforce that all genotypes are encoded in the same way.
@@ -169,7 +198,7 @@ function get_genotype_encoding(param_files, snps)
             for (key, val) in param
                 if key in snps
                     if genotypes_encoding === nothing 
-                        genotypes_encoding = val["case"] isa Real ? Real : String
+                        genotypes_encoding = get_genotype_encoding(val)
                     else
                         check_genotypes_encoding(val, genotypes_encoding)
                     end

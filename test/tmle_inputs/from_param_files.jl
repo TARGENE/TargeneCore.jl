@@ -68,8 +68,10 @@ end
     # AG is not in the genotypes bu GA is
     param_file = TargeneCore.load_param_files(joinpath("config", "param_2_with"))[1]
     @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "AG", "control" => "AA")
+    @test param_file["Parameters"][2]["RSID_198"] == "AG"
     TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
     @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "GA", "control" => "AA")
+    @test param_file["Parameters"][2]["RSID_198"] == "GA"
     # If the allele is not present 
     param_file = TargeneCore.load_param_files(joinpath("config", "param_2_with"))[1]
     genotypes.RSID_198 = ["AA", "GG", "AA"]

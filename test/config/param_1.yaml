@@ -13,4 +13,6 @@ Parameters:
     RSID_2:
       case: 1
       control: 0
+  - name: CM
+    RSID_2: 1
 
