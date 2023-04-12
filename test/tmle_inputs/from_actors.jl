@@ -5,6 +5,7 @@ using CSV
 using DataFrames
 using TargeneCore
 using YAML
+using TMLE
 
 include("test_utils.jl")
 
@@ -128,32 +129,32 @@ end
     )
     # One Treatment ATE
     treatment_tuple = [:T1]
-    settings = collect(TargeneCore.ATEs_control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
     @test settings == [([0, 1],),
                        ([0, 2],),
                        ([1, 2],)]
     # Two treatments IATEs
     treatment_tuple = [:T1, :T2]
-    settings = collect(TargeneCore.IATEs_control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(IATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AC"])  ([0, 1], ["AA", "CC"])  ([0, 1], ["AC", "CC"])
                          ([0, 2], ["AA", "AC"])  ([0, 2], ["AA", "CC"])  ([0, 2], ["AC", "CC"])
                          ([1, 2], ["AA", "AC"])  ([1, 2], ["AA", "CC"])  ([1, 2], ["AC", "CC"])]
     @test expected_settings == settings
     # Two treatments ATEs
-    settings = collect(TargeneCore.ATEs_control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AA"])  ([0, 1], ["AC", "AC"])  ([0, 1], ["CC", "CC"])
                          ([0, 2], ["AA", "AA"])  ([0, 2], ["AC", "AC"])  ([0, 2], ["CC", "CC"])
                          ([1, 2], ["AA", "AA"])  ([1, 2], ["AC", "AC"])  ([1, 2], ["CC", "CC"])]
     @test expected_settings == settings
     # Three treatments IATEs
     treatment_tuple = [:T1, :T2, :T3]
-    settings = collect(TargeneCore.IATEs_control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(IATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AC"], [0, 1])  ([0, 1], ["AA", "CC"], [0, 1])  ([0, 1], ["AC", "CC"], [0, 1])
                          ([0, 2], ["AA", "AC"], [0, 1])  ([0, 2], ["AA", "CC"], [0, 1])  ([0, 2], ["AC", "CC"], [0, 1])
                          ([1, 2], ["AA", "AC"], [0, 1])  ([1, 2], ["AA", "CC"], [0, 1])  ([1, 2], ["AC", "CC"], [0, 1])]
     @test all(x==y for (x,y) in zip(expected_settings, settings))
     # Three treatments ATEs
-    settings = collect(TargeneCore.ATEs_control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AA"], [0, 0])  ([0, 1], ["AC", "AC"], [0, 0])  ([0, 1], ["CC", "CC"], [0, 0]) ([0, 1], ["AA", "AA"], [1, 1])  ([0, 1], ["AC", "AC"], [1, 1])  ([0, 1], ["CC", "CC"], [1, 1])
                          ([0, 2], ["AA", "AA"], [0, 0])  ([0, 2], ["AC", "AC"], [0, 0])  ([0, 2], ["CC", "CC"], [0, 0]) ([0, 2], ["AA", "AA"], [1, 1])  ([0, 2], ["AC", "AC"], [1, 1])  ([0, 2], ["CC", "CC"], [1, 1])
                          ([1, 2], ["AA", "AA"], [0, 0])  ([1, 2], ["AC", "AC"], [0, 0])  ([1, 2], ["CC", "CC"], [0, 0]) ([1, 2], ["AA", "AA"], [1, 1])  ([1, 2], ["AC", "AC"], [1, 1])  ([1, 2], ["CC", "CC"], [1, 1])]

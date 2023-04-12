@@ -108,8 +108,12 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=tr
     return genotypes
 end
 
-function satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.01)
-    for base_setting in Iterators.product(interaction_setting...)
+setting_iterator(::Type{IATE}, interaction_setting) = Iterators.product(interaction_setting...)
+setting_iterator(::Type{ATE}, ate_setting) = zip(ate_setting...)
+setting_iterator(::Type{CM}, cm_setting) = zip(cm_setting...)
+
+function satisfies_positivity(param_type::Type{<:TMLE.Parameter}, treatment_setting, freqs; positivity_constraint=0.01)
+    for base_setting in setting_iterator(param_type, treatment_setting)
         if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
             return false
         end

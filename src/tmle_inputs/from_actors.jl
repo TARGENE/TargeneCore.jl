@@ -66,7 +66,16 @@ end
 
 sorted_unique_values(v) = sort(unique(skipmissing(v)))
 
-function IATEs_control_case_settings(treatment_tuple, data::DataFrame)
+"""
+    control_case_settings(::Type{IATE}, treatment_tuple, data::DataFrame)
+
+Generates all possible IATE parameter treatment settings where control ≠ case. 
+The procedure works as follows:
+
+    - For each treatment, control ≠ case are generated from pairwise combinations of unique values
+    - The cartesian product of all those treatment case/control values is returned
+"""
+function control_case_settings(::Type{IATE}, treatment_tuple, data::DataFrame)
     control_cases_ = []
     # For each treatment variable generate the case/control options
     # where case and control are different
@@ -78,7 +87,20 @@ function IATEs_control_case_settings(treatment_tuple, data::DataFrame)
     return Iterators.product(control_cases_...)
 end
 
-function ATEs_control_case_settings(treatment_tuple, data)
+"""
+    control_case_settings(::Type{ATE}, treatment_tuple, data)
+
+Generates all possible ATE parameter treatment settings where only the bQTL has control ≠ case, 
+for the rest of the treatment variables: case=control. The bQTl is assumed to 
+be the first variable in the `treatment_tuple`.
+
+The procedure works as follows:
+
+    - For the bQTL, control ≠ case are generated from pairwise combinations of unique alleles
+    - For all other treatment variables, control = case are the unique values
+    - The cartesian product of all those treatment case/control values is returned
+"""
+function control_case_settings(::Type{ATE}, treatment_tuple, data)
     control_cases_ = []
     # The bQTL is the first treatment variable
     # We get all case/control values
@@ -93,9 +115,9 @@ function ATEs_control_case_settings(treatment_tuple, data)
     return Iterators.product(control_cases_...)
 end
 
-function addParameter!(params, param_name, setting, treatment_tuple, freqs; positivity_constraint=0.)
-    if TargeneCore.satisfies_positivity(setting, freqs; positivity_constraint=positivity_constraint)
-        param = Dict{String, Any}("name" => param_name)
+function addParameter!(params, param_type::Type{<:TMLE.Parameter}, setting, treatment_tuple, freqs; positivity_constraint=0.)
+    if TargeneCore.satisfies_positivity(param_type, setting, freqs; positivity_constraint=positivity_constraint)
+        param = Dict{String, Any}("name" => replace(string(param_type), "TMLE." => ""))
         for var_index in eachindex(treatment_tuple)
             control, case = setting[var_index]
             treatment = treatment_tuple[var_index]
@@ -111,13 +133,13 @@ function addParameters!(param_file, data; positivity_constraint=0.)
     param_file["Parameters"] = Dict[]
     # This loop adds all ATE parameters where all other treatments than
     # the bQTL are fixed, at the order 1, this is the simple bQTL's ATE
-    for setting in ATEs_control_case_settings(treatment_tuple, data)
-        addParameter!(param_file["Parameters"], "ATE", setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
+    for setting in control_case_settings(ATE, treatment_tuple, data)
+        addParameter!(param_file["Parameters"], ATE, setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
     end
     # This loop adds all IATE parameters that pass the positivity threshold
     if size(treatment_tuple, 1) >= 2
-        for setting in IATEs_control_case_settings(treatment_tuple, data)
-            addParameter!(param_file["Parameters"], "IATE", setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
+        for setting in control_case_settings(IATE, treatment_tuple, data)
+            addParameter!(param_file["Parameters"], IATE, setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
         end
     end
 end

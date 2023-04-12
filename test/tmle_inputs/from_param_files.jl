@@ -5,7 +5,7 @@ using CSV
 using DataFrames
 using TargeneCore
 using YAML
-
+using TMLE
 
 include("test_utils.jl")
 
@@ -18,7 +18,7 @@ include("test_utils.jl")
     pcs = TargeneCore.read_data(joinpath("data", "pcs.csv"))
     traits = TargeneCore.read_data(joinpath("data", "traits_1.csv"))
     # extraW, extraT, extraC are parsed from all param_files
-    param_files = TargeneCore.load_param_files(joinpath("config", "param"))
+    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param"))
     snps, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
     @test snps == ["RSID_2", "RSID_198"]
     @test variables == Dict(
@@ -32,7 +32,7 @@ include("test_utils.jl")
     # In the following scenario, some variables are interpreted as targets while they shouldnt
     # because no parameter file describes them otherwise. This does not lead to any error since
     # those variables can be interpreted as either binary or continuous variables.
-    param_files = TargeneCore.load_param_files(joinpath("config", "param_1_with"))
+    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_1_with"))
     snps, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
     @test snps == ["RSID_2"]
     @test variables == Dict(
@@ -46,14 +46,14 @@ end
 
 @testset "Test get_genotype_encoding" begin
     # Throwing because one is Integer representation and the other a String
-    param_files = TargeneCore.load_param_files(joinpath("config", "param_2"))
+    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_2"))
     @test_throws TargeneCore.MismatchedCaseControlEncodingError() TargeneCore.get_genotype_encoding(param_files, ["RSID_2", "RSID_198"])
     # Only string is fine
-    param_files = TargeneCore.load_param_files(joinpath("config", "param_2_with"))
+    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))
     genotypes_asint = TargeneCore.get_genotype_encoding(param_files, ["RSID_2", "RSID_198"])
     @test genotypes_asint == false
     # Only Int is fine
-    param_files = TargeneCore.load_param_files(joinpath("config", "param_1"))
+    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_1"))
     genotypes_asint = TargeneCore.get_genotype_encoding(param_files, ["RSID_2"])
     @test genotypes_asint == true
 end
@@ -66,14 +66,12 @@ end
         RSID_2 = ["AG", "GG", "AA"],
     )
     # AG is not in the genotypes bu GA is
-    param_file = TargeneCore.load_param_files(joinpath("config", "param_2_with"))[1]
+    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))[1]
     @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "AG", "control" => "AA")
-    @test param_file["Parameters"][2]["RSID_198"] == "AG"
     TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
     @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "GA", "control" => "AA")
-    @test param_file["Parameters"][2]["RSID_198"] == "GA"
     # If the allele is not present 
-    param_file = TargeneCore.load_param_files(joinpath("config", "param_2_with"))[1]
+    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))[1]
     genotypes.RSID_198 = ["AA", "GG", "AA"]
     @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
     
@@ -82,14 +80,86 @@ end
         SAMPLE_ID = [1, 2, 3],
         RSID_2 = [1, 2, 0],
     )
-    param_file = TargeneCore.load_param_files(joinpath("config", "param_1.yaml"))[1]
+    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_1.yaml"))[1]
     copied_param_file = deepcopy(param_file)
     TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
     @test param_file == copied_param_file
     genotypes.RSID_2 = [2, 2, 0]
     @test_throws TargeneCore.AbsentAlleleError("RSID_2", 1) TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
-
 end
+
+@testset "Test treatment_setting_from_param_dict & positivity_respecting_parameters" begin
+    data = DataFrame(
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AC", "AA", "AA", "AA", "AA", "AA"]
+    )
+    ## One variable
+    params_dict = Dict(
+        "T" => ["A"],
+        "Parameters" => [
+            Dict(
+                "name" => "CM",
+                "A" => 1
+            ),
+            Dict(
+                "name" => "ATE",
+                "A" => Dict("case" => 1, "control" => 0)
+            )
+        ]
+    )
+    treatment_variables = params_dict["T"]
+    cm_param_dict = params_dict["Parameters"][1]
+    control_case_setting = TargeneCore.treatment_setting_from_param_dict(CM, cm_param_dict, treatment_variables)
+    @test control_case_setting == [(1,)]
+    ate_param_dict = params_dict["Parameters"][2]
+    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate_param_dict, treatment_variables)
+    @test control_case_setting == [(0, 1)]
+    
+    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.)
+    @test passing_params_dicts == params_dict["Parameters"]
+    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.5)
+    @test passing_params_dicts == [params_dict["Parameters"][1]]
+    @test_throws TargeneCore.NoRemainingParamsError(0.6) TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.6)
+
+    ## Two variables
+    params_dict = Dict(
+        "T" => ["A", "B"],
+        "Parameters" => [
+            Dict(
+                "name" => "ATE",
+                "A" => Dict("case" => 1, "control" => 0),
+                "B" => Dict("case" => "AA", "control" => "CC"),
+            ),
+            Dict(
+                "name" => "ATE",
+                "A" => Dict("case" => 1, "control" => 0),
+                "B" => Dict("case" => "AC", "control" => "AA"),
+            ),
+            Dict(
+                "name" => "IATE",
+                "A" => Dict("case" => 1, "control" => 0),
+                "B" => Dict("case" => "AC", "control" => "AA"),
+            )
+        ]
+    )
+    treatment_variables = params_dict["T"]
+    ate1_param_dict = params_dict["Parameters"][1]
+    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate1_param_dict, treatment_variables)
+    @test control_case_setting == [(0, 1), ("CC", "AA")]
+    ate2_param_dict = params_dict["Parameters"][2]
+    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate2_param_dict, treatment_variables)
+    @test control_case_setting == [(0, 1), ("AA", "AC")]
+    iate_param_dict = params_dict["Parameters"][3]
+    control_case_setting = TargeneCore.treatment_setting_from_param_dict(IATE, iate_param_dict, treatment_variables)
+    @test control_case_setting == [(0, 1), ("AA", "AC")]
+    
+    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.)
+    @test passing_params_dicts == [params_dict["Parameters"][2], params_dict["Parameters"][3]]
+    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.125)
+    @test passing_params_dicts == [params_dict["Parameters"][2], params_dict["Parameters"][3]]
+    @test_throws TargeneCore.NoRemainingParamsError(0.2) TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.2)
+end
+
 #####################################################################
 ###############           END-TO-END TESTS            ###############
 #####################################################################
@@ -130,6 +200,19 @@ end
     @test out_param_file["Parameters"] == input_param_file["Parameters"]
 
     cleanup()
+
+    # Increase positivity constraint
+    parsed_args["positivity-constraint"] = 0.02
+    tmle_inputs(parsed_args)
+    out_param_file = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
+    @test length(out_param_file["Parameters"]) == 1
+    @test out_param_file["Parameters"][1]["name"] == "CM"
+    cleanup()
+
+    # Increase positivity constraint
+    parsed_args["positivity-constraint"] = 0.5
+    @test_throws TargeneCore.NoRemainingParamsError(0.5) tmle_inputs(parsed_args)
+
 end
 
 @testset "Test tmle_inputs from-param-files: scenario 2" begin

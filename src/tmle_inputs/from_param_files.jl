@@ -1,6 +1,13 @@
 
 update_treatments_list!(snp_list, other::Nothing) = nothing
-function load_param_files(param_prefix)
+
+"""
+    param_dicts_from_files(param_prefix)
+
+Loads potentially not fully instantiated parameters files to 
+dictionary representations.
+"""
+function param_dicts_from_files(param_prefix)
     param_files = Dict[]
     paramdir_, prefix = splitdir(param_prefix)
     paramdir = paramdir_ == "" ? "." : paramdir_
@@ -140,29 +147,58 @@ function adjust_treatment_encoding!(param, variant_alleles, key, control_case_di
     end
 end
 
-function adjusted_param_files(param_files, variables, genotypes; positivity_constraint=0., batch_size=nothing)
-    new_param_files = Dict[]
-    for param_file in param_files
-        (haskey(param_file, "Parameters") && param_file["Parameters"] != Dict[]) ? nothing :
-            throw(ArgumentError("One of the parameter file is incomplete, at least one parameter should be provided in the 'Parameters' section."))
-        # Update `W` section with PCs
-        if haskey(param_file, "W")
-            param_file["W"] = unique(vcat(param_file["W"], variables["PCs"]))
-        else
-            param_file["W"] = variables["PCs"]
-        end
+
+treatment_setting_from_param_dict(::Type{<:Union{ATE, IATE}}, param_dict::Dict, treatment_variables) = 
+    [(param_dict[t]["control"], param_dict[t]["case"]) for t in treatment_variables]
+
+treatment_setting_from_param_dict(::Type{CM}, param_dict::Dict, treatment_variables) = 
+    [(param_dict[t],) for t in treatment_variables]
+
+function param_dict_satisfies_positivity(param_dict, treatment_variables, freqs; positivity_constraint=0.)
+    param_type = getfield(TMLE, Symbol(param_dict["name"]))
+    treatment_setting = treatment_setting_from_param_dict(param_type, param_dict, treatment_variables)
+    return satisfies_positivity(param_type, treatment_setting, freqs; positivity_constraint=positivity_constraint)
+end
+
+NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No parameter passed the given positivity constraint: ", positivity_constraint))
+
+function positivity_respecting_parameters(params_dict, data; positivity_constraint=0.)
+    treatment_variables = params_dict["T"]
+    freqs = TargeneCore.frequency_table(data, treatment_variables)
+    filtered_param_dicts =  filter(
+        param_dict -> param_dict_satisfies_positivity(
+            param_dict, treatment_variables, freqs; 
+            positivity_constraint=positivity_constraint
+            ), 
+        params_dict["Parameters"]
+        )
+    length(filtered_param_dicts) > 0 || throw(NoRemainingParamsError(positivity_constraint))
+    return filtered_param_dicts
+end
+
+function adjusted_param_files!(param_dicts, variables, data, snp_list; positivity_constraint=0., batch_size=nothing)
+    new_param_dicts = Dict[]
+    for param_dict in param_dicts
         # If the genotypes encoding is a string representation make sure they match the actual genotypes
-        adjust_treatment_encoding!(param_file, genotypes)
-        # If no target has been specified, use all available ones
-        if !haskey(param_file, "Y")
-            add_batchified_param_files!(new_param_files, param_file, variables["Y"], batch_size)
+        TargeneCore.adjust_treatment_encoding!(param_dict, data[!, snp_list])
+        # Update Parameters section
+        param_dict["Parameters"] = positivity_respecting_parameters(param_dict, data; positivity_constraint=positivity_constraint)
+        # Update `W` section with PCs
+        if haskey(param_dict, "W")
+            param_dict["W"] = unique(vcat(param_dict["W"], variables["PCs"]))
         else
-            Y = intersect(param_file["Y"], variables["Y"])
-            maybe_throw_missing_traits(Y, param_file["Y"])
-            add_batchified_param_files!(new_param_files, param_file, Y, batch_size)
+            param_dict["W"] = variables["PCs"]
+        end
+        # If no target has been specified, use all available ones
+        if !haskey(param_dict, "Y")
+            add_batchified_param_files!(new_param_dicts, param_dict, variables["Y"], batch_size)
+        else
+            Y = intersect(param_dict["Y"], variables["Y"])
+            maybe_throw_missing_traits(Y, param_dict["Y"])
+            add_batchified_param_files!(new_param_dicts, param_dict, Y, batch_size)
         end
     end
-    return new_param_files
+    return new_param_dicts
 end
 
 MismatchedCaseControlEncodingError() = 
@@ -222,17 +258,20 @@ function tmle_inputs_from_param_files(parsed_args)
     param_prefix = parsed_args["from-param-files"]["param-prefix"]
 
     # Load initial Parameter files
-    param_files = TargeneCore.load_param_files(param_prefix)
+    param_dicts = TargeneCore.param_dicts_from_files(param_prefix)
 
     # Genotypes and full data
-    snp_list, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
-    genotypes_asint = TargeneCore.get_genotype_encoding(param_files, snp_list)
+    snp_list, variables = TargeneCore.snps_and_variables_from_param_files(param_dicts, pcs, traits)
+    genotypes_asint = TargeneCore.get_genotype_encoding(param_dicts, snp_list)
     genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold; asint=genotypes_asint)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
-    param_files = TargeneCore.adjusted_param_files(param_files, variables, genotypes; positivity_constraint=positivity_constraint, batch_size=batch_size)
+    param_dicts = TargeneCore.adjusted_param_files!(
+        param_dicts, variables, data, snp_list; 
+        positivity_constraint=positivity_constraint, batch_size=batch_size
+    )
 
     # write data and parameter files
-    write_tmle_inputs(outprefix, data, param_files)
+    write_tmle_inputs(outprefix, data, param_dicts)
 end

@@ -7,7 +7,7 @@ using TargeneCore
 using YAML
 using StableRNGs
 using BGEN
-
+using TMLE
 #####################################################################
 ##################           UNIT TESTS            ##################
 #####################################################################
@@ -95,7 +95,7 @@ end
     @test_throws TargeneCore.NotAllVariantsFoundError([], snp_list) TargeneCore.call_genotypes(bgen_dir, snp_list, 0.95;)
 end
 
-@testset "Test satisfies_positivity" begin
+@testset "Test treatment settings generation & positivity_respecting_parameters" begin
     freqs = Dict(
         ("A", 1) => 0.01,
         ("B", 1) => 0.02,
@@ -104,13 +104,72 @@ end
         ("C", 1) => 0.05,
         ("C", 0) => 0.06,
     )
+    ## Multiple variables: IATE, ATE. CM
+    # IATE
+    # All 4 product terms A/0, A/1, B/0, B/1 are checked
     interaction_setting = (["A", "B"], [0, 1])
-    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.01) == true
+    @test collect(TargeneCore.setting_iterator(IATE, interaction_setting)) == 
+        [("A", 0)  ("A", 1)
+        ("B", 0)  ("B", 1)]
+    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.01) == true
     interaction_setting = (["B", "C"], [0, 1])
-    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.02) == true
-    @test TargeneCore.satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.03) == false
+    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.02) == true
+    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.03) == false
+
+    # ATE
+    # Only look at A/0 and B/1
+    ate_setting = (["A", "B"], [0, 1])
+    @test collect(TargeneCore.setting_iterator(ATE, ate_setting)) == 
+        [("A", 0), ("B", 1)]
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.03) == false
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
+
+    # CM
+    cm_setting = (["A",], [0,])
+    @test collect(TargeneCore.setting_iterator(CM, cm_setting)) == [("A", 0)]
+    @test TargeneCore.satisfies_positivity(CM, cm_setting, freqs; positivity_constraint=0.04) == false
+    @test TargeneCore.satisfies_positivity(CM, cm_setting, freqs; positivity_constraint=0.03) == true
+
+
+    ## One variable: ATE, CM
+    # Only look at A/0 and B/1
+    freqs = Dict(
+        ("A",) => 0.01,
+        ("B",) => 0.02,
+    )
+    # ATE
+    ate_setting = (["A", "B"],)
+    @test collect(TargeneCore.setting_iterator(ATE, ate_setting)) == 
+        [("A",), ("B", )]
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.03) == false
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
+    # CM
+    cm_setting = (["A"],)
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.02) == false
+    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
 end
 
+@testset "Test frequency_table" begin
+    data = DataFrame(
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
+    ) 
+    freqs = TargeneCore.frequency_table(data, [:A])
+    @test freqs == Dict(
+        (0,) => 0.25,
+        (2,) => 0.25,
+        (1,) => 0.5
+    )
+    freqs = TargeneCore.frequency_table(data, [:A, :B])
+    @test freqs == Dict(
+        (1, "CC") => 0.125,
+        (1, "AA") => 0.25,
+        (0, "AA") => 0.25,
+        (1, "AC") => 0.125,
+        (2, "AA") => 0.25
+    )
+
+end
 
 end
 

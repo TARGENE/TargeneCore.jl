@@ -12,5 +12,5 @@ Parameters:
       case: "AG"
       control: "AA"
   - name: CM
-    RSID_2: "AA"
-    RSID_198: "AG"
+    RSID_2: "GG"
+    RSID_198: "AA"
