@@ -23,3 +23,5 @@ COPY . /TargeneCore.jl
 
 RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
+RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.test()'
+
