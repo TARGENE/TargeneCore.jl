@@ -71,6 +71,7 @@ end
 NotAllVariantsFoundError(found_snps, snp_list) = 
     ArgumentError(string("Some variants were not found in the genotype files: ", join(setdiff(snp_list, found_snps), ", ")))
 
+NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
 """
     bgen_files(snps, bgen_prefix)
 
@@ -97,6 +98,7 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=tr
                     minor_allele_dosage!(bgenfile, variant)
                     variant_genotypes = genotypes_encoding(variant; asint=asint)
                     probabilities = probabilities!(bgenfile, variant)
+                    size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(rsid_))
                     chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
             end
