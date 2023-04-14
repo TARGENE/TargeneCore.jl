@@ -35,6 +35,14 @@ jobs:
         uses: docker/metadata-action@v3
         with:
           images: olivierlabayle/tl-core
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
       
       - name: Build and push
         uses: docker/build-push-action@v2
