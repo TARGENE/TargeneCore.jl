@@ -64,30 +64,82 @@ function trans_actors_from_prefix(trans_actors_prefix::String)
     return trans_actors
 end
 
-function control_case_settings(treatment_tuple, data::DataFrame)
+sorted_unique_values(v) = sort(unique(skipmissing(v)))
+
+"""
+    control_case_settings(::Type{IATE}, treatment_tuple, data::DataFrame)
+
+Generates all possible IATE parameter treatment settings where control ≠ case. 
+The procedure works as follows:
+
+    - For each treatment, control ≠ case are generated from pairwise combinations of unique values
+    - The cartesian product of all those treatment case/control values is returned
+"""
+function control_case_settings(::Type{IATE}, treatment_tuple, data::DataFrame)
     control_cases_ = []
+    # For each treatment variable generate the case/control options
+    # where case and control are different
     for t in treatment_tuple
-        unique_vals = sort(unique(skipmissing(data[!, t])))
+        unique_vals = sorted_unique_values(data[!, t])
         push!(control_cases_, collect(combinations(unique_vals, 2)))
     end
+    # Generate the product of all treatment case/control settings
     return Iterators.product(control_cases_...)
 end
 
+"""
+    control_case_settings(::Type{ATE}, treatment_tuple, data)
+
+Generates all possible ATE parameter treatment settings where only the bQTL has control ≠ case, 
+for the rest of the treatment variables: case=control. The bQTl is assumed to 
+be the first variable in the `treatment_tuple`.
+
+The procedure works as follows:
+
+    - For the bQTL, control ≠ case are generated from pairwise combinations of unique alleles
+    - For all other treatment variables, control = case are the unique values
+    - The cartesian product of all those treatment case/control values is returned
+"""
+function control_case_settings(::Type{ATE}, treatment_tuple, data)
+    control_cases_ = []
+    # The bQTL is the first treatment variable
+    # We get all case/control values
+    bQTL_values = TargeneCore.sorted_unique_values(data[!, treatment_tuple[1]])
+    push!(control_cases_, collect(combinations(bQTL_values, 2)))
+    # The remainder of the treatment are kep fixed
+    for t in treatment_tuple[2:end]
+        unique_vals = TargeneCore.sorted_unique_values(data[!, t])
+        push!(control_cases_, [[uv, uv] for uv in unique_vals])
+    end
+    # Generate the product of all treatment case/control settings
+    return Iterators.product(control_cases_...)
+end
+
+function addParameter!(params, param_type::Type{<:TMLE.Parameter}, setting, treatment_tuple, freqs; positivity_constraint=0.)
+    if TargeneCore.satisfies_positivity(param_type, setting, freqs; positivity_constraint=positivity_constraint)
+        param = Dict{String, Any}("name" => replace(string(param_type), "TMLE." => ""))
+        for var_index in eachindex(treatment_tuple)
+            control, case = setting[var_index]
+            treatment = treatment_tuple[var_index]
+            param[treatment] = Dict("control" => control, "case" => case)
+        end
+        push!(params, param)
+    end
+end
 
 function addParameters!(param_file, data; positivity_constraint=0.)
     treatment_tuple = param_file["T"]
     freqs = TargeneCore.frequency_table(data, treatment_tuple)
     param_file["Parameters"] = Dict[]
-    for setting in TargeneCore.control_case_settings(treatment_tuple, data)
-        if TargeneCore.satisfies_positivity(setting, freqs; positivity_constraint=positivity_constraint)
-            param_name = length(setting) > 1 ? "IATE" : "ATE"
-            param = Dict{String, Any}("name" => param_name)
-            for var_index in eachindex(treatment_tuple)
-                control, case = setting[var_index]
-                treatment = treatment_tuple[var_index]
-                param[treatment] = Dict("control" => control, "case" => case)
-            end
-            push!(param_file["Parameters"], param)
+    # This loop adds all ATE parameters where all other treatments than
+    # the bQTL are fixed, at the order 1, this is the simple bQTL's ATE
+    for setting in control_case_settings(ATE, treatment_tuple, data)
+        addParameter!(param_file["Parameters"], ATE, setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
+    end
+    # This loop adds all IATE parameters that pass the positivity threshold
+    if size(treatment_tuple, 1) >= 2
+        for setting in control_case_settings(IATE, treatment_tuple, data)
+            addParameter!(param_file["Parameters"], IATE, setting, treatment_tuple, freqs; positivity_constraint=positivity_constraint)
         end
     end
 end
@@ -109,7 +161,7 @@ function param_files_from_actors(bqtls, transactors, data, variables, orders; ba
     new_param_files = Dict[]
     # For each interaction order generate parameter files
     for order in orders
-        # Generate `T` section
+        # First generate the `T` section
         extraT_df = variables["extraT"] isa Nothing ? nothing : DataFrame(ID=variables["extraT"])
         param_files = TargeneCore.combine_by_bqtl(bqtls, transactors, extraT_df, order)
         for param_file in param_files
@@ -143,6 +195,7 @@ function tmle_inputs_from_actors(parsed_args)
     orders = TargeneCore.parse_orders(parsed_args["from-actors"]["orders"])
     extraW = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-confounders"])
     extraC = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-covariates"])
+    genotypes_asint = parsed_args["from-actors"]["genotypes-as-int"]
 
     # Retrieve SNPs and environmental treatments
     bqtls, transactors, extraT = TargeneCore.treatments_from_actors(
@@ -152,7 +205,7 @@ function tmle_inputs_from_actors(parsed_args)
     )
     # Genotypes and final dataset
     snp_list = TargeneCore.all_snps(bqtls, transactors)
-    genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold)
+    genotypes = TargeneCore.call_genotypes(bgen_prefix, snp_list, call_threshold; asint=genotypes_asint)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files

@@ -5,6 +5,7 @@ using CSV
 using DataFrames
 using TargeneCore
 using YAML
+using TMLE
 
 include("test_utils.jl")
 
@@ -32,6 +33,13 @@ include("test_utils.jl")
         )
     ]
     envs = DataFrame(ID=["sex"], DESCRIPTION=["Env"])
+    # order 1
+    combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 1)
+    @test combinations == [
+        Dict("T" => ["rs1"]),
+        Dict("T" => ["rs2"]),
+        Dict("T" => ["rs3"])
+    ]
     # order 2, no environmental variable
     combinations = TargeneCore.combine_by_bqtl(bQTLS, trans_actors, nothing, 2)
     @test combinations == [Dict("T" => ["rs1", "rs4"]),
@@ -119,25 +127,37 @@ end
         T2 = ["AC", "CC", "AA"],
         T3 = [0, 1, 1] 
     )
-    # One Treatment
+    # One Treatment ATE
     treatment_tuple = [:T1]
-    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
     @test settings == [([0, 1],),
                        ([0, 2],),
                        ([1, 2],)]
-    # Two treatments
+    # Two treatments IATEs
     treatment_tuple = [:T1, :T2]
-    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(IATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AC"])  ([0, 1], ["AA", "CC"])  ([0, 1], ["AC", "CC"])
                          ([0, 2], ["AA", "AC"])  ([0, 2], ["AA", "CC"])  ([0, 2], ["AC", "CC"])
                          ([1, 2], ["AA", "AC"])  ([1, 2], ["AA", "CC"])  ([1, 2], ["AC", "CC"])]
     @test expected_settings == settings
-    # Three treatments
+    # Two treatments ATEs
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
+    expected_settings = [([0, 1], ["AA", "AA"])  ([0, 1], ["AC", "AC"])  ([0, 1], ["CC", "CC"])
+                         ([0, 2], ["AA", "AA"])  ([0, 2], ["AC", "AC"])  ([0, 2], ["CC", "CC"])
+                         ([1, 2], ["AA", "AA"])  ([1, 2], ["AC", "AC"])  ([1, 2], ["CC", "CC"])]
+    @test expected_settings == settings
+    # Three treatments IATEs
     treatment_tuple = [:T1, :T2, :T3]
-    settings = collect(TargeneCore.control_case_settings(treatment_tuple, data))
+    settings = collect(TargeneCore.control_case_settings(IATE, treatment_tuple, data))
     expected_settings = [([0, 1], ["AA", "AC"], [0, 1])  ([0, 1], ["AA", "CC"], [0, 1])  ([0, 1], ["AC", "CC"], [0, 1])
                          ([0, 2], ["AA", "AC"], [0, 1])  ([0, 2], ["AA", "CC"], [0, 1])  ([0, 2], ["AC", "CC"], [0, 1])
                          ([1, 2], ["AA", "AC"], [0, 1])  ([1, 2], ["AA", "CC"], [0, 1])  ([1, 2], ["AC", "CC"], [0, 1])]
+    @test all(x==y for (x,y) in zip(expected_settings, settings))
+    # Three treatments ATEs
+    settings = collect(TargeneCore.control_case_settings(ATE, treatment_tuple, data))
+    expected_settings = [([0, 1], ["AA", "AA"], [0, 0])  ([0, 1], ["AC", "AC"], [0, 0])  ([0, 1], ["CC", "CC"], [0, 0]) ([0, 1], ["AA", "AA"], [1, 1])  ([0, 1], ["AC", "AC"], [1, 1])  ([0, 1], ["CC", "CC"], [1, 1])
+                         ([0, 2], ["AA", "AA"], [0, 0])  ([0, 2], ["AC", "AC"], [0, 0])  ([0, 2], ["CC", "CC"], [0, 0]) ([0, 2], ["AA", "AA"], [1, 1])  ([0, 2], ["AC", "AC"], [1, 1])  ([0, 2], ["CC", "CC"], [1, 1])
+                         ([1, 2], ["AA", "AA"], [0, 0])  ([1, 2], ["AC", "AC"], [0, 0])  ([1, 2], ["CC", "CC"], [0, 0]) ([1, 2], ["AA", "AA"], [1, 1])  ([1, 2], ["AC", "AC"], [1, 1])  ([1, 2], ["CC", "CC"], [1, 1])]
     @test all(x==y for (x,y) in zip(expected_settings, settings))
 end
 
@@ -189,7 +209,8 @@ end
             "extra-covariates" => joinpath("data", "extra_covariates.txt"),
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
-            "orders" => "1,2"
+            "orders" => "1,2",
+            "genotypes-as-int" => true
             ),
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -200,6 +221,7 @@ end
         "phenotype-batch-size" => nothing,
         "positivity-constraint" => 0.
     )
+    bqtls = unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID)
     tmle_inputs(parsed_args)
 
     trait_data = CSV.read("final.data.csv", DataFrame)
@@ -209,25 +231,42 @@ end
         "RSID_17", "RSID_198", "RSID_99"]
     
     # Parameter files: 
-    # Pairwise interactions between
-    # 3 bqtls x (1 environmental treatment +  2 trans actors) = 9 IATE files
-    # 3 bqtls = 3 ATE files
+    # Order 2 files: 3 bqtls x (1 environmental treatment +  2 trans actors) = 9 IATE files
+    # )rder 1 files: 3 bqtls = 3 
     # total = 12 files
     for i in 1:12
         param_file = YAML.load_file(string(parsed_args["out-prefix"], ".param_$i.yaml"))
         @test param_file["W"] == ["PC1", "PC2"]
         @test param_file["C"] == ["COV_1", "21003", "22001"]
         @test (param_file["Y"] == ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2"])
-        # ATE files
+        # Order 1 file
         if length(param_file["T"]) == 1
             @test param_file["T"][1] ∈ ("RSID_17", "RSID_99", "RSID_198")
             for param in param_file["Parameters"]
                 @test param["name"] == "ATE"
             end
-        # IATE files
+        # Order 2 files
         else
             for param in param_file["Parameters"]
-                @test param["name"] == "IATE"
+                paramname = pop!(param, "name")
+                if paramname == "IATE"
+                    for (tname, case_control_dict) in param
+                        @test case_control_dict["case"] != case_control_dict["control"]
+                        @test case_control_dict["case"] isa Int
+                        @test case_control_dict["control"] isa Int
+                    end
+                else
+                    @test paramname == "ATE"
+                    for (tname, case_control_dict) in param
+                        if tname ∈ bqtls
+                            @test case_control_dict["case"] != case_control_dict["control"]
+                        else
+                            @test case_control_dict["case"] == case_control_dict["control"]
+                        end
+                        @test case_control_dict["case"] isa Int
+                        @test case_control_dict["control"] isa Int
+                    end
+                end
             end
         end
     end
@@ -251,7 +290,8 @@ end
             "extra-covariates" => nothing,
             "extra-treatments" => nothing,
             "extra-confounders" => joinpath("data", "extra_confounders.txt"),
-            "orders" => "2,3"
+            "orders" => "2,3",
+            "genotypes-as-int" => false
             ),
         "traits" => joinpath("data", "traits_2.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -260,8 +300,10 @@ end
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "phenotype-batch-size" => 1,
-        "positivity-constraint" => 0.
+        "positivity-constraint" => 0.,
     )
+    bqtls = unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID)
+    
     tmle_inputs(parsed_args)
     
     traits = CSV.read("final.data.csv", DataFrame)
@@ -270,29 +312,47 @@ end
         "PC1", "PC2", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99"]
     
     # Parameter files: 
-    # Pairwise interactions between
-    # no order 3 interaction seems to be sufficiently represented in the dataset 
+    # Order 3: 3 bqtls x 1 trans actor x 1 trans actor = 3 files
     # to pass the existence constraint
-    # 3 bqtls x 2 trans actors = 6 pairwise
-    # with batched binary phenotypes = 12 expected param_files
-    for i in 1:12
+    # Order 2: 3 bqtls x 2 trans actors = 6 files
+    # Total: = (6 + 3) x 2 = 18  files
+    for i in 1:18
         param_file = YAML.load_file(string(parsed_args["out-prefix"], ".param_$i.yaml"))
         @test param_file["W"] == ["PC1", "PC2", "COV_1", "21003", "22001"]
-        @test ! haskey(param_file, "C")
+        @test !haskey(param_file, "C")
         @test (param_file["Y"] == ["BINARY_1"]) || (param_file["Y"] == ["BINARY_2"])
+
         for param in param_file["Parameters"]
-            @test param["name"] == "IATE"
+            paramname = pop!(param, "name")
+            if paramname == "IATE"
+                for (tname, case_control_dict) in param
+                    @test case_control_dict["case"] != case_control_dict["control"]
+                    @test case_control_dict["case"] isa String
+                    @test case_control_dict["control"] isa String
+                end
+            else
+                @test paramname == "ATE"
+                for (tname, case_control_dict) in param
+                    if tname ∈ bqtls
+                        @test case_control_dict["case"] != case_control_dict["control"]
+                    else
+                        @test case_control_dict["case"] == case_control_dict["control"]
+                    end
+                    @test case_control_dict["case"] isa String
+                    @test case_control_dict["control"] isa String
+                end
+            end
         end
     end
 
     cleanup()
 
     # Adding positivity constraint, only 4 files are generated
-    parsed_args["positivity-constraint"] = 0.05
+    parsed_args["positivity-constraint"] = 0.1
     tmle_inputs(parsed_args)
 
     param_files = filter(x -> occursin.(r"^final.*yaml$",x), readdir())
-    @test size(param_files, 1) == 4
+    @test size(param_files, 1) == 6
 
     cleanup()
 end

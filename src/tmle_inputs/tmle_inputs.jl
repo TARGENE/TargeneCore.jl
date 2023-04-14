@@ -19,9 +19,9 @@ function write_tmle_inputs(outprefix, final_dataset, param_files)
 end
 
 
-function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector, threshold::Real)
+function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold::Real) where T
     n = size(probabilities, 2)
-    t = Vector{Union{Int, Missing}}(missing, n)
+    t = Vector{Union{T, Missing}}(missing, n)
     for i in 1:n
         # If no allele has been annotated with sufficient confidence
         # the sample is declared as missing for this variant
@@ -50,27 +50,34 @@ end
 all_snps_called(found_snps::Set, snp_list) = Set(snp_list) == found_snps
 
 """
-    genotypes_encoding(variant)
+    genotypes_encoding(variant; asint=true)
 
-Since we are only considering bi-allelic variants, genotypes are encoded 
-as the number of minor alleles.
+If asint is true then the number of minor alleles is reported, otherwise string genotypes are reported.
 """
-function genotypes_encoding(variant)
+function genotypes_encoding(variant; asint=true)
     minor = minor_allele(variant)
-    all₁, _ = alleles(variant)
-    if all₁ == minor
-        return [2, 1, 0]
+    all₁, all₂ = alleles(variant)
+    if asint
+        if all₁ == minor
+            return [2, 1, 0]
+        else
+            return [0, 1, 2]
+        end
     else
-        return [0, 1, 2]
+        return [all₁*all₁, all₁*all₂, all₂*all₂]
     end
 end
 
+NotAllVariantsFoundError(found_snps, snp_list) = 
+    ArgumentError(string("Some variants were not found in the genotype files: ", join(setdiff(snp_list, found_snps), ", ")))
+
+NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
 """
     bgen_files(snps, bgen_prefix)
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
+function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=true)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
@@ -89,8 +96,9 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
                         continue
                     end
                     minor_allele_dosage!(bgenfile, variant)
-                    variant_genotypes = genotypes_encoding(variant)
+                    variant_genotypes = genotypes_encoding(variant; asint=asint)
                     probabilities = probabilities!(bgenfile, variant)
+                    size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(rsid_))
                     chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
             end
@@ -98,11 +106,16 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real)
                     innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
         end
     end
+    all_snps_called(found_snps, snp_list) || throw(NotAllVariantsFoundError(found_snps, snp_list))
     return genotypes
 end
 
-function satisfies_positivity(interaction_setting, freqs; positivity_constraint=0.01)
-    for base_setting in Iterators.product(interaction_setting...)
+setting_iterator(::Type{IATE}, interaction_setting) = Iterators.product(interaction_setting...)
+setting_iterator(::Type{ATE}, ate_setting) = zip(ate_setting...)
+setting_iterator(::Type{CM}, cm_setting) = zip(cm_setting...)
+
+function satisfies_positivity(param_type::Type{<:TMLE.Parameter}, treatment_setting, freqs; positivity_constraint=0.01)
+    for base_setting in setting_iterator(param_type, treatment_setting)
         if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
             return false
         end
