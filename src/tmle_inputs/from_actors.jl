@@ -169,7 +169,7 @@ end
 
 
 function tmle_inputs_from_actors(parsed_args)
-    batch_size = parsed_args["phenotype-batch-size"]
+    batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
     call_threshold = parsed_args["call-threshold"]
     bgen_prefix = parsed_args["bgen-prefix"]

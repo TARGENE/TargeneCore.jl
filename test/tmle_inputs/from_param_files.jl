@@ -98,7 +98,7 @@ end
         "%COMMAND%" => "from-param-files", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => nothing,
+        "batch-size" => nothing,
         "positivity-constraint" => 0.,
     )
 
@@ -170,7 +170,7 @@ end
         "%COMMAND%" => "from-param-files", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => 8,
+        "batch-size" => 8,
         "positivity-constraint" => 0.,
     )
 
@@ -233,7 +233,7 @@ end
         "%COMMAND%" => "from-param-files", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => 2,
+        "batch-size" => 2,
         "positivity-constraint" => 0.,
     )
     tmle_inputs(parsed_args)

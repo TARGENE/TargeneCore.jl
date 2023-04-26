@@ -41,12 +41,10 @@ function parse_commandline()
             required = true
             help = "Path to a genetic confounders file"
 
-        "--phenotype-batch-size"
+        "--batch-size"
             arg_type = Int
             required = false
-            help = "Further performance may be obtained by batching phenotypes in a"*
-                   " single Targeted Estimation run. If not specified, all phenotypes "*
-                   "constitute a batch."
+            help = "To split parameters in multiple files of size batch-size"
 
         "--positivity-constraint"
             arg_type = Float64

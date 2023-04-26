@@ -272,7 +272,7 @@ end
         "%COMMAND%" => "from-actors", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => nothing,
+        "batch-size" => nothing,
         "positivity-constraint" => 0.
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
@@ -347,7 +347,7 @@ end
         "%COMMAND%" => "from-actors", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => 100,
+        "batch-size" => 100,
         "positivity-constraint" => 0.,
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
