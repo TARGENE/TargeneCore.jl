@@ -49,7 +49,7 @@ function read_bgen(filepath)
     return Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
 end
 
-all_snps_called(found_variants::Set{String}, variants::Set{String}) = 
+all_snps_called(found_variants::Set{<:AbstractString}, variants::Set{<:AbstractString}) = 
     variants == found_variants
 
 """
@@ -80,7 +80,7 @@ NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsi
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, variants::Set{String}, threshold::Real; asint=true)
+function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, threshold::Real; asint=true)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
@@ -161,32 +161,11 @@ read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
 
 pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
 
-all_confounders(pcs, extraW::Nothing) = pcnames(pcs)
-all_confounders(pcs, extraW) = vcat(pcnames(pcs), extraW)
+all_confounders(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
+all_confounders(pcs, extraW) = Symbol.(vcat(pcnames(pcs), extraW))
 
-targets_from_traits(traits, non_targets) = filter(x -> x ∉ non_targets, names(traits))
+targets_from_traits(traits, non_targets) = Symbol.(filter(x -> x ∉ non_targets, names(traits)))
 
-
-function add_batchified_param_files!(new_param_files, param_file, variables, batch_size)
-    param_files = batched_param_files(param_file, variables, batch_size)
-    append!(new_param_files, param_files)
-end
-
-function batched_param_files(param_file, phenotypes_list, batch_size::Nothing)
-    param_file = copy(param_file)
-    param_file["Y"] = phenotypes_list
-    return [param_file]
-end
-
-function batched_param_files(param_file, phenotypes_list, batch_size::Int)
-    new_param_files = []
-    for batch in Iterators.partition(phenotypes_list, batch_size)
-        batched_param_file = copy(param_file)
-        batched_param_file["Y"] = batch
-        push!(new_param_files, batched_param_file)
-    end
-    return new_param_files
-end
 
 function merge(traits, pcs, genotypes)
     return innerjoin(
@@ -197,6 +176,14 @@ function merge(traits, pcs, genotypes)
 end
 
 
+function update_parameters_from_targets!(parameters, Ψ::T, targets) where T
+    for target in targets
+        push!(
+            parameters, 
+            T(target=target, treatment=Ψ.treatment, confounders=Ψ.confounders, covariates=Ψ.covariates)
+        )
+    end
+end
 """
     tmle_inputs(parsed_args)
 

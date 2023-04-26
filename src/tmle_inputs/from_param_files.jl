@@ -164,12 +164,7 @@ function append_from_valid_parameters!(
         positivity_constraint=positivity_constraint) || return
     # Expand wildcard to all targets
     if Ψ.target == :*
-        for target in variables.targets
-            push!(
-                parameters, 
-                T(target=target, treatment=Ψ.treatment, confounders=Ψ.confounders, covariates=Ψ.covariates)
-            )
-        end
+        update_parameters_from_targets!(parameters, Ψ, variables.targets)
     else
         # Ψ.target || MissingVariableError(variable)
         push!(parameters, Ψ)
