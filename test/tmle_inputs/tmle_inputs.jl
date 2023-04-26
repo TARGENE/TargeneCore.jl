@@ -65,9 +65,9 @@ end
 
 @testset "Test call_genotypes for all SNPs" begin
     bgen_dir = joinpath("data", "ukbb", "imputed" , "ukbb")
-    snp_list = ["RSID_10", "RSID_100"]
+    variants = Set(["RSID_10", "RSID_100"])
     ## With asint=true
-    genotypes = TargeneCore.call_genotypes(bgen_dir, snp_list, 0.95; asint=true)
+    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95; asint=true)
     # I only look at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -79,7 +79,7 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 
     ## With asint=false
-    genotypes = TargeneCore.call_genotypes(bgen_dir, snp_list, 0.95; asint=false)
+    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95; asint=false)
     # I only look at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -91,8 +91,8 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
 
     # With missing variants -> throw ArgumentError
-    snp_list = ["TOTO"]
-    @test_throws TargeneCore.NotAllVariantsFoundError([], snp_list) TargeneCore.call_genotypes(bgen_dir, snp_list, 0.95;)
+    variants = Set(["TOTO"])
+    @test_throws TargeneCore.NotAllVariantsFoundError([], variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
 end
 
 
@@ -109,7 +109,7 @@ end
         (A = 1,) => 0.5
     )
     Ψ = CM(target=:toto, treatment=(A=1,), confounders=[])
-    @test TargeneCore.setting_iterator(Ψ) == (A = 1,)
+    @test TargeneCore.setting_iterator(Ψ) == ((A = 1,),)
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.4) == true
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.6) == false
 
