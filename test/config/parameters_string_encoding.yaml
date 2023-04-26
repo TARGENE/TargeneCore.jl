@@ -1,0 +1,25 @@
+Parameters:
+  - type: IATE
+    target: "*"
+    treatment: (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0))
+    confounders: []
+  - type: ATE
+    target: "*"
+    treatment: (RSID_2 = (case = "AA", control = "GG"),)
+    confounders: [22001]
+    covariates: [COV_1, 21003]
+  - type: CM
+    target: "*"
+    treatment: (RSID_2 = "AA", )
+    confounders: [22001]
+    covariates: [COV_1, 21003]
+  - type: ATE
+    target: "*"
+    treatment: (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA"))
+    confounders: []
+    covariates: [22001]
+  - type: CM
+    target: "*"
+    treatment: (RSID_2 = "GG", RSID_198 = "GA")
+    confounders: []
+    covariates: [22001]

@@ -95,80 +95,79 @@ end
     @test_throws TargeneCore.NotAllVariantsFoundError([], snp_list) TargeneCore.call_genotypes(bgen_dir, snp_list, 0.95;)
 end
 
-@testset "Test treatment settings generation & positivity_respecting_parameters" begin
-    freqs = Dict(
-        ("A", 1) => 0.01,
-        ("B", 1) => 0.02,
-        ("A", 0) => 0.03,
-        ("B", 0) => 0.04,
-        ("C", 1) => 0.05,
-        ("C", 0) => 0.06,
-    )
-    ## Multiple variables: IATE, ATE. CM
-    # IATE
-    # All 4 product terms A/0, A/1, B/0, B/1 are checked
-    interaction_setting = (["A", "B"], [0, 1])
-    @test collect(TargeneCore.setting_iterator(IATE, interaction_setting)) == 
-        [("A", 0)  ("A", 1)
-        ("B", 0)  ("B", 1)]
-    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.01) == true
-    interaction_setting = (["B", "C"], [0, 1])
-    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.02) == true
-    @test TargeneCore.satisfies_positivity(IATE, interaction_setting, freqs; positivity_constraint=0.03) == false
 
-    # ATE
-    # Only look at A/0 and B/1
-    ate_setting = (["A", "B"], [0, 1])
-    @test collect(TargeneCore.setting_iterator(ATE, ate_setting)) == 
-        [("A", 0), ("B", 1)]
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.03) == false
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
-
-    # CM
-    cm_setting = (["A",], [0,])
-    @test collect(TargeneCore.setting_iterator(CM, cm_setting)) == [("A", 0)]
-    @test TargeneCore.satisfies_positivity(CM, cm_setting, freqs; positivity_constraint=0.04) == false
-    @test TargeneCore.satisfies_positivity(CM, cm_setting, freqs; positivity_constraint=0.03) == true
-
-
-    ## One variable: ATE, CM
-    # Only look at A/0 and B/1
-    freqs = Dict(
-        ("A",) => 0.01,
-        ("B",) => 0.02,
-    )
-    # ATE
-    ate_setting = (["A", "B"],)
-    @test collect(TargeneCore.setting_iterator(ATE, ate_setting)) == 
-        [("A",), ("B", )]
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.03) == false
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
-    # CM
-    cm_setting = (["A"],)
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.02) == false
-    @test TargeneCore.satisfies_positivity(ATE, ate_setting, freqs; positivity_constraint=0.01) == true
-end
-
-@testset "Test frequency_table" begin
+@testset "Test positivity_constraint" begin
     data = DataFrame(
         A = [1, 1, 0, 1, 0, 2, 2, 1],
         B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
     ) 
+    ## One variable
     freqs = TargeneCore.frequency_table(data, [:A])
     @test freqs == Dict(
-        (0,) => 0.25,
-        (2,) => 0.25,
-        (1,) => 0.5
+        (A = 0,) => 0.25,
+        (A = 2,) => 0.25,
+        (A = 1,) => 0.5
     )
-    freqs = TargeneCore.frequency_table(data, [:A, :B])
+    Ψ = CM(target=:toto, treatment=(A=1,), confounders=[])
+    @test TargeneCore.setting_iterator(Ψ) == (A = 1,)
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.4) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.6) == false
+
+    Ψ = ATE(target=:toto, treatment=(A=(case=1, control=0),), confounders=[])
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1,), (A = 0,)]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
+
+    ## Two variables
+    # Treatments are sorted: [:B, :A] -> [:A, :B]
+    freqs = TargeneCore.frequency_table(data, [:B, :A])
     @test freqs == Dict(
-        (1, "CC") => 0.125,
-        (1, "AA") => 0.25,
-        (0, "AA") => 0.25,
-        (1, "AC") => 0.125,
-        (2, "AA") => 0.25
+        (A = 1, B = "CC") => 0.125,
+        (A = 1, B = "AA") => 0.25,
+        (A = 0, B = "AA") => 0.25,
+        (A = 1, B = "AC") => 0.125,
+        (A = 2, B = "AA") => 0.25
     )
 
+    Ψ = CM(target=:toto, treatment=(B = "CC", A = 1), confounders=[])
+    @test TargeneCore.setting_iterator(Ψ) == ((A = 1, B = "CC"),)
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.15) == false
+    
+    Ψ = ATE(target=:toto, treatment=(B=(case="AA", control="AC"), A=(case=1, control=1),), confounders=[])
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1, B = "AA"), (A = 1, B = "AC")]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == false
+    
+    Ψ = IATE(target=:toto, treatment=(B=(case="AC", control="AA"), A=(case=1, control=0),), confounders=[])
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [
+        (A = 1, B = "AC")  (A = 1, B = "AA")
+        (A = 0, B = "AC")  (A = 0, B = "AA")]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=1.) == false
+    freqs = Dict(
+        (A = 1, B = "CC") => 0.125,
+        (A = 1, B = "AA") => 0.25,
+        (A = 0, B = "AA") => 0.25,
+        (A = 0, B = "AC") => 0.25,
+        (A = 1, B = "AC") => 0.125,
+        (A = 2, B = "AA") => 0.25
+    )
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+
+    Ψ = IATE(target=:toto, treatment=(B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), confounders=[])
+    expected_settings = [
+        (A = 1, B = "AC", C = 0),
+        (A = 0, B = "AC", C = 0),
+        (A = 1, B = "AA", C = 0),
+        (A = 0, B = "AA", C = 0),
+        (A = 1, B = "AC", C = 2),
+        (A = 0, B = "AC", C = 2),
+        (A = 1, B = "AA", C = 2),
+        (A = 0, B = "AA", C = 2)]
+    for (index, s) in enumerate(TargeneCore.setting_iterator(Ψ))
+        @test s == expected_settings[index]
+    end
 end
 
 end

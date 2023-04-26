@@ -91,9 +91,9 @@ function parse_commandline()
     end
 
     @add_arg_table s["from-param-files"] begin
-        "param-prefix"
+        "paramfile"
             arg_type = String
-            help = "Prefix to parameter files"
+            help = "Parameter file"
     end
 
     return parse_args(s)
