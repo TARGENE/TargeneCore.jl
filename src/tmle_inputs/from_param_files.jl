@@ -196,7 +196,7 @@ function tmle_inputs_from_param_files(parsed_args)
     positivity_constraint = parsed_args["positivity-constraint"]
     traits = TargeneCore.read_data(parsed_args["traits"])
     pcs = TargeneCore.read_data(parsed_args["pcs"])
-    param_file = parsed_args["from-param-files"]["paramfile"]
+    param_file = parsed_args["from-param-file"]["paramfile"]
 
     # Load initial Parameter files
     parameters = parameters_from_yaml(param_file)

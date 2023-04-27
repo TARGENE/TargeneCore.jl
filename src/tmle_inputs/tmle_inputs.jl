@@ -189,12 +189,12 @@ end
 
 Support for the generation of parameters according to 2 strategies:
 - from-actors
-- from-param-files
+- from-param-file
 """
 function tmle_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "from-actors"
         tmle_inputs_from_actors(parsed_args)
-    elseif parsed_args["%COMMAND%"] == "from-param-files"
+    elseif parsed_args["%COMMAND%"] == "from-param-file"
         tmle_inputs_from_param_files(parsed_args)
     else
         throw(ArgumentError("Unrecognized command."))

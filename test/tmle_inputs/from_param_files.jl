@@ -86,16 +86,16 @@ end
 #####################################################################
 
 
-@testset "Test tmle_inputs from-param-files: parameters_string_encoding.yaml" begin
+@testset "Test tmle_inputs from-param-file: parameters_string_encoding.yaml" begin
     # Genotypes encoded as strings
     # No batching of parameter files
     # No positivity constraint
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_string_encoding.yaml")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_string_encoding.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => nothing,
@@ -161,13 +161,13 @@ end
 
 end
 
-@testset "Test tmle_inputs from-param-files: parameters_integer_encoding.yaml" begin
+@testset "Test tmle_inputs from-param-file: parameters_integer_encoding.yaml" begin
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_integer_encoding.yaml")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_integer_encoding.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => 8,
@@ -224,13 +224,13 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs from-param-files: param_without_wildcards.yaml" begin
+@testset "Test tmle_inputs from-param-file: param_without_wildcards.yaml" begin
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("paramfile" => joinpath("config", "param_without_wildcards.yaml")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "param_without_wildcards.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => 2,

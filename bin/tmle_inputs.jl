@@ -11,7 +11,7 @@ function parse_commandline()
                    "baal-nf pipeline (https://git.ecdf.ed.ac.uk/oalmelid/baal-nf), trans-actors "*
                    " and potential additional exposures from an external trait dataset."
         
-        "from-param-files"
+        "from-param-file"
             action = :command
             help = "Will assume Parameter files (see README.md) to be given."
 
@@ -88,7 +88,7 @@ function parse_commandline()
             help = "If true, genotypes are encoded as the number of minor alleles."
     end
 
-    @add_arg_table s["from-param-files"] begin
+    @add_arg_table s["from-param-file"] begin
         "paramfile"
             arg_type = String
             help = "Parameter file"
