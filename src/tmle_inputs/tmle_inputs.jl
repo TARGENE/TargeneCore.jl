@@ -7,14 +7,16 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-yaml_out_path(prefix, index) = string(prefix, ".param_$index.yaml")
-
-function write_tmle_inputs(outprefix, final_dataset, param_files)
+function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=nothing)
     # Write final_dataset
     CSV.write(string(outprefix, ".data.csv"), final_dataset)
     # Write param_files
-    for (index, param_file) in enumerate(param_files)
-        YAML.write_file(yaml_out_path(outprefix, index), param_file)
+    if batch_size !== nothing
+        for (index, batch) in enumerate(Iterators.partition(parameters, batch_size))
+            parameters_to_yaml(string(outprefix, ".param_", index, ".yaml"), batch)
+        end
+    else
+        parameters_to_yaml(string(outprefix, ".param.yaml"), parameters)
     end
 end
 
@@ -47,7 +49,8 @@ function read_bgen(filepath)
     return Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
 end
 
-all_snps_called(found_snps::Set, snp_list) = Set(snp_list) == found_snps
+all_snps_called(found_variants::Set{<:AbstractString}, variants::Set{<:AbstractString}) = 
+    variants == found_variants
 
 """
     genotypes_encoding(variant; asint=true)
@@ -77,20 +80,20 @@ NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsi
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=true)
+function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, threshold::Real; asint=true)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
-    found_snps = Set()
+    found_variants = Set{String}()
     for filename in readdir(chr_dir)
-        all_snps_called(found_snps, snp_list) ? break : nothing
+        all_snps_called(found_variants, variants) ? break : nothing
         if is_numbered_chromosome_file(filename, prefix_)
             bgenfile = read_bgen(joinpath(chr_dir_, filename))
             chr_genotypes = DataFrame(SAMPLE_ID=bgenfile.samples)
             for variant in BGEN.iterator(bgenfile)
                 rsid_ = rsid(variant)
-                if rsid_ ∈ snp_list
-                    push!(found_snps, rsid_)
+                if rsid_ ∈ variants
+                    push!(found_variants, rsid_)
                     if n_alleles(variant) != 2
                         @warn("Skipping $rsid_, not bi-allelic")
                         continue
@@ -106,16 +109,36 @@ function call_genotypes(bgen_prefix::String, snp_list, threshold::Real; asint=tr
                     innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
         end
     end
-    all_snps_called(found_snps, snp_list) || throw(NotAllVariantsFoundError(found_snps, snp_list))
+    all_snps_called(found_variants, variants) || throw(NotAllVariantsFoundError(found_variants, variants))
     return genotypes
 end
 
-setting_iterator(::Type{IATE}, interaction_setting) = Iterators.product(interaction_setting...)
-setting_iterator(::Type{ATE}, ate_setting) = zip(ate_setting...)
-setting_iterator(::Type{CM}, cm_setting) = zip(cm_setting...)
 
-function satisfies_positivity(param_type::Type{<:TMLE.Parameter}, treatment_setting, freqs; positivity_constraint=0.01)
-    for base_setting in setting_iterator(param_type, treatment_setting)
+sorted_treatment_names(Ψ) = tuple(sort(collect(keys(Ψ.treatment)))...)
+
+function setting_iterator(Ψ::IATE)
+    treatments = sorted_treatment_names(Ψ)
+    return (
+        NamedTuple{treatments}(collect(Tval)) for 
+            Tval in Iterators.product((values(Ψ.treatment[T]) for T in treatments)...)
+    )
+end
+
+function setting_iterator(Ψ::ATE)
+    treatments = sorted_treatment_names(Ψ)
+    return (
+        NamedTuple{treatments}([(Ψ.treatment[T][c]) for T in treatments])
+            for c in (:case, :control)
+    )
+end
+
+function setting_iterator(Ψ::CM)
+    treatments = sorted_treatment_names(Ψ)
+    return (NamedTuple{treatments}(Ψ.treatment[T] for T in treatments), )
+end
+
+function satisfies_positivity(Ψ::TMLE.Parameter, freqs; positivity_constraint=0.01)
+    for base_setting in setting_iterator(Ψ)
         if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
             return false
         end
@@ -123,11 +146,12 @@ function satisfies_positivity(param_type::Type{<:TMLE.Parameter}, treatment_sett
     return true
 end
 
-function frequency_table(treatments, treatment_tuple::AbstractVector)
+function frequency_table(data, treatments::AbstractVector)
+    treatments = sort(treatments)
     freqs = Dict()
-    N = nrow(treatments)
-    for (key, group) in pairs(groupby(treatments, treatment_tuple; skipmissing=true))
-        freqs[values(key)] = nrow(group) / N
+    N = nrow(data)
+    for (key, group) in pairs(groupby(data, treatments; skipmissing=true))
+        freqs[NamedTuple(key)] = nrow(group) / N
     end
     return freqs
 end
@@ -137,32 +161,11 @@ read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
 
 pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
 
-all_confounders(pcs, extraW::Nothing) = pcnames(pcs)
-all_confounders(pcs, extraW) = vcat(pcnames(pcs), extraW)
+all_confounders(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
+all_confounders(pcs, extraW) = Symbol.(vcat(pcnames(pcs), extraW))
 
-targets_from_traits(traits, non_targets) = filter(x -> x ∉ non_targets, names(traits))
+targets_from_traits(traits, non_targets) = Symbol.(filter(x -> x ∉ non_targets, names(traits)))
 
-
-function add_batchified_param_files!(new_param_files, param_file, variables, batch_size)
-    param_files = batched_param_files(param_file, variables, batch_size)
-    append!(new_param_files, param_files)
-end
-
-function batched_param_files(param_file, phenotypes_list, batch_size::Nothing)
-    param_file = copy(param_file)
-    param_file["Y"] = phenotypes_list
-    return [param_file]
-end
-
-function batched_param_files(param_file, phenotypes_list, batch_size::Int)
-    new_param_files = []
-    for batch in Iterators.partition(phenotypes_list, batch_size)
-        batched_param_file = copy(param_file)
-        batched_param_file["Y"] = batch
-        push!(new_param_files, batched_param_file)
-    end
-    return new_param_files
-end
 
 function merge(traits, pcs, genotypes)
     return innerjoin(
@@ -173,17 +176,25 @@ function merge(traits, pcs, genotypes)
 end
 
 
+function update_parameters_from_targets!(parameters, Ψ::T, targets) where T
+    for target in targets
+        push!(
+            parameters, 
+            T(target=target, treatment=Ψ.treatment, confounders=Ψ.confounders, covariates=Ψ.covariates)
+        )
+    end
+end
 """
     tmle_inputs(parsed_args)
 
 Support for the generation of parameters according to 2 strategies:
 - from-actors
-- from-param-files
+- from-param-file
 """
 function tmle_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "from-actors"
         tmle_inputs_from_actors(parsed_args)
-    elseif parsed_args["%COMMAND%"] == "from-param-files"
+    elseif parsed_args["%COMMAND%"] == "from-param-file"
         tmle_inputs_from_param_files(parsed_args)
     else
         throw(ArgumentError("Unrecognized command."))

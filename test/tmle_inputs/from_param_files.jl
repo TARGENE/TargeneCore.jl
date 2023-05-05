@@ -9,155 +9,76 @@ using TMLE
 
 include("test_utils.jl")
 
-
 #####################################################################
 ###############               UNIT TESTS              ###############
 #####################################################################
 
-@testset "Test snps_and_variables_from_param_files" begin
-    pcs = TargeneCore.read_data(joinpath("data", "pcs.csv"))
+@testset "Test get_variables" begin
     traits = TargeneCore.read_data(joinpath("data", "traits_1.csv"))
+    pcs = TargeneCore.read_data(joinpath("data", "pcs.csv"))
     # extraW, extraT, extraC are parsed from all param_files
-    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param"))
-    snps, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
-    @test snps == ["RSID_2", "RSID_198"]
-    @test variables == Dict(
-        "Y"           => ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2"],
-        "extraW"      => ["22001"],
-        "extraT"      => ["TREAT_1"],
-        "PCs"         => ["PC1", "PC2"],
-        "extraC"      => ["COV_1", "21003", "22001"]
-    )
-
-    # In the following scenario, some variables are interpreted as targets while they shouldnt
-    # because no parameter file describes them otherwise. This does not lead to any error since
-    # those variables can be interpreted as either binary or continuous variables.
-    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_1_with"))
-    snps, variables = TargeneCore.snps_and_variables_from_param_files(param_files, pcs, traits)
-    @test snps == ["RSID_2"]
-    @test variables == Dict(
-        "Y"           => ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1", "21003", "22001",],
-        "extraW"      => [],
-        "extraT"      => ["TREAT_1"],
-        "PCs"         => ["PC1", "PC2"],
-        "extraC"      => [],
-    )
+    param_groups = parameters_from_yaml(joinpath("config", "parameters_integer_encoding.yaml"))
+    variables = TargeneCore.get_variables(param_groups, traits, pcs)
+    @test variables.variants == Set([:RSID_198, :RSID_2])
+    @test variables.targets == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
+    @test variables.pcs == Set([:PC1, :PC2])
 end
 
 @testset "Test get_genotype_encoding" begin
+    variants = Set([:RSID_2, :RSID_198])
     # Throwing because one is Integer representation and the other a String
-    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_2"))
-    @test_throws TargeneCore.MismatchedCaseControlEncodingError() TargeneCore.get_genotype_encoding(param_files, ["RSID_2", "RSID_198"])
+    parameters = parameters_from_yaml(joinpath("config", "parameters_corrupted_encodings.yaml"))
+    @test_throws TargeneCore.MismatchedCaseControlEncodingError() TargeneCore.get_genotype_encoding(parameters, variants)
     # Only string is fine
-    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))
-    genotypes_asint = TargeneCore.get_genotype_encoding(param_files, ["RSID_2", "RSID_198"])
+    parameters = parameters_from_yaml(joinpath("config", "parameters_string_encoding.yaml"))
+    genotypes_asint = TargeneCore.get_genotype_encoding(parameters, variants)
     @test genotypes_asint == false
     # Only Int is fine
-    param_files = TargeneCore.param_dicts_from_files(joinpath("config", "param_1"))
-    genotypes_asint = TargeneCore.get_genotype_encoding(param_files, ["RSID_2"])
+    parameters = parameters_from_yaml(joinpath("config", "parameters_integer_encoding.yaml"))
+    genotypes_asint = TargeneCore.get_genotype_encoding(parameters, variants)
     @test genotypes_asint == true
 end
 
-@testset "Test adjust_treatment_encoding!" begin
+@testset "Test adjust_parameter_sections" begin
     ## With string encoded variants
     genotypes = DataFrame(
         SAMPLE_ID = [1, 2, 3],
         RSID_198 = ["GA", "GG", "AA"],
         RSID_2 = ["AG", "GG", "AA"],
     )
+    pcs = Set([:PC1, :PC2])
+    variants_alleles = Dict(:RSID_198 => Set(genotypes.RSID_198))
     # AG is not in the genotypes bu GA is
-    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))[1]
-    @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "AG", "control" => "AA")
-    TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
-    @test param_file["Parameters"][1]["RSID_198"] == Dict("case" => "GA", "control" => "AA")
+    Ψ = parameters_from_yaml(joinpath("config", "parameters_string_encoding.yaml"))[4]
+    @test Ψ.treatment.RSID_198 == (case="AG", control="AA")
+    new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
+    @test new_Ψ.target == Ψ.target
+    @test new_Ψ.covariates == Ψ.covariates
+    @test new_Ψ.confounders == [:PC1, :PC2]
+    @test new_Ψ.treatment == (
+        RSID_2 = (case = "AA", control = "GG"),
+        RSID_198 = (case = "GA", control = "AA")
+    )
+
     # If the allele is not present 
-    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_2_with"))[1]
-    genotypes.RSID_198 = ["AA", "GG", "AA"]
-    @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
+    variants_alleles = Dict(:RSID_198 => Set(["AA"]))
+    @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
     
     ## With integer encoded variants
     genotypes = DataFrame(
         SAMPLE_ID = [1, 2, 3],
         RSID_2 = [1, 2, 0],
     )
-    param_file = TargeneCore.param_dicts_from_files(joinpath("config", "param_1.yaml"))[1]
-    copied_param_file = deepcopy(param_file)
-    TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
-    @test param_file == copied_param_file
-    genotypes.RSID_2 = [2, 2, 0]
-    @test_throws TargeneCore.AbsentAlleleError("RSID_2", 1) TargeneCore.adjust_treatment_encoding!(param_file, genotypes)
-end
+    variants_alleles = Dict(:RSID_2 => Set(genotypes.RSID_2))
+    Ψ = TargeneCore.parameters_from_yaml(joinpath("config", "parameters_integer_encoding.yaml"))[1]
+    new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
+    @test new_Ψ.target == Ψ.target
+    @test new_Ψ.covariates == Ψ.covariates
+    @test new_Ψ.confounders == [:PC1, :PC2]
+    @test new_Ψ.treatment == Ψ.treatment
 
-@testset "Test treatment_setting_from_param_dict & positivity_respecting_parameters" begin
-    data = DataFrame(
-        A = [1, 1, 0, 1, 0, 2, 2, 1],
-        B = ["AC", "CC", "AC", "AA", "AA", "AA", "AA", "AA"]
-    )
-    ## One variable
-    params_dict = Dict(
-        "T" => ["A"],
-        "Parameters" => [
-            Dict(
-                "name" => "CM",
-                "A" => 1
-            ),
-            Dict(
-                "name" => "ATE",
-                "A" => Dict("case" => 1, "control" => 0)
-            )
-        ]
-    )
-    treatment_variables = params_dict["T"]
-    cm_param_dict = params_dict["Parameters"][1]
-    control_case_setting = TargeneCore.treatment_setting_from_param_dict(CM, cm_param_dict, treatment_variables)
-    @test control_case_setting == [(1,)]
-    ate_param_dict = params_dict["Parameters"][2]
-    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate_param_dict, treatment_variables)
-    @test control_case_setting == [(0, 1)]
-    
-    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.)
-    @test passing_params_dicts == params_dict["Parameters"]
-    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.5)
-    @test passing_params_dicts == [params_dict["Parameters"][1]]
-    @test_throws TargeneCore.NoRemainingParamsError(0.6) TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.6)
-
-    ## Two variables
-    params_dict = Dict(
-        "T" => ["A", "B"],
-        "Parameters" => [
-            Dict(
-                "name" => "ATE",
-                "A" => Dict("case" => 1, "control" => 0),
-                "B" => Dict("case" => "AA", "control" => "CC"),
-            ),
-            Dict(
-                "name" => "ATE",
-                "A" => Dict("case" => 1, "control" => 0),
-                "B" => Dict("case" => "AC", "control" => "AA"),
-            ),
-            Dict(
-                "name" => "IATE",
-                "A" => Dict("case" => 1, "control" => 0),
-                "B" => Dict("case" => "AC", "control" => "AA"),
-            )
-        ]
-    )
-    treatment_variables = params_dict["T"]
-    ate1_param_dict = params_dict["Parameters"][1]
-    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate1_param_dict, treatment_variables)
-    @test control_case_setting == [(0, 1), ("CC", "AA")]
-    ate2_param_dict = params_dict["Parameters"][2]
-    control_case_setting = TargeneCore.treatment_setting_from_param_dict(ATE, ate2_param_dict, treatment_variables)
-    @test control_case_setting == [(0, 1), ("AA", "AC")]
-    iate_param_dict = params_dict["Parameters"][3]
-    control_case_setting = TargeneCore.treatment_setting_from_param_dict(IATE, iate_param_dict, treatment_variables)
-    @test control_case_setting == [(0, 1), ("AA", "AC")]
-    
-    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.)
-    @test passing_params_dicts == [params_dict["Parameters"][2], params_dict["Parameters"][3]]
-    passing_params_dicts = TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.125)
-    @test passing_params_dicts == [params_dict["Parameters"][2], params_dict["Parameters"][3]]
-    @test_throws TargeneCore.NoRemainingParamsError(0.2) TargeneCore.positivity_respecting_parameters(params_dict, data; positivity_constraint=0.2)
+    variants_alleles = Dict(:RSID_2 => Set([]))
+    @test_throws TargeneCore.AbsentAlleleError("RSID_2", 1) TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
 end
 
 #####################################################################
@@ -165,167 +86,194 @@ end
 #####################################################################
 
 
-@testset "Test tmle_inputs from-param-files: scenario 1" begin
+@testset "Test tmle_inputs from-param-file: parameters_string_encoding.yaml" begin
     # Genotypes encoded as strings
+    # No batching of parameter files
+    # No positivity constraint
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_2_with_string_case_control.yaml")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_string_encoding.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => nothing,
+        "batch-size" => nothing,
         "positivity-constraint" => 0.,
     )
 
     tmle_inputs(parsed_args)
 
-    # Data Files
+    ## Data File
     data = CSV.read("final.data.csv", DataFrame)
     @test names(data) == [
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
         "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
         "PC1", "PC2", "RSID_2", "RSID_198"
     ]
-    # Parameter file:
-    input_param_file = YAML.load_file(parsed_args["from-param-files"]["param-prefix"])
-    out_param_file = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
-    # Added sections, all but 22001 are considered traits
-    @test out_param_file["W"] == ["PC1", "PC2"]
-    @test out_param_file["C"] == [22001]
-    @test out_param_file["Y"] == ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1", "21003", "TREAT_1"]
-    # The rest is unchanged
-    @test out_param_file["T"] == input_param_file["T"]
-    @test out_param_file["Parameters"] == input_param_file["Parameters"]
+    @test size(data) == (490, 13)
 
+    ## Parameter file:
+    # There are 5 initial parameters containing a *
+    # Those are duplicated for each of the 4 targets.
+    # The PCs are appended to the confounders.
+    # GA is corrected to AG to match the data
+    outparameters = parameters_from_yaml("final.param.yaml")
+    # Input parameters 2 and 3 (ATE and CM) share treatment, confounders, covariates and will be grouped together
+    # Input parameters 4 and 5 (ATE and CM again) share treatment, confounders, covariates and will be grouped together
+    expected_parameters = [
+        ATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        CM(:BINARY_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        ATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        CM(:BINARY_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        ATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        CM(:CONTINUOUS_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        ATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        CM(:CONTINUOUS_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+        ATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
+        CM(:BINARY_1, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
+        ATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
+        CM(:BINARY_2, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
+        ATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
+        CM(:CONTINUOUS_1, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
+        ATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
+        CM(:CONTINUOUS_2, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
+        IATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+        IATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+        IATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+        IATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+    ]
+    @test outparameters == expected_parameters
     cleanup()
 
     # Increase positivity constraint
-    parsed_args["positivity-constraint"] = 0.02
+    parsed_args["positivity-constraint"] = 0.01
     tmle_inputs(parsed_args)
-    out_param_file = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
-    @test length(out_param_file["Parameters"]) == 1
-    @test out_param_file["Parameters"][1]["name"] == "CM"
+    # The IATES are the most sensitives
+    outparameters = parameters_from_yaml("final.param.yaml")
+    @test all(Ψ isa Union{CM, ATE} for Ψ in outparameters)
+    @test size(outparameters, 1) == 16
+
     cleanup()
 
-    # Increase positivity constraint
-    parsed_args["positivity-constraint"] = 0.5
-    @test_throws TargeneCore.NoRemainingParamsError(0.5) tmle_inputs(parsed_args)
+    parsed_args["positivity-constraint"] = 1.
+    @test_throws TargeneCore.NoRemainingParamsError(1.) tmle_inputs(parsed_args)
 
 end
 
-@testset "Test tmle_inputs from-param-files: scenario 2" begin
+@testset "Test tmle_inputs from-param-file: parameters_integer_encoding.yaml" begin
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_2.yaml")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "parameters_integer_encoding.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => nothing,
+        "batch-size" => 8,
         "positivity-constraint" => 0.,
     )
 
     tmle_inputs(parsed_args)
-    param_file = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
-    @test param_file == Dict(
-        "Y"          => ["BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", "COV_1", "21003", "TREAT_1"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2", "RSID_198"],
-        "C"          => [22001],
-        "Parameters" => [Dict("name"=>"ATE", "RSID_2"=>Dict("case"=>1, "control"=>0), "RSID_198"=>Dict("case"=>1, "control"=>0))]
-    )
+    ## Data File
+    data = CSV.read("final.data.csv", DataFrame)
+    @test names(data) == [
+        "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
+        "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
+        "PC1", "PC2", "RSID_2", "RSID_198"
+    ]
+    @test size(data) == (490, 13)
 
+    ## Parameter files:
+    # There are 5 initial parameters containing a *
+    # Those are duplicated for each of the 4 targets.
+    # The PCs are appended to the confounders.
+    # Parameters are batched by 6
+    expected_parameters = Dict(
+        1 => [
+            ATE(:BINARY_1, (RSID_2 = (case = 1, control = 0),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            CM(:BINARY_1, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            ATE(:BINARY_2, (RSID_2 = (case = 1, control = 0),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            CM(:BINARY_2, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            ATE(:CONTINUOUS_1, (RSID_2 = (case = 1, control = 0),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            CM(:CONTINUOUS_1, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            ATE(:CONTINUOUS_2, (RSID_2 = (case = 1, control = 0),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            CM(:CONTINUOUS_2, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")])
+        ],
+        2 => [
+            ATE(:BINARY_1, (RSID_2 = (case = 1, control = 0), RSID_198 = (case = 1, control = 0)), [:PC1, :PC2], [Symbol("22001")]),
+            CM(:BINARY_1, (RSID_2 = 0, RSID_198 = 0), [:PC1, :PC2], [Symbol("22001")]),
+            ATE(:BINARY_2, (RSID_2 = (case = 1, control = 0), RSID_198 = (case = 1, control = 0)), [:PC1, :PC2], [Symbol("22001")]),
+            CM(:BINARY_2, (RSID_2 = 0, RSID_198 = 0), [:PC1, :PC2], [Symbol("22001")]),
+            ATE(:CONTINUOUS_1, (RSID_2 = (case = 1, control = 0), RSID_198 = (case = 1, control = 0)), [:PC1, :PC2], [Symbol("22001")]),
+            CM(:CONTINUOUS_1, (RSID_2 = 0, RSID_198 = 0), [:PC1, :PC2], [Symbol("22001")]),
+            ATE(:CONTINUOUS_2, (RSID_2 = (case = 1, control = 0), RSID_198 = (case = 1, control = 0)), [:PC1, :PC2], [Symbol("22001")]),
+            CM(:CONTINUOUS_2, (RSID_2 = 0, RSID_198 = 0), [:PC1, :PC2], [Symbol("22001")])
+        ],
+        3 => [
+            IATE(:BINARY_1, (RSID_2 = (case = 1, control = 0), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+            IATE(:BINARY_2, (RSID_2 = (case = 1, control = 0), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+            IATE(:CONTINUOUS_1, (RSID_2 = (case = 1, control = 0), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
+            IATE(:CONTINUOUS_2, (RSID_2 = (case = 1, control = 0), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[])
+        ]
+    )
+    for index in 1:3
+        outparameters = parameters_from_yaml(string("final.param_", index, ".yaml"))
+        @test outparameters == expected_parameters[index]
+    end
     cleanup()
 end
 
-@testset "Test tmle_inputs from-param-files: scenario 3" begin
-    # Batched
+@testset "Test tmle_inputs from-param-file: param_without_wildcards.yaml" begin
     parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_1_with")), 
+        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "param_without_wildcards.yaml")), 
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
         "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
+        "%COMMAND%" => "from-param-file", 
         "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
-        "phenotype-batch-size" => 2,
+        "batch-size" => 2,
         "positivity-constraint" => 0.,
     )
     tmle_inputs(parsed_args)
-    iate_param = Dict[Dict("name"=>"IATE", "TREAT_1"=>Dict("case"=>1, "control"=>0), "RSID_2"=>Dict("case"=>1, "control"=>0))]
-    # 2 first variables in a batch
-    param_file_1 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
-    @test param_file_1 == Dict(
-        "Y"          => ["BINARY_1", "BINARY_2"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2", "TREAT_1"],
-        "Parameters" => iate_param
+    
+    ## Data File
+    data = CSV.read("final.data.csv", DataFrame)
+    @test names(data) == [
+        "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
+        "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
+        "PC1", "PC2", "RSID_2"
+    ]
+    @test size(data) == (490, 12)
+
+    ## Parameter files:
+    # There are 3 initial parameters, 1 containing a *
+    # that will be duplicated for each of the 4 targets.
+    # The PCs are appended to the confounders.
+    # Parameters are batched by 2
+    expected_parameters = Dict(
+        1 => [
+            CM(:BINARY_1, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            CM(:BINARY_2, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")])
+        ],
+        2 => [
+            CM(:CONTINUOUS_1, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            ATE(:CONTINUOUS_2, (RSID_2 = (case = 1, control = 0),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")])
+        ],
+        3 => [
+            CM(:CONTINUOUS_2, (RSID_2 = 1,), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
+            IATE(:BINARY_1, (RSID_2 = (case = 1, control = 0), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[])
+        ]
     )
-    # CONTINUOUS_1 and CONTINUOUS_2
-    param_file_2 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 2))
-    @test param_file_2 == Dict(
-        "Y"          => ["CONTINUOUS_1", "CONTINUOUS_2"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2", "TREAT_1"],
-        "Parameters" => iate_param
-    )
-    # COV_1 and 21003
-    param_file_3 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 3))
-    @test param_file_3 == Dict(
-        "Y"          => ["COV_1", "21003"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2", "TREAT_1"],
-        "Parameters" => iate_param
-    )
-    # 22001
-    param_file_4 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 4))
-    @test param_file_4 == Dict(
-        "Y"          => ["22001"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2", "TREAT_1"],
-        "Parameters" => iate_param
-    )
-    @test !isfile(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 5))
+    for index in 1:3
+        outparameters = parameters_from_yaml(string("final.param_", index, ".yaml"))
+        @test outparameters == expected_parameters[index]
+    end
+
     cleanup()
 end
 
-@testset "Test tmle_inputs from-param-files: scenario 4" begin
-    parsed_args = Dict(
-        "from-param-files" => Dict{String, Any}("param-prefix" => joinpath("config", "param_with_specified_targets")), 
-        "traits" => joinpath("data", "traits_1.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
-        "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-files", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
-        "out-prefix" => "final", 
-        "phenotype-batch-size" => nothing,
-        "positivity-constraint" => 0.,
-    )
-    tmle_inputs(parsed_args)
-
-    # One parameter file has no extra covariates
-    param_file_1 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 1))
-    @test param_file_1 == Dict(
-        "Y"          => ["BINARY_1", "CONTINUOUS_1"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2"],
-        "Parameters" => [Dict("name"=>"ATE", "RSID_2"=>Dict("case"=>1, "control"=>0))]
-    )
-
-    # originating from a parameter file with extra covariates
-    param_file_2 = YAML.load_file(TargeneCore.yaml_out_path(parsed_args["out-prefix"], 2))
-    @test param_file_2 == Dict(
-        "Y"          => ["BINARY_1"],
-        "W"          => ["PC1", "PC2"],
-        "T"          => ["RSID_2"],
-        "C"          => ["COV_1", 21003],
-        "Parameters" => [Dict("name"=>"ATE", "RSID_2"=>Dict("case"=>1, "control"=>0))]
-    )
-    cleanup()
-end
 
 end
 
