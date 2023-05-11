@@ -148,23 +148,38 @@ function get_variables(pcs, traits, extraW, extraC, extraT)
     )
 end
 
-function parameters_from_actors(bqtls, transactors, data, variables, orders; positivity_constraint=0.)
+function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
     parameters = TMLE.Parameter[]
+    batch_id = 1
     extraT_df = variables.extra_treatments isa Nothing ? nothing : DataFrame(ID=variables.extra_treatments)
     # For each interaction order generate parameter files
     for order in orders
         # First generate the `T` section
         treatment_combinations = TargeneCore.combine_by_bqtl(bqtls, transactors, extraT_df, order)
         for treatments in treatment_combinations
-            # Generate `Parameters` section
             addParameters!(parameters, treatments, variables, data; positivity_constraint=positivity_constraint)
+
+            if batch_size !== nothing && size(parameters, 1) >= batch_size
+                optimize_ordering!(parameters)
+                for batch in Iterators.partition(parameters, batch_size)
+                    if size(batch, 1) >= batch_size
+                        parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+                        batch_id += 1
+                    else
+                        parameters = collect(batch)
+                    end
+                end
+            end
+            
         end
     end
 
-    length(parameters) > 0 || throw(NoRemainingParamsError(positivity_constraint))
-    optimize_ordering!(parameters)
-
-    return parameters
+    if length(parameters) == 0
+        batch_id != 1 || throw(NoRemainingParamsError(positivity_constraint))
+    else
+        optimize_ordering!(parameters)
+        parameters_to_yaml(param_batch_name(outprefix, batch_id), parameters)
+    end
 end
 
 
@@ -194,11 +209,11 @@ function tmle_inputs_from_actors(parsed_args)
 
     # Parameter files
     variables = TargeneCore.get_variables(pcs, traits, extraW, extraC, extraT)
-    parameters = TargeneCore.parameters_from_actors(
-        bqtls, transactors, data, variables, orders; 
-        positivity_constraint=positivity_constraint
+    TargeneCore.parameters_from_actors(
+        bqtls, transactors, data, variables, orders, outprefix; 
+        positivity_constraint=positivity_constraint, batch_size=batch_size
     )
 
-    # write data and parameter files
-    write_tmle_inputs(outprefix, data, parameters; batch_size=batch_size)
+    # write data
+    CSV.write(string(outprefix, ".data.csv"), data)
 end

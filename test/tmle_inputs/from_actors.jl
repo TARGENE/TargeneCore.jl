@@ -287,7 +287,7 @@ end
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 
-    outparameters = parameters_from_yaml("final.param.yaml")
+    outparameters = parameters_from_yaml("final.param_1.yaml")
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
