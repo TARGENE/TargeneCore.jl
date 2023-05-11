@@ -1,5 +1,8 @@
 const CHR_REG = r"chr[1-9]+"
 
+param_batch_name(outprefix, batch_id) = string(outprefix, ".param_", batch_id, ".yaml")
+
+
 """
     read_data(filepath)
 
@@ -12,8 +15,8 @@ function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=noth
     CSV.write(string(outprefix, ".data.csv"), final_dataset)
     # Write param_files
     if batch_size !== nothing
-        for (index, batch) in enumerate(Iterators.partition(parameters, batch_size))
-            parameters_to_yaml(string(outprefix, ".param_", index, ".yaml"), batch)
+        for (batch_id, batch) in enumerate(Iterators.partition(parameters, batch_size))
+            parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
         end
     else
         parameters_to_yaml(string(outprefix, ".param.yaml"), parameters)
