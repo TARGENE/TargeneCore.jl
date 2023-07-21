@@ -8,6 +8,7 @@ using Mmap
 using YAML
 using Combinatorics
 using TMLE
+using Arrow
 
 
 ###############################################################################

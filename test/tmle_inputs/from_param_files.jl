@@ -6,6 +6,7 @@ using DataFrames
 using TargeneCore
 using YAML
 using TMLE
+using Arrow
 
 include("test_utils.jl")
 
@@ -74,7 +75,7 @@ end
     tmle_inputs(parsed_args)
 
     ## Data File
-    data = CSV.read("final.data.csv", DataFrame)
+    data = DataFrame(Arrow.Table("final.data.arrow"))
     @test names(data) == [
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
         "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
@@ -144,7 +145,7 @@ end
     tmle_inputs(parsed_args)
     
     ## Data File
-    data = CSV.read("final.data.csv", DataFrame)
+    data = DataFrame(Arrow.Table("final.data.arrow"))
     @test names(data) == [
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
         "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 

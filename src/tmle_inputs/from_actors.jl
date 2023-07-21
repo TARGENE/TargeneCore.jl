@@ -214,5 +214,5 @@ function tmle_inputs_from_actors(parsed_args)
     )
 
     # write data
-    CSV.write(string(outprefix, ".data.csv"), data)
+    Arrow.write(string(outprefix, ".data.arrow"), data)
 end

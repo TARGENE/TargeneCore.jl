@@ -12,7 +12,7 @@ read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => Str
 
 function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=nothing)
     # Write final_dataset
-    CSV.write(string(outprefix, ".data.csv"), final_dataset)
+    Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write param_files
     if batch_size !== nothing
         for (batch_id, batch) in enumerate(Iterators.partition(parameters, batch_size))
