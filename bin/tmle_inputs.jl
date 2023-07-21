@@ -82,10 +82,6 @@ function parse_commandline()
             required = false
             help = "Interaction orders to be estimated"
             default = "1,2"
-
-        "--genotypes-as-int"
-            action = :store_true
-            help = "If true, genotypes are encoded as the number of minor alleles."
     end
 
     @add_arg_table s["from-param-file"] begin

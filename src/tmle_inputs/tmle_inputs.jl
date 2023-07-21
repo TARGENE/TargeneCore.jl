@@ -56,22 +56,13 @@ all_snps_called(found_variants::Set{<:AbstractString}, variants::Set{<:AbstractS
     variants == found_variants
 
 """
-    genotypes_encoding(variant; asint=true)
+    genotypes_encoding(variant)
 
-If asint is true then the number of minor alleles is reported, otherwise string genotypes are reported.
+String genotypes are reported.
 """
-function genotypes_encoding(variant; asint=true)
-    minor = minor_allele(variant)
+function genotypes_encoding(variant)
     all₁, all₂ = alleles(variant)
-    if asint
-        if all₁ == minor
-            return [2, 1, 0]
-        else
-            return [0, 1, 2]
-        end
-    else
-        return [all₁*all₁, all₁*all₂, all₂*all₂]
-    end
+    return [all₁*all₁, all₁*all₂, all₂*all₂]
 end
 
 NotAllVariantsFoundError(found_snps, snp_list) = 
@@ -83,7 +74,7 @@ NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsi
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, threshold::Real; asint=true)
+function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, threshold::Real)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
@@ -102,7 +93,7 @@ function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, th
                         continue
                     end
                     minor_allele_dosage!(bgenfile, variant)
-                    variant_genotypes = genotypes_encoding(variant; asint=asint)
+                    variant_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(rsid_))
                     chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)

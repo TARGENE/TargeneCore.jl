@@ -194,7 +194,6 @@ function tmle_inputs_from_actors(parsed_args)
     orders = TargeneCore.parse_orders(parsed_args["from-actors"]["orders"])
     extraW = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-confounders"])
     extraC = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-covariates"])
-    genotypes_asint = parsed_args["from-actors"]["genotypes-as-int"]
 
     # Retrieve SNPs and environmental treatments
     bqtls, transactors, extraT = TargeneCore.treatments_from_actors(
@@ -204,7 +203,7 @@ function tmle_inputs_from_actors(parsed_args)
     )
     # Genotypes and final dataset
     variants = TargeneCore.all_variants(bqtls, transactors)
-    genotypes = TargeneCore.call_genotypes(bgen_prefix, variants, call_threshold; asint=genotypes_asint)
+    genotypes = TargeneCore.call_genotypes(bgen_prefix, variants, call_threshold)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files

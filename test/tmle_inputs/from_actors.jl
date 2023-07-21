@@ -264,7 +264,6 @@ end
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
             "orders" => "1,2",
-            "genotypes-as-int" => true
             ),
         "traits" => joinpath("data", "traits_1.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
@@ -308,7 +307,7 @@ end
         @test Ψ.confounders == [:PC1, :PC2]
         # The first treatment will be a bqtl
         @test keys(Ψ.treatment)[1] ∈ bqtls
-        @test Ψ.treatment[1].case isa Int
+        @test Ψ.treatment[1].case isa AbstractString
         @test length(Ψ.treatment) ∈ [1, 2]
         found_targets[Ψ.target] += 1
     end
@@ -339,7 +338,6 @@ end
             "extra-treatments" => nothing,
             "extra-confounders" => joinpath("data", "extra_confounders.txt"),
             "orders" => "2,3",
-            "genotypes-as-int" => false
             ),
         "traits" => joinpath("data", "traits_2.csv"),
         "pcs" => joinpath("data", "pcs.csv"),
