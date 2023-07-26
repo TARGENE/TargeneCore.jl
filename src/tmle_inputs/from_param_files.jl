@@ -26,33 +26,6 @@ end
 check_genotypes_encoding(val::T, type) where T = 
     T <: type || throw(MismatchedCaseControlEncodingError())
 
-get_genotype_encoding(val::NamedTuple) = typeof(val.case) <: Real ? Real : String
-get_genotype_encoding(val::T) where {T<:String} = String
-get_genotype_encoding(val::T) where {T<:Real} = Real
-get_genotype_encoding(val) = throw(ArgumentError(string("Genotype value(s):", val, " not allowed")))
-
-"""
-We enforce that all genotypes are encoded in the same way.
-That is either with an integer representing the number of minor alleles 
-or the string representation.
-"""
-function get_genotype_encoding(parameters, variants::Set{Symbol})
-    genotypes_encoding = nothing
-    for Ψ in parameters
-        for (T, val) in zip(keys(Ψ.treatment), Ψ.treatment)
-            if T in variants
-                if genotypes_encoding === nothing 
-                    genotypes_encoding = get_genotype_encoding(val)
-                else
-                    check_genotypes_encoding(val, genotypes_encoding)
-                end
-            end
-        end
-    end
-    return genotypes_encoding <: Real
-end
-
-
 
 function get_variables(parameters, traits, pcs)
     variants = Set{Symbol}()
@@ -74,9 +47,6 @@ end
 
 fix_mismatch(variant, allele::T, actual_alleles) where T = 
     throw(ArgumentError(string("Can't deal with ", variant, "'s allele ", allele, " of type: ", T)))
-
-fix_mismatch(variant, allele::Real, actual_alleles) = 
-    allele ∈ actual_alleles || throw(AbsentAlleleError(variant, allele))
 
 function fix_mismatch(variant, allele::String, actual_alleles)
     length(allele) == 2 || throw(NotSNPAndWontFixError(variant, allele))
@@ -203,12 +173,10 @@ function tmle_inputs_from_param_files(parsed_args)
 
     # Genotypes and full data
     variables = TargeneCore.get_variables(parameters, traits, pcs)
-    genotypes_asint = TargeneCore.get_genotype_encoding(parameters, variables.variants)
     genotypes = TargeneCore.call_genotypes(
         bgen_prefix, 
         Set(string.(variables.variants)), 
-        call_threshold; 
-        asint=genotypes_asint
+        call_threshold
     )
     data = TargeneCore.merge(traits, pcs, genotypes)
 

@@ -18,14 +18,12 @@ using TMLE
     minor_allele_dosage!(b, v)
     # The minor allele is the first one
     @test minor_allele(v) == alleles(v)[1]
-    @test TargeneCore.genotypes_encoding(v) == [2, 1, 0]
-    @test TargeneCore.genotypes_encoding(v, asint=false) == ["AA", "AG", "GG"]
+    @test TargeneCore.genotypes_encoding(v) == ["AA", "AG", "GG"]
     # The minor allele is the second one
     v = variant_by_rsid(b, "RSID_102")
     minor_allele_dosage!(b, v)
     @test minor_allele(v) == alleles(v)[2]
-    @test TargeneCore.genotypes_encoding(v) == [0, 1, 2]
-    @test TargeneCore.genotypes_encoding(v, asint=false) == ["AA", "AG", "GG"]
+    @test TargeneCore.genotypes_encoding(v) == ["AA", "AG", "GG"]
 end
 
 @testset "Test call_genotypes for a single SNP" begin
@@ -66,20 +64,7 @@ end
 @testset "Test call_genotypes for all SNPs" begin
     bgen_dir = joinpath("data", "ukbb", "imputed" , "ukbb")
     variants = Set(["RSID_10", "RSID_100"])
-    ## With asint=true
-    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95; asint=true)
-    # I only look at the first 10 rows
-    # SAMPLE_ID    
-    @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
-    # RSID_10
-    @test genotypes[1:10, "RSID_10"] == ones(10)
-    # RSID_100
-    @test all(genotypes[1:10, "RSID_100"] .=== [1, 2, 1, missing, 1, 1, missing, 1, 0, 1])
-    # Test column order
-    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
-
-    ## With asint=false
-    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95; asint=false)
+    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
     # I only look at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
