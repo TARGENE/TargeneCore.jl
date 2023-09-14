@@ -1,0 +1,11 @@
+Parameters:
+  - type: ATE
+    target: "*"
+    treatment: (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = 2, control = 1))
+    confounders: []
+    covariates: [22001]
+  - type: CM
+    target: "*"
+    treatment: (RSID_2 = "GG", RSID_198 = "AA")
+    confounders: []
+    covariates: [22001]

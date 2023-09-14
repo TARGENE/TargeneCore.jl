@@ -11,7 +11,7 @@ function parse_commandline()
                    "baal-nf pipeline (https://git.ecdf.ed.ac.uk/oalmelid/baal-nf), trans-actors "*
                    " and potential additional exposures from an external trait dataset."
         
-        "from-param-files"
+        "from-param-file"
             action = :command
             help = "Will assume Parameter files (see README.md) to be given."
 
@@ -41,12 +41,10 @@ function parse_commandline()
             required = true
             help = "Path to a genetic confounders file"
 
-        "--phenotype-batch-size"
+        "--batch-size"
             arg_type = Int
             required = false
-            help = "Further performance may be obtained by batching phenotypes in a"*
-                   " single Targeted Estimation run. If not specified, all phenotypes "*
-                   "constitute a batch."
+            help = "To split parameters in multiple files of size batch-size"
 
         "--positivity-constraint"
             arg_type = Float64
@@ -86,10 +84,10 @@ function parse_commandline()
             default = "1,2"
     end
 
-    @add_arg_table s["from-param-files"] begin
-        "param-prefix"
+    @add_arg_table s["from-param-file"] begin
+        "paramfile"
             arg_type = String
-            help = "Prefix to parameter files"
+            help = "Parameter file"
     end
 
     return parse_args(s)

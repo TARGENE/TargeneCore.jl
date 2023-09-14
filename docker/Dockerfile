@@ -1,4 +1,4 @@
-FROM julia:1.8.2-bullseye
+FROM julia:1.9.0-bullseye
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -22,4 +22,6 @@ RUN chmod a+x /usr/local/bin/gcta64
 COPY . /TargeneCore.jl 
 
 RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
+
+RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.test()'
 
