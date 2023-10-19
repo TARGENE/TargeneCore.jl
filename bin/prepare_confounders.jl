@@ -18,6 +18,8 @@ function parse_commandline()
         "--qcfile"
             help = "Path to the UKBiobank ukb_snp_qc.txt"
             arg_type = String
+            default = nothing
+            required = false
         "--maf-threshold", "-t"
             help = "SNPs with MAF lower than this value will be filtered out"
             arg_type = Float64
