@@ -23,6 +23,35 @@ function notin_ldblocks(row, ldblocks)
     end
 end
 
+ld_blocks_filter(data, ld_blocks_file::Nothing) = data
+
+function ld_blocks_filter(data, ld_blocks_file)
+    ld_blocks = CSV.File(
+        ld_blocks_file;
+        header=["rsid", "chr", "pos", "LDblock_lower", "LDblock_upper", "LDblock_length", "lower_bound", "upper_bound"]) |> DataFrame
+    ld_blocks.chr = string.(ld_blocks.chr)
+    transform!(ld_blocks,
+        :,
+        [:pos, :lower_bound, :upper_bound] => ByRow(bounds) => [:lower_bound, :upper_bound],
+        )
+    ld_blocks = groupby(ld_blocks, :chr)
+    return filter(x -> notin_ldblocks(x, ld_blocks), data)
+end
+
+ukb_qc_filter(data, qcfile::Nothing) = data
+
+function ukb_qc_filter(data, qcfile)
+    qc_df = CSV.File(qcfile) |> DataFrame
+    fully_genotyped_snps = innerjoin(
+        data, 
+        qc_df, 
+        on = :snpid => :rs_id,
+        makeunique = true
+    )
+    # Assayed in both genotyping arrays
+    return filter(:array => ==(2), fully_genotyped_snps)
+end
+
 
 """
     filter_chromosome(parsed_args)
@@ -34,18 +63,7 @@ We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
 function filter_chromosome(parsed_args)
-    
     snp_data = SnpData(parsed_args["input"])
-    # Load and redefine LD bounds
-    ld_blocks = CSV.File(
-        parsed_args["ld-blocks"];
-        header=["rsid","chr","pos","LDblock_lower","LDblock_upper","LDblock_length","lower_bound","upper_bound"]) |> DataFrame
-    ld_blocks.chr = string.(ld_blocks.chr)
-    transform!(ld_blocks,
-        :,
-        [:pos, :lower_bound, :upper_bound] => ByRow(bounds) => [:lower_bound, :upper_bound],
-        )
-    ld_blocks = groupby(ld_blocks, :chr)
 
     # Remove SNP's with MAF < maf-threshold
     maf_threshold = parsed_args["maf-threshold"]
@@ -53,29 +71,17 @@ function filter_chromosome(parsed_args)
     mafpassed = filter(:MAF => >=(maf_threshold), snp_data.snp_info)
     
     # Remove LD regions specified by ld_blocks
-    ld_pruned = filter(x -> notin_ldblocks(x, ld_blocks), mafpassed)
+    ld_pruned = ld_blocks_filter(mafpassed, parsed_args["ld-blocks"])
 
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
-    if parsed_args["qcfile"] !== nothing
-        qc_df = CSV.File(parsed_args["qcfile"]) |> DataFrame
-        fully_genotyped_snps = innerjoin(
-            ld_pruned, 
-            qc_df, 
-            on = :snpid => :rs_id,
-            makeunique = true
-        )
-        # Assayed in both genotyping arrays
-        assayed = filter(:array => ==(2), fully_genotyped_snps)
-    else
-        assayed = ld_pruned
-    end
+    qced = ukb_qc_filter(ld_pruned, parsed_args["qcfile"])
 
     # If an RSID appears multiple times, it is because it has 
     # more than 2 possible alleles: we remove them 
     # (why? maybe because the PCA then cannot tackle them)
-    duplicate_rsids = Set(assayed.snpid[nonunique(assayed, ["snpid"])])
-    biallelic = filter(:snpid=>∉(duplicate_rsids), assayed)
+    duplicate_rsids = Set(qced.snpid[nonunique(qced, ["snpid"])])
+    biallelic = filter(:snpid=>∉(duplicate_rsids), qced)
 
     # Keep only actual SNPs and not other kinds of variants
     actual_snps = subset(biallelic, :allele1 => ByRow(issnp), :allele2 => ByRow(issnp))

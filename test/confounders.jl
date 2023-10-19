@@ -12,7 +12,6 @@ function clean(parsed_args)
     end
 end
 
-
 @testset "Various functions" begin
     # Test issnp
     @test TargeneCore.issnp("A") == true
@@ -37,11 +36,12 @@ end
 end
 
 @testset "Test filter_chromosome" begin
+    # All options provided
     parsed_args = Dict(
         "input"  => SnpArrays.datadir("mouse"),
         "output" => joinpath("data", "filtered-mouse"),
         "qcfile" => joinpath("data", "ukbb", "qcfile.txt"),
-        "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
+        "ld-blocks" => joinpath("data", "LD_blocks.txt"),
         "maf-threshold" => 0.31,
         "traits" => joinpath("data", "sample_ids.txt")
     )
@@ -53,16 +53,15 @@ end
     @test size(filtered.snparray) == (5, 1)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
-    # Clean
+    
     clean(parsed_args)
 
-    # Now for no qc file provided
-
+    # No qc file provided
     parsed_args = Dict(
         "input"  => SnpArrays.datadir("mouse"),
         "output" => joinpath("data", "filtered-mouse"),
         "qcfile" => nothing,
-        "ld-blocks" => joinpath("data", "VDR_LD_blocks.txt"),
+        "ld-blocks" => joinpath("data", "LD_blocks.txt"),
         "maf-threshold" => 0.495,
         "traits" => joinpath("data", "sample_ids.txt")
     )
@@ -73,8 +72,28 @@ end
     @test size(filtered.snparray) == (5, 88)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
-    # Clean
+    
     clean(parsed_args)
+
+    # No ld-block file provided
+    parsed_args = Dict(
+        "input"  => SnpArrays.datadir("mouse"),
+        "output" => joinpath("data", "filtered-mouse"),
+        "qcfile" => nothing,
+        "ld-blocks" => nothing,
+        "maf-threshold" => 0.495,
+        "traits" => joinpath("data", "sample_ids.txt")
+    )
+    filter_chromosome(parsed_args)
+
+    filtered = SnpData(parsed_args["output"])
+    # More variants than the previous settings
+    @test size(filtered.snparray) == (5, 95)
+    @test filtered.person_info.iid == 
+        ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
+
+    clean(parsed_args)
+
 end
 
 @testset "Test merge_beds" begin
