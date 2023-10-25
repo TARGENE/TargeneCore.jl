@@ -222,7 +222,7 @@ end
     @test_throws ArgumentError TargeneCore.treatments_from_actors(1, nothing, nothing)
     @test_throws ArgumentError TargeneCore.treatments_from_actors(nothing, 1, nothing)
 
-    bqtl_file = joinpath("data", "bqtls.csv")
+    bqtl_file = joinpath("data", "bqtls_1.csv")
     trans_actors_prefix = joinpath("data", "trans_actors_1.csv")
     env_file = joinpath("data", "extra_treatments.txt")
     # bqtls and trans_actors
@@ -259,7 +259,7 @@ end
     # - Order 1,2
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
-            "bqtls" => joinpath("data", "bqtls.csv"), 
+            "bqtls" => joinpath("data", "bqtls_1.csv"), 
             "trans-actors-prefix" => joinpath("data", "trans_actors_1.csv"),
             "extra-covariates" => joinpath("data", "extra_covariates.txt"),
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
@@ -287,7 +287,7 @@ end
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 
-    outparameters = parameters_from_yaml("final.param_1.yaml")
+    outparameters = parameters_from_yaml("final.param_1_TF1.yaml")
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
@@ -333,7 +333,7 @@ end
     # - batched
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
-            "bqtls" => joinpath("data", "bqtls.csv"), 
+            "bqtls" => joinpath("data", "bqtls_1.csv"), 
             "trans-actors-prefix" => joinpath("data", "trans_actors_2"),
             "extra-covariates" => nothing,
             "extra-treatments" => nothing,
@@ -361,10 +361,10 @@ end
     @test size(traits) == (490, 13)
 
     # Parameter files: 
-    ouparameters_1 = parameters_from_yaml("final.param_1.yaml")
-    @test size(ouparameters_1, 1) == 100
-    ouparameters_2 = parameters_from_yaml("final.param_2.yaml")
-    outparameters = vcat(ouparameters_1, ouparameters_2)
+    outparameters_1 = parameters_from_yaml("final.param_1_TF1.yaml")
+    @test size(outparameters_1, 1) == 100
+    outparameters_2 = parameters_from_yaml("final.param_2_TF1.yaml")
+    outparameters = vcat(outparameters_1, outparameters_2)
     
     found_targets = Dict(
         :BINARY_1 => 0,
@@ -399,9 +399,86 @@ end
     parsed_args["positivity-constraint"] = 0.1
     tmle_inputs(parsed_args)
 
-    @test !isfile("final.param_2.yaml")
-    outparameters = parameters_from_yaml("final.param_1.yaml")
+    @test !isfile("final.param_2_TF1.yaml")
+    outparameters = parameters_from_yaml("final.param_1_TF1.yaml")
     @test size(outparameters, 1) == 6
+    cleanup()
+end
+
+@testset "Test tmle_inputs from-actors: scenario 3" begin
+    # Scenario:
+    # - Trans-actors
+    # - Extra Treatment
+    # - Extra Covariates
+    # - Order 1,2
+    # - More than 1 TF present
+    parsed_args = Dict(
+        "from-actors" => Dict{String, Any}(
+            "bqtls" => joinpath("data", "bqtls_2.csv"), 
+            "trans-actors-prefix" => joinpath("data", "trans_actors_2.csv"),
+            "extra-covariates" => joinpath("data", "extra_covariates.txt"),
+            "extra-treatments" => joinpath("data", "extra_treatments.txt"),
+            "extra-confounders" => nothing,
+            "orders" => "1,2",
+            ),
+        "traits" => joinpath("data", "traits_1.csv"),
+        "pcs" => joinpath("data", "pcs.csv"),
+        "call-threshold" => 0.8,  
+        "%COMMAND%" => "from-actors", 
+        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "out-prefix" => "final", 
+        "batch-size" => nothing,
+        "positivity-constraint" => 0.
+    )
+    bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
+    tmle_inputs(parsed_args)
+
+    ## Dataset file
+    trait_data = DataFrame(Arrow.Table("final.data.arrow"))
+    @test names(trait_data) == [
+        "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
+        "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
+        "RSID_17", "RSID_198", "RSID_99"]
+    @test size(trait_data) == (490, 16)
+    
+    ## Parameter file: 
+    outparameters = [parameters_from_yaml("final.param_1_TF1.yaml"), parameters_from_yaml("final.param_1_TF2.yaml")]
+    found_targets = Dict(
+        :BINARY_1 => 0,
+        :CONTINUOUS_2 => 0,
+        :CONTINUOUS_1 => 0,
+        :BINARY_2 => 0
+    )
+    for tf in [1,2]
+        outparameters_tf = outparameters[tf]
+        for Ψ in outparameters_tf
+            if Ψ isa ATE
+                ntreatments = length(Ψ.treatment)
+                if ntreatments > 1
+                    @test all(Ψ.treatment[index].case == Ψ.treatment[index].control for index ∈ 2:ntreatments)
+                end
+            else
+                @test Ψ isa IATE
+                @test all(cc.case != cc.control for cc ∈ Ψ.treatment)
+            end
+            @test Ψ.covariates == [:COV_1, Symbol("21003"), Symbol("22001")]
+            @test Ψ.confounders == [:PC1, :PC2]
+            # The first treatment will be a bqtl
+            @test keys(Ψ.treatment)[1] ∈ bqtls
+            @test Ψ.treatment[1].case isa AbstractString
+            @test length(Ψ.treatment) ∈ [1, 2]
+            found_targets[Ψ.target] += 1
+        end
+    end
+    # The number of parameters with various targets should be the same
+    @test all(x == found_targets[:BINARY_1] for x in values(found_targets))
+    # This is difficult to really check the ordering
+    # Those correspond to the simple bQTL ATE
+    for tf in [1,2]
+        first_treatments = keys(outparameters[tf][1].treatment)
+        @test all(keys(Ψ.treatment) == first_treatments for Ψ in outparameters[tf][1:12])
+    end
+
     cleanup()
 end
 
