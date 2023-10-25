@@ -1,6 +1,12 @@
 const CHR_REG = r"chr[1-9]+"
 
-param_batch_name(outprefix, batch_id) = string(outprefix, ".param_", batch_id, ".yaml")
+function param_batch_name(outprefix, batch_id, tf_name)
+    if isnothing(tf_name)
+        return string(outprefix, ".param_", batch_id, ".yaml") 
+    else 
+        return string(outprefix, ".param_", batch_id, "_", tf_name, ".yaml")
+    end
+end
 
 
 """
@@ -10,13 +16,13 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=nothing)
+function write_tmle_inputs(outprefix, final_dataset, parameters; tf_name=nothing, batch_size=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write param_files
     if batch_size !== nothing
         for (batch_id, batch) in enumerate(Iterators.partition(parameters, batch_size))
-            parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+            parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), batch)
         end
     else
         parameters_to_yaml(string(outprefix, ".param.yaml"), parameters)
