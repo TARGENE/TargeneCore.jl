@@ -12,6 +12,24 @@ function treatments_from_actors(bqtl_file, env_file, trans_actors_prefix)
 end
 
 
+tf_error() = throw(ArgumentError("No TF specified to filter SNPs on"))
+missing_snps_error() = throw(ArgumentError("No SNPs provided to filter on"))
+
+filter_snps_by_tf(df::Nothing, tf_name::Nothing) = nothing
+filter_snps_by_tf(df::DataFrame, tf_name::Nothing) = tf_error()
+filter_snps_by_tf(df::Nothing, tf_name::AbstractString) = missing_snps_error()
+function filter_snps_by_tf(df::DataFrame, tf_name::AbstractString)
+    return filter(row -> row.TF == tf_name, df)
+end
+
+function filter_bqtls_by_tf(bqtl_df::DataFrame, tf_name::AbstractString)
+    return filter_snps_by_tf(bqtl_df, tf_name)
+end
+
+function filter_transactors_by_tf(trans_actors::Union{Vector{DataFrame}}, tf_name::AbstractString)
+    return [filter_snps_by_tf(df, tf_name) for df in trans_actors]
+end
+
 combine_trans_actors(trans_actors::Vector{DataFrame}, extraT::DataFrame, order) = combinations([trans_actors..., extraT], order)
 combine_trans_actors(trans_actors::Vector{DataFrame}, extraT::Nothing, order) = combinations(trans_actors, order)
 combine_trans_actors(trans_actors::Nothing, extraT::DataFrame, order) = [[extraT]]
@@ -44,7 +62,7 @@ all_variants(bqtls::DataFrame, transactors::Vector{DataFrame}) = Set(vcat(bqtls.
 
 
 read_snps_from_csv(path::Nothing) = nothing
-read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR]), :ID)
+read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR, :TF]), [:ID, :TF])
 
 
 trans_actors_from_prefix(trans_actors_prefix::Nothing) = nothing
@@ -148,7 +166,7 @@ function get_variables(pcs, traits, extraW, extraC, extraT)
     )
 end
 
-function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
+function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix, tf_name; positivity_constraint=0., batch_size=nothing)
     parameters = TMLE.Parameter[]
     batch_id = 1
     extraT_df = variables.extra_treatments isa Nothing ? nothing : DataFrame(ID=variables.extra_treatments)
@@ -156,14 +174,21 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
     for order in orders
         # First generate the `T` section
         treatment_combinations = TargeneCore.combine_by_bqtl(bqtls, transactors, extraT_df, order)
+        # If there are duplicates here, remove them
+        treatment_combinations = unique(treatment_combinations)
         for treatments in treatment_combinations
+            # If RSID is duplicated in treatments, skip
+            if length(treatments) != length(unique(treatments))
+                continue
+            end
+
             addParameters!(parameters, treatments, variables, data; positivity_constraint=positivity_constraint)
 
             if batch_size !== nothing && size(parameters, 1) >= batch_size
                 optimize_ordering!(parameters)
                 for batch in Iterators.partition(parameters, batch_size)
                     if size(batch, 1) >= batch_size
-                        parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+                        parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), batch)
                         batch_id += 1
                     else
                         parameters = collect(batch)
@@ -178,7 +203,7 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
         batch_id != 1 || throw(NoRemainingParamsError(positivity_constraint))
     else
         optimize_ordering!(parameters)
-        parameters_to_yaml(param_batch_name(outprefix, batch_id), parameters)
+        parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), parameters)
     end
 end
 
@@ -208,10 +233,17 @@ function tmle_inputs_from_actors(parsed_args)
 
     # Parameter files
     variables = TargeneCore.get_variables(pcs, traits, extraW, extraC, extraT)
-    TargeneCore.parameters_from_actors(
-        bqtls, transactors, data, variables, orders, outprefix; 
+
+    # Loop through each TF present in bqtls file 
+    tfs = unique(bqtls.TF)
+    for tf in tfs
+        bqtls_tf = TargeneCore.filter_bqtls_by_tf(bqtls, tf)
+        transactors_tf = TargeneCore.filter_transactors_by_tf(transactors, tf)
+        TargeneCore.parameters_from_actors(
+        bqtls_tf, transactors_tf, data, variables, orders, outprefix, tf; 
         positivity_constraint=positivity_constraint, batch_size=batch_size
-    )
+        )
+    end
 
     # write data
     Arrow.write(string(outprefix, ".data.arrow"), data)
