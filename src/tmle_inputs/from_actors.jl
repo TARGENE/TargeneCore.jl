@@ -11,29 +11,14 @@ function treatments_from_actors(bqtl_file, env_file, trans_actors_prefix)
     bqtls, transactors, extraT
 end
 
-
-tf_error() = throw(ArgumentError("No TF specified to filter SNPs on"))
-missing_snps_error() = throw(ArgumentError("No SNPs provided to filter on"))
-
-filter_snps_by_tf(df::Nothing, tf_name::Nothing) = nothing
-filter_snps_by_tf(df::DataFrame, tf_name::Nothing) = tf_error()
-filter_snps_by_tf(df::Nothing, tf_name::AbstractString) = missing_snps_error()
-function filter_snps_by_tf(df::DataFrame, tf_name::AbstractString)
-    return filter(row -> row.TF == tf_name, df)
-end
-
-function filter_bqtls_by_tf(bqtl_df::DataFrame, tf_name::AbstractString)
-    return filter_snps_by_tf(bqtl_df, tf_name)
-end
-
-function filter_transactors_by_tf(trans_actors::Union{Vector{DataFrame}}, tf_name::AbstractString)
-    return [filter_snps_by_tf(df, tf_name) for df in trans_actors]
-end
+filter_snps_by_tf(df::DataFrame, tf_name::AbstractString) = filter(row -> row.TF == tf_name, df)
+filter_snps_by_tf(df::DataFrame, tf_name::Nothing) = df
+filter_snps_by_tf(df_vector, tf_name::AbstractString) = [filter_snps_by_tf(df, tf_name) for df in df_vector]
+filter_snps_by_tf(df_vector, tf_name::Nothing) = df_vector
 
 combine_trans_actors(trans_actors::Vector{DataFrame}, extraT::DataFrame, order) = combinations([trans_actors..., extraT], order)
 combine_trans_actors(trans_actors::Vector{DataFrame}, extraT::Nothing, order) = combinations(trans_actors, order)
 combine_trans_actors(trans_actors::Nothing, extraT::DataFrame, order) = [[extraT]]
-
 
 function combine_by_bqtl(bqtls::DataFrame, trans_actors::Union{Vector{DataFrame}, Nothing}, extraT::Union{DataFrame, Nothing}, order::Int)
     treatment_combinations = Vector{Symbol}[]
@@ -62,8 +47,11 @@ all_variants(bqtls::DataFrame, transactors::Vector{DataFrame}) = Set(vcat(bqtls.
 
 
 read_snps_from_csv(path::Nothing) = nothing
-read_snps_from_csv(path::String) = unique(CSV.read(path, DataFrame; select=[:ID, :CHR, :TF]), [:ID, :TF])
-
+function read_snps_from_csv(path::String)
+    df = CSV.read(path, DataFrame)
+    df = "TF" in names(df) ? unique(df[:, [:ID, :CHR, :TF]], [:ID, :TF]) : unique(df[:, [:ID, :CHR]], :ID)
+    return(df)
+end
 
 trans_actors_from_prefix(trans_actors_prefix::Nothing) = nothing
 function trans_actors_from_prefix(trans_actors_prefix::String)
@@ -166,7 +154,7 @@ function get_variables(pcs, traits, extraW, extraC, extraT)
     )
 end
 
-function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix, tf_name; positivity_constraint=0., batch_size=nothing)
+function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
     parameters = TMLE.Parameter[]
     batch_id = 1
     extraT_df = variables.extra_treatments isa Nothing ? nothing : DataFrame(ID=variables.extra_treatments)
@@ -188,7 +176,7 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
                 optimize_ordering!(parameters)
                 for batch in Iterators.partition(parameters, batch_size)
                     if size(batch, 1) >= batch_size
-                        parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), batch)
+                        parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
                         batch_id += 1
                     else
                         parameters = collect(batch)
@@ -203,7 +191,7 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
         batch_id != 1 || throw(NoRemainingParamsError(positivity_constraint))
     else
         optimize_ordering!(parameters)
-        parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), parameters)
+        parameters_to_yaml(param_batch_name(outprefix, batch_id), parameters)
     end
 end
 
@@ -235,12 +223,13 @@ function tmle_inputs_from_actors(parsed_args)
     variables = TargeneCore.get_variables(pcs, traits, extraW, extraC, extraT)
 
     # Loop through each TF present in bqtls file 
-    tfs = unique(bqtls.TF)
+    tfs = "TF" in names(bqtls) ? unique(bqtls.TF) : [nothing] 
     for tf in tfs
-        bqtls_tf = TargeneCore.filter_bqtls_by_tf(bqtls, tf)
-        transactors_tf = TargeneCore.filter_transactors_by_tf(transactors, tf)
+        outprefix_tf = tf !== nothing ? string(outprefix,".",tf) : outprefix
+        bqtls_tf = TargeneCore.filter_snps_by_tf(bqtls, tf)
+        transactors_tf = TargeneCore.filter_snps_by_tf(transactors, tf)
         TargeneCore.parameters_from_actors(
-        bqtls_tf, transactors_tf, data, variables, orders, outprefix, tf; 
+        bqtls_tf, transactors_tf, data, variables, orders, outprefix_tf; 
         positivity_constraint=positivity_constraint, batch_size=batch_size
         )
     end
