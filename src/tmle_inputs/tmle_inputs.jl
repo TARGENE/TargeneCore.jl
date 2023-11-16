@@ -10,7 +10,7 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-function write_tmle_inputs(outprefix, final_dataset, parameters; tf_name=nothing, batch_size=nothing)
+function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write param_files
