@@ -1,12 +1,6 @@
 const CHR_REG = r"chr[1-9]+"
 
-function param_batch_name(outprefix, batch_id, tf_name)
-    if isnothing(tf_name)
-        return string(outprefix, ".param_", batch_id, ".yaml") 
-    else 
-        return string(outprefix, ".param_", batch_id, "_", tf_name, ".yaml")
-    end
-end
+param_batch_name(outprefix, batch_id) = return string(outprefix, ".param_", batch_id, ".yaml") 
 
 
 """
@@ -22,7 +16,7 @@ function write_tmle_inputs(outprefix, final_dataset, parameters; tf_name=nothing
     # Write param_files
     if batch_size !== nothing
         for (batch_id, batch) in enumerate(Iterators.partition(parameters, batch_size))
-            parameters_to_yaml(param_batch_name(outprefix, batch_id, tf_name), batch)
+            parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
         end
     else
         parameters_to_yaml(string(outprefix, ".param.yaml"), parameters)
