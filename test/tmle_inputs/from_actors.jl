@@ -287,7 +287,7 @@ end
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 
-    outparameters = parameters_from_yaml("final.param_1_TF1.yaml")
+    outparameters = parameters_from_yaml("final.param_1.yaml")
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
@@ -361,9 +361,9 @@ end
     @test size(traits) == (490, 13)
 
     # Parameter files: 
-    outparameters_1 = parameters_from_yaml("final.param_1_TF1.yaml")
+    outparameters_1 = parameters_from_yaml("final.param_1.yaml")
     @test size(outparameters_1, 1) == 100
-    outparameters_2 = parameters_from_yaml("final.param_2_TF1.yaml")
+    outparameters_2 = parameters_from_yaml("final.param_2.yaml")
     outparameters = vcat(outparameters_1, outparameters_2)
     
     found_targets = Dict(
@@ -399,8 +399,8 @@ end
     parsed_args["positivity-constraint"] = 0.1
     tmle_inputs(parsed_args)
 
-    @test !isfile("final.param_2_TF1.yaml")
-    outparameters = parameters_from_yaml("final.param_1_TF1.yaml")
+    @test !isfile("final.param_2.yaml")
+    outparameters = parameters_from_yaml("final.param_1.yaml")
     @test size(outparameters, 1) == 6
     cleanup()
 end
@@ -415,7 +415,7 @@ end
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
             "bqtls" => joinpath("data", "bqtls_2.csv"), 
-            "trans-actors-prefix" => joinpath("data", "trans_actors_2.csv"),
+            "trans-actors-prefix" => joinpath("data", "trans_actors_3.csv"),
             "extra-covariates" => joinpath("data", "extra_covariates.txt"),
             "extra-treatments" => joinpath("data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
@@ -442,7 +442,7 @@ end
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 
-    outparameters = [parameters_from_yaml("final.param_1_TF1.yaml"), parameters_from_yaml("final.param_1_TF2.yaml")]
+    outparameters = [parameters_from_yaml("final.TF1.param_1.yaml"), parameters_from_yaml("final.TF2.param_1.yaml")]
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
