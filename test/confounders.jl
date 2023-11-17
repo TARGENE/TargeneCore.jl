@@ -56,7 +56,7 @@ end
     
     clean(parsed_args)
 
-    # No qc file provided
+    # No QC file provided
     parsed_args = Dict(
         "input"  => SnpArrays.datadir("mouse"),
         "output" => joinpath("data", "filtered-mouse"),

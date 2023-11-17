@@ -1,6 +1,6 @@
 const CHR_REG = r"chr[1-9]+"
 
-param_batch_name(outprefix, batch_id) = string(outprefix, ".param_", batch_id, ".yaml")
+param_batch_name(outprefix, batch_id) = string(outprefix, ".param_", batch_id, ".yaml") 
 
 
 """
