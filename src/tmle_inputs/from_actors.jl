@@ -49,7 +49,7 @@ all_variants(bqtls::DataFrame, transactors::Vector{DataFrame}) = Set(vcat(bqtls.
 read_snps_from_csv(path::Nothing) = nothing
 function read_snps_from_csv(path::String)
     df = CSV.read(path, DataFrame)
-    df = "TF" in names(df) ? unique(df[:, [:ID, :CHR, :TF]], [:ID, :TF]) : unique(df[:, [:ID, :CHR]], :ID)
+    df = "TF" in names(df) ? unique(df[:, [:ID, :TF]], [:ID, :TF]) : unique(df[:, [:ID]], :ID)
     return(df)
 end
 
