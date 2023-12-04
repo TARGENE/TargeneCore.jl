@@ -90,7 +90,7 @@ end
 
     ## Estimands file:
     output_estimands = deserialize("final.estimands.jls").estimands
-    # There are 5 initial parameters containing a *
+    # There are 5 initial estimands containing a *
     # Those are duplicated for each of the 4 targets.
     @test length(output_estimands) == 20
     # In all cases the PCs are appended to the confounders.
@@ -171,10 +171,10 @@ end
     @test size(data) == (490, 12)
 
     ## Parameter files:
-    # There are 3 initial parameters, 1 containing a *
+    # There are 3 initial estimands, 1 containing a *
     # that will be duplicated for each of the 4 targets.
     # The PCs are appended to the confounders.
-    # Parameters are batched by 2
+    # Estimands are batched by 2
     output_estimands = [
         deserialize("final.estimands_1.jls").estimands,
         deserialize("final.estimands_1.jls").estimands,

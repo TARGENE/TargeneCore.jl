@@ -170,10 +170,10 @@ function merge(traits, pcs, genotypes)
 end
 
 
-function update_parameters_from_outcomes!(parameters, Ψ::T, outcomes) where T
+function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
     for outcome in outcomes
         push!(
-            parameters, 
+            estimands, 
             T(
                 outcome=outcome, 
                 treatment_values=Ψ.treatment_values, 
@@ -186,7 +186,7 @@ end
 """
     tmle_inputs(parsed_args)
 
-Support for the generation of parameters according to 2 strategies:
+Support for the generation of estimands according to 2 strategies:
 - from-actors
 - from-param-file
 """

@@ -7,7 +7,7 @@ function parse_commandline()
     @add_arg_table s begin
         "from-actors"
             action = :command
-            help = "Will generate interaction parameters between SNPs output by the "*
+            help = "Will generate interaction estimands between SNPs output by the "*
                    "baal-nf pipeline (https://git.ecdf.ed.ac.uk/oalmelid/baal-nf), trans-actors "*
                    " and potential additional exposures from an external trait dataset."
         
@@ -44,7 +44,7 @@ function parse_commandline()
         "--batch-size"
             arg_type = Int
             required = false
-            help = "To split parameters in multiple files of size batch-size"
+            help = "To split estimands in multiple files of size batch-size"
 
         "--positivity-constraint"
             arg_type = Float64

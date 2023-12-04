@@ -124,8 +124,8 @@ function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.E
 end
 
     
-function append_from_valid_parameters!(
-    parameters::Vector{<:TMLE.Estimand},
+function append_from_valid_estimands!(
+    estimands::Vector{<:TMLE.Estimand},
     frequency_tables::Dict,
     Ψ::T, 
     data,
@@ -145,20 +145,20 @@ function append_from_valid_parameters!(
         positivity_constraint=positivity_constraint) || return
     # Expand wildcard to all outcomes
     if Ψ.outcome === :ALL
-        update_parameters_from_outcomes!(parameters, Ψ, variables.outcomes)
+        update_estimands_from_outcomes!(estimands, Ψ, variables.outcomes)
     else
         # Ψ.target || MissingVariableError(variable)
-        push!(parameters, Ψ)
+        push!(estimands, Ψ)
     end
 end
 
-function adjusted_parameters(estimands, variables, data; positivity_constraint=0.)
+function adjusted_estimands(estimands, variables, data; positivity_constraint=0.)
     final_estimands = TMLE.Estimand[]
     variants_alleles = Dict(v => Set(unique(skipmissing(data[!, v]))) for v in variables.genetic_variants)
     freqency_tables = Dict()
     for Ψ in estimands
         # If the genotypes encoding is a string representation make sure they match the actual genotypes
-        append_from_valid_parameters!(final_estimands, freqency_tables, Ψ, data, variants_alleles, variables; positivity_constraint=positivity_constraint)
+        append_from_valid_estimands!(final_estimands, freqency_tables, Ψ, data, variants_alleles, variables; positivity_constraint=positivity_constraint)
     end
 
     length(final_estimands) > 0 || throw(NoRemainingParamsError(positivity_constraint))
@@ -192,7 +192,7 @@ function tmle_inputs_from_param_files(parsed_args)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
-    estimands = TargeneCore.adjusted_parameters(
+    estimands = TargeneCore.adjusted_estimands(
         estimands, variables, data; 
         positivity_constraint=positivity_constraint
     )

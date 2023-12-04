@@ -7,11 +7,22 @@ using TargeneCore
 using YAML
 using TMLE
 using Arrow
+using Serialization
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
 include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
 
+function test_cates(Ψ, bqtls)
+    nfixed = 0
+    for T ∈ keys(Ψ.treatment_values)
+        if T ∉ bqtls
+            nfixed += 1
+            @test Ψ.treatment_values[T].case == Ψ.treatment_values[T].control
+        end
+    end
+    @test nfixed > 0
+end
 
 #####################################################################
 ###############               UNIT TESTS              ###############
@@ -128,7 +139,7 @@ end
     )
     # One Treatment ATE
     treatments = [:T1]
-    settings = collect(TargeneCore.control_case_settings(ATE, treatments, data))
+    settings = collect(TargeneCore.control_case_settings(TMLE.StatisticalATE, treatments, data))
     @test settings == [
         (T1 = (case = 0, control = 1),),
         (T1 = (case = 0, control = 2),),
@@ -136,7 +147,7 @@ end
     ]
     # Two treatments IATEs
     treatments = [:T1, :T2]
-    settings = collect(TargeneCore.control_case_settings(IATE, treatments, data))
+    settings = collect(TargeneCore.control_case_settings(TMLE.StatisticalIATE, treatments, data))
     expected_settings = [
         (T1 = (case = 0, control = 1), T2 = (case = "AA", control = "AC")),
         (T1 = (case = 0, control = 2), T2 = (case = "AA", control = "AC")),
@@ -154,7 +165,7 @@ end
     end
 
     # Two treatments ATEs
-    settings = collect(TargeneCore.control_case_settings(ATE, treatments, data))
+    settings = collect(TargeneCore.control_case_settings(TMLE.StatisticalATE, treatments, data))
     expected_settings = [
         (T1 = (case = 0, control = 1), T2 = (case = "AA", control = "AA")),
         (T1 = (case = 0, control = 2), T2 = (case = "AA", control = "AA")),
@@ -173,7 +184,7 @@ end
 
     # Three treatments IATEs
     treatments = [:T1, :T2, :T3]
-    settings = collect(TargeneCore.control_case_settings(IATE, treatments, data))
+    settings = collect(TargeneCore.control_case_settings(TMLE.StatisticalIATE, treatments, data))
     expected_settings = [
         (T1 = (case = 0, control = 1), T2 = (case = "AA", control = "AC"), T3 = (case = 0, control = 1)),
         (T1 = (case = 0, control = 2), T2 = (case = "AA", control = "AC"), T3 = (case = 0, control = 1)),
@@ -191,7 +202,7 @@ end
     end
 
     # Three treatments ATEs
-    settings = collect(TargeneCore.control_case_settings(ATE, treatments, data))
+    settings = collect(TargeneCore.control_case_settings(TMLE.StatisticalATE, treatments, data))
     expected_settings = [
         (T1 = (case = 0, control = 1), T2 = (case = "AA", control = "AA"), T3 = (case = 0, control = 0)),
         (T1 = (case = 0, control = 2), T2 = (case = "AA", control = "AA"), T3 = (case = 0, control = 0)),
@@ -224,9 +235,9 @@ end
     @test_throws ArgumentError TargeneCore.treatments_from_actors(1, nothing, nothing)
     @test_throws ArgumentError TargeneCore.treatments_from_actors(nothing, 1, nothing)
 
-    bqtl_file = joinpath("data", "bqtls_1.csv")
-    trans_actors_prefix = joinpath("data", "trans_actors_1.csv")
-    env_file = joinpath("data", "extra_treatments.txt")
+    bqtl_file = joinpath(TESTDIR, "data", "bqtls_1.csv")
+    trans_actors_prefix = joinpath(TESTDIR, "data", "trans_actors_1.csv")
+    env_file = joinpath(TESTDIR, "data", "extra_treatments.txt")
     # bqtls and trans_actors
     bqtls, transactors, envs = TargeneCore.treatments_from_actors(bqtl_file, nothing, trans_actors_prefix)
     @test bqtls isa DataFrame
@@ -261,18 +272,18 @@ end
     # - Order 1,2
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
-            "bqtls" => joinpath("data", "bqtls_1.csv"), 
-            "trans-actors-prefix" => joinpath("data", "trans_actors_1.csv"),
-            "extra-covariates" => joinpath("data", "extra_covariates.txt"),
-            "extra-treatments" => joinpath("data", "extra_treatments.txt"),
+            "bqtls" => joinpath(TESTDIR, "data", "bqtls_1.csv"), 
+            "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_1.csv"),
+            "extra-covariates" => joinpath(TESTDIR, "data", "extra_covariates.txt"),
+            "extra-treatments" => joinpath(TESTDIR, "data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
             "orders" => "1,2",
             ),
-        "traits" => joinpath("data", "traits_1.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
+        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
         "call-threshold" => 0.8,  
         "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => nothing,
         "positivity-constraint" => 0.
@@ -288,38 +299,36 @@ end
         "RSID_17", "RSID_198", "RSID_99"]
     @test size(trait_data) == (490, 16)
     
-    ## Parameter file: 
-    outparameters = parameters_from_yaml("final.param_1.yaml")
+    ## Output estimands: 
+    output_estimands = deserialize("final.estimands_1.jls").estimands
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
         :CONTINUOUS_1 => 0,
         :BINARY_2 => 0
     )
-    for Ψ in outparameters
-        if Ψ isa ATE
-            ntreatments = length(Ψ.treatment)
-            if ntreatments > 1
-                @test all(Ψ.treatment[index].case == Ψ.treatment[index].control for index ∈ 2:ntreatments)
+    for Ψ in output_estimands
+        if Ψ isa TMLE.StatisticalATE
+            # These are CATEs
+            if length(Ψ.treatment_values) > 1
+                test_cates(Ψ, bqtls)
             end
         else
-            @test Ψ isa IATE
-            @test all(cc.case != cc.control for cc ∈ Ψ.treatment)
+            @test Ψ isa TMLE.StatisticalIATE
+            @test all(cc.case != cc.control for cc ∈ Ψ.treatment_values)
         end
-        @test Ψ.covariates == [:COV_1, Symbol("21003"), Symbol("22001")]
-        @test Ψ.confounders == [:PC1, :PC2]
-        # The first treatment will be a bqtl
-        @test keys(Ψ.treatment)[1] ∈ bqtls
-        @test Ψ.treatment[1].case isa AbstractString
-        @test length(Ψ.treatment) ∈ [1, 2]
-        found_targets[Ψ.target] += 1
+        @test Ψ.outcome_extra_covariates == (Symbol("21003"), Symbol("22001"), :COV_1)
+        @test all(x == (:PC1, :PC2) for x ∈ Ψ.treatment_confounders)
+        @test any(T ∈ bqtls for T ∈ keys(Ψ.treatment_values))
+        @test length(Ψ.treatment_values) ∈ [1, 2]
+        found_targets[Ψ.outcome] += 1
     end
-    # The number of parameters with various targets should be the same
+    # The number of estimands with various targets should be the same
     @test all(x == found_targets[:BINARY_1] for x in values(found_targets))
-    # This is difficult to really check the ordering
-    # Those correspond to the simple bQTL ATE
-    first_treatments = keys(outparameters[1].treatment)
-    @test all(keys(Ψ.treatment) == first_treatments for Ψ in outparameters[1:12])
+    # This is difficult to really check the full ordering
+    # Only check the first estimands share the same propensity score
+    first_treatments = keys(output_estimands[1].treatment_values)
+    @test all(keys(Ψ.treatment_values) == first_treatments for Ψ in output_estimands[1:12])
 
     cleanup()
 end
@@ -335,18 +344,18 @@ end
     # - batched
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
-            "bqtls" => joinpath("data", "bqtls_1.csv"), 
-            "trans-actors-prefix" => joinpath("data", "trans_actors_2"),
+            "bqtls" => joinpath(TESTDIR, "data", "bqtls_1.csv"), 
+            "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_2"),
             "extra-covariates" => nothing,
             "extra-treatments" => nothing,
-            "extra-confounders" => joinpath("data", "extra_confounders.txt"),
+            "extra-confounders" => joinpath(TESTDIR, "data", "extra_confounders.txt"),
             "orders" => "2,3",
             ),
-        "traits" => joinpath("data", "traits_2.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
+        "traits" => joinpath(TESTDIR, "data", "traits_2.csv"),
+        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
         "call-threshold" => 0.8,  
         "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => 100,
         "positivity-constraint" => 0.,
@@ -363,37 +372,40 @@ end
     @test size(traits) == (490, 13)
 
     # Parameter files: 
-    outparameters_1 = parameters_from_yaml("final.param_1.yaml")
-    @test size(outparameters_1, 1) == 100
-    outparameters_2 = parameters_from_yaml("final.param_2.yaml")
-    outparameters = vcat(outparameters_1, outparameters_2)
+    output_estimands_1 = deserialize("final.estimands_1.jls").estimands
+    @test size(output_estimands_1, 1) == 100
+    output_estimands_2 = deserialize("final.estimands_2.jls").estimands
+    output_estimands = vcat(output_estimands_1, output_estimands_2)
     
     found_targets = Dict(
         :BINARY_1 => 0,
         :BINARY_2 => 0
     )
-    for Ψ in outparameters
-        if Ψ isa ATE
-            ntreatments = length(Ψ.treatment)
-            @test all(Ψ.treatment[index].case == Ψ.treatment[index].control for index ∈ 2:ntreatments)
+    for Ψ in output_estimands
+        if Ψ isa TMLE.StatisticalATE
+            nfixed = 0
+            for T ∈ keys(Ψ.treatment_values)
+                if T ∉ bqtls
+                    nfixed += 1
+                    @test Ψ.treatment_values[T].case == Ψ.treatment_values[T].control
+                end
+            end
+            @test nfixed > 0
         else
-            @test Ψ isa IATE
-            @test all(cc.case != cc.control for cc ∈ Ψ.treatment)
+            @test Ψ isa TMLE.StatisticalIATE
+            @test all(cc.case != cc.control for cc ∈ Ψ.treatment_values)
         end
-        @test Ψ.covariates == []
-        @test Ψ.confounders == [:PC1, :PC2, :COV_1, Symbol("21003"), Symbol("22001")]
-        # The first treatment will be a bqtl
-        @test keys(Ψ.treatment)[1] ∈ bqtls
-        @test Ψ.treatment[1].case isa String
-        @test length(Ψ.treatment) ∈ [2, 3]
-        found_targets[Ψ.target] += 1
+        @test Ψ.outcome_extra_covariates == ()
+        @test all(x == (Symbol("21003"), Symbol("22001"), :COV_1, :PC1, :PC2) for x ∈ Ψ.treatment_confounders)
+        @test any(T ∈ bqtls for T ∈ keys(Ψ.treatment_values))
+        @test length(Ψ.treatment_values) ∈ [2, 3]
+        found_targets[Ψ.outcome] += 1
     end
-    # The number of parameters with various targets should be the same
+    # The number of estimands with various targets should be the same
     @test all(x == found_targets[:BINARY_1] for x in values(found_targets))
     # This is difficult to really check the ordering
-    # Those correspond to the simple bQTL ATE
-    first_treatments = keys(outparameters[1].treatment)
-    @test all(keys(Ψ.treatment) == first_treatments for Ψ in outparameters[1:15])
+    first_treatments = keys(output_estimands[1].treatment_values)
+    @test all(keys(Ψ.treatment_values) == first_treatments for Ψ in output_estimands[1:15])
 
     cleanup()
 
@@ -402,8 +414,8 @@ end
     tmle_inputs(parsed_args)
 
     @test !isfile("final.param_2.yaml")
-    outparameters = parameters_from_yaml("final.param_1.yaml")
-    @test size(outparameters, 1) == 6
+    output_estimands = deserialize("final.estimands_1.jls").estimands
+    @test size(output_estimands, 1) == 6
     cleanup()
 end
 
@@ -416,18 +428,18 @@ end
     # - More than 1 TF present
     parsed_args = Dict(
         "from-actors" => Dict{String, Any}(
-            "bqtls" => joinpath("data", "bqtls_2.csv"), 
-            "trans-actors-prefix" => joinpath("data", "trans_actors_3.csv"),
-            "extra-covariates" => joinpath("data", "extra_covariates.txt"),
-            "extra-treatments" => joinpath("data", "extra_treatments.txt"),
+            "bqtls" => joinpath(TESTDIR, "data", "bqtls_2.csv"), 
+            "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_3.csv"),
+            "extra-covariates" => joinpath(TESTDIR, "data", "extra_covariates.txt"),
+            "extra-treatments" => joinpath(TESTDIR, "data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
             "orders" => "1,2",
             ),
-        "traits" => joinpath("data", "traits_1.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
+        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
         "call-threshold" => 0.8,  
         "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => nothing,
         "positivity-constraint" => 0.
@@ -444,42 +456,30 @@ end
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 
-    outparameters = [parameters_from_yaml("final.TF1.param_1.yaml"), parameters_from_yaml("final.TF2.param_1.yaml")]
+    tf_output_estimands = [
+        deserialize("final.TF1.estimands_1.jls").estimands, 
+        deserialize("final.TF2.estimands_1.jls").estimands
+    ]
     found_targets = Dict(
         :BINARY_1 => 0,
         :CONTINUOUS_2 => 0,
         :CONTINUOUS_1 => 0,
         :BINARY_2 => 0
     )
-    for tf in [1,2]
-        outparameters_tf = outparameters[tf]
-        for Ψ in outparameters_tf
-            if Ψ isa ATE
-                ntreatments = length(Ψ.treatment)
-                if ntreatments > 1
-                    @test all(Ψ.treatment[index].case == Ψ.treatment[index].control for index ∈ 2:ntreatments)
+    tf_transactors = [[:RSID_102], [:RSID_2]]
+    tf_bqtls = [[:RSID_17, :RSID_99], [:RSID_17, :RSID_198]]
+    bqtl_transactor_count = 0
+    for tf in (1,2)
+        for Ψ in tf_output_estimands[tf]
+            @test any(bqtl ∈ keys(Ψ.treatment_values) for bqtl ∈ tf_bqtls[tf])
+            if length(Ψ.treatment_values) > 1
+                if any(transactor ∈ keys(Ψ.treatment_values) for transactor ∈ tf_transactors[tf])
+                    bqtl_transactor_count += 1
                 end
-            else
-                @test Ψ isa IATE
-                @test all(cc.case != cc.control for cc ∈ Ψ.treatment)
             end
-            @test Ψ.covariates == [:COV_1, Symbol("21003"), Symbol("22001")]
-            @test Ψ.confounders == [:PC1, :PC2]
-            # The first treatment will be a bqtl
-            @test keys(Ψ.treatment)[1] ∈ bqtls
-            @test Ψ.treatment[1].case isa AbstractString
-            @test length(Ψ.treatment) ∈ [1, 2]
-            found_targets[Ψ.target] += 1
         end
     end
-    # The number of parameters with various targets should be the same
-    @test all(x == found_targets[:BINARY_1] for x in values(found_targets))
-    # This is difficult to really check the ordering
-    # Those correspond to the simple bQTL ATE
-    for tf in [1,2]
-        first_treatments = keys(outparameters[tf][1].treatment)
-        @test all(keys(Ψ.treatment) == first_treatments for Ψ in outparameters[tf][1:12])
-    end
+    @test bqtl_transactor_count > 100
 
     cleanup()
 end
