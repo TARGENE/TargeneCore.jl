@@ -130,7 +130,7 @@ function addParameters!(parameters, treatments, variables, data; positivity_cons
     for setting in control_case_settings(ATE, treatments, data)
         Ψ = ATE(target=Symbol("*"), treatment=setting, confounders=variables.confounders, covariates=variables.covariates)
         if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
-            update_parameters_from_targets!(parameters, Ψ, variables.targets)
+            update_parameters_from_outcomes!(parameters, Ψ, variables.targets)
         end
     end
     # This loop adds all IATE parameters that pass the positivity threshold
@@ -138,7 +138,7 @@ function addParameters!(parameters, treatments, variables, data; positivity_cons
         for setting in control_case_settings(IATE, treatments, data)
             Ψ = IATE(target=Symbol("*"), treatment=setting, confounders=variables.confounders, covariates=variables.covariates)
             if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
-                update_parameters_from_targets!(parameters, Ψ, variables.targets)
+                update_parameters_from_outcomes!(parameters, Ψ, variables.targets)
             end
         end
     end
@@ -155,7 +155,7 @@ function get_variables(pcs, traits, extraW, extraC, extraT)
 end
 
 function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
-    parameters = TMLE.Parameter[]
+    parameters = TMLE.Estimand[]
     batch_id = 1
     extraT_df = variables.extra_treatments isa Nothing ? nothing : DataFrame(ID=variables.extra_treatments)
     # For each interaction order generate parameter files
@@ -176,7 +176,7 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
                 optimize_ordering!(parameters)
                 for batch in Iterators.partition(parameters, batch_size)
                     if size(batch, 1) >= batch_size
-                        parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+                        parameters_to_yaml(batch_name(outprefix, batch_id), batch)
                         batch_id += 1
                     else
                         parameters = collect(batch)
@@ -191,7 +191,7 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
         batch_id != 1 || throw(NoRemainingParamsError(positivity_constraint))
     else
         optimize_ordering!(parameters)
-        parameters_to_yaml(param_batch_name(outprefix, batch_id), parameters)
+        parameters_to_yaml(batch_name(outprefix, batch_id), parameters)
     end
 end
 

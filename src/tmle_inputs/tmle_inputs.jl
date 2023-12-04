@@ -1,6 +1,6 @@
 const CHR_REG = r"chr[1-9]+"
 
-param_batch_name(outprefix, batch_id) = string(outprefix, ".param_", batch_id, ".yaml") 
+batch_name(outprefix, batch_id) = string(outprefix, ".estimands_", batch_id, ".jls") 
 
 
 """
@@ -10,16 +10,16 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-function write_tmle_inputs(outprefix, final_dataset, parameters; batch_size=nothing)
+function write_tmle_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write param_files
     if batch_size !== nothing
-        for (batch_id, batch) in enumerate(Iterators.partition(parameters, batch_size))
-            parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+        for (batch_id, batch) in enumerate(Iterators.partition(estimands, batch_size))
+            serialize(batch_name(outprefix, batch_id), Configuration(estimands=batch))
         end
     else
-        parameters_to_yaml(string(outprefix, ".param.yaml"), parameters)
+        serialize(string(outprefix, ".estimands.jls"), Configuration(estimands=estimands))
     end
 end
 
@@ -108,30 +108,30 @@ function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, th
 end
 
 
-sorted_treatment_names(Ψ) = tuple(sort(collect(keys(Ψ.treatment)))...)
+sorted_treatment_names(Ψ) = tuple(sort(collect(keys(Ψ.treatment_values)))...)
 
-function setting_iterator(Ψ::IATE)
+function setting_iterator(Ψ::TMLE.StatisticalIATE)
     treatments = sorted_treatment_names(Ψ)
     return (
         NamedTuple{treatments}(collect(Tval)) for 
-            Tval in Iterators.product((values(Ψ.treatment[T]) for T in treatments)...)
+            Tval in Iterators.product((values(Ψ.treatment_values[T]) for T in treatments)...)
     )
 end
 
-function setting_iterator(Ψ::ATE)
+function setting_iterator(Ψ::TMLE.StatisticalATE)
     treatments = sorted_treatment_names(Ψ)
     return (
-        NamedTuple{treatments}([(Ψ.treatment[T][c]) for T in treatments])
+        NamedTuple{treatments}([(Ψ.treatment_values[T][c]) for T in treatments])
             for c in (:case, :control)
     )
 end
 
-function setting_iterator(Ψ::CM)
+function setting_iterator(Ψ::TMLE.StatisticalCM)
     treatments = sorted_treatment_names(Ψ)
-    return (NamedTuple{treatments}(Ψ.treatment[T] for T in treatments), )
+    return (NamedTuple{treatments}(Ψ.treatment_values[T] for T in treatments), )
 end
 
-function satisfies_positivity(Ψ::TMLE.Parameter, freqs; positivity_constraint=0.01)
+function satisfies_positivity(Ψ::TMLE.Estimand, freqs; positivity_constraint=0.01)
     for base_setting in setting_iterator(Ψ)
         if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
             return false
@@ -170,14 +170,19 @@ function merge(traits, pcs, genotypes)
 end
 
 
-function update_parameters_from_targets!(parameters, Ψ::T, targets) where T
-    for target in targets
+function update_parameters_from_outcomes!(parameters, Ψ::T, outcomes) where T
+    for outcome in outcomes
         push!(
             parameters, 
-            T(target=target, treatment=Ψ.treatment, confounders=Ψ.confounders, covariates=Ψ.covariates)
+            T(
+                outcome=outcome, 
+                treatment_values=Ψ.treatment_values, 
+                treatment_confounders=Ψ.treatment_confounders, 
+                outcome_extra_covariates=Ψ.outcome_extra_covariates)
         )
     end
 end
+
 """
     tmle_inputs(parsed_args)
 

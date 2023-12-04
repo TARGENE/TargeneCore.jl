@@ -7,24 +7,28 @@ using TargeneCore
 using YAML
 using TMLE
 using Arrow
+using Serialization
+using Random
+using StableRNGs
 
-include("test_utils.jl")
+TESTDIR = joinpath(pkgdir(TargeneCore), "test")
+
+include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
 
 #####################################################################
 ###############               UNIT TESTS              ###############
 #####################################################################
 
 @testset "Test get_variables" begin
-    traits = TargeneCore.read_data(joinpath("data", "traits_1.csv"))
-    pcs = TargeneCore.read_data(joinpath("data", "pcs.csv"))
+    traits = TargeneCore.read_data(joinpath(TESTDIR, "data", "traits_1.csv"))
+    pcs = TargeneCore.read_data(joinpath(TESTDIR, "data", "pcs.csv"))
     # extraW, extraT, extraC are parsed from all param_files
-    param_groups = parameters_from_yaml(joinpath("config", "parameters.yaml"))
-    variables = TargeneCore.get_variables(param_groups, traits, pcs)
-    @test variables.variants == Set([:RSID_198, :RSID_2])
-    @test variables.targets == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
+    estimands = make_estimands_configuration().estimands
+    variables = TargeneCore.get_variables(estimands, traits, pcs)
+    @test variables.genetic_variants == Set([:RSID_198, :RSID_2])
+    @test variables.outcomes == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
     @test variables.pcs == Set([:PC1, :PC2])
 end
-
 
 @testset "Test adjust_parameter_sections" begin
     genotypes = DataFrame(
@@ -34,16 +38,16 @@ end
     )
     pcs = Set([:PC1, :PC2])
     variants_alleles = Dict(:RSID_198 => Set(genotypes.RSID_198))
-    # AG is not in the genotypes bu GA is
-    Ψ = parameters_from_yaml(joinpath("config", "parameters.yaml"))[4]
-    @test Ψ.treatment.RSID_198 == (case="AG", control="AA")
+    # AG is not in the genotypes but GA is
+    Ψ = make_estimands_configuration().estimands[4]
+    @test Ψ.treatment_values.RSID_198 == (case="AG", control="AA")
     new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
-    @test new_Ψ.target == Ψ.target
-    @test new_Ψ.covariates == Ψ.covariates
-    @test new_Ψ.confounders == [:PC1, :PC2]
-    @test new_Ψ.treatment == (
-        RSID_2 = (case = "AA", control = "GG"),
-        RSID_198 = (case = "GA", control = "AA")
+    @test new_Ψ.outcome == Ψ.outcome
+    @test new_Ψ.outcome_extra_covariates == Ψ.outcome_extra_covariates
+    @test new_Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+    @test new_Ψ.treatment_values == (
+        RSID_198 = (case = "GA", control = "AA"),
+        RSID_2 = (case = "AA", control = "GG")
     )
 
     # If the allele is not present 
@@ -56,17 +60,18 @@ end
 #####################################################################
 
 
-@testset "Test tmle_inputs from-param-file: parameters.yaml" begin
+@testset "Test tmle_inputs from-param-file" begin
     # Genotypes encoded as strings
     # No batching of parameter files
     # No positivity constraint
+    estimands_filename = make_estimands_configuration_file()
     parsed_args = Dict(
-        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "parameters.yaml")), 
-        "traits" => joinpath("data", "traits_1.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
+        "from-param-file" => Dict{String, Any}("paramfile" => estimands_filename), 
+        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
         "call-threshold" => 0.8, 
         "%COMMAND%" => "from-param-file", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => nothing,
         "positivity-constraint" => 0.,
@@ -83,46 +88,57 @@ end
     ]
     @test size(data) == (490, 13)
 
-    ## Parameter file:
+    ## Estimands file:
+    output_estimands = deserialize("final.estimands.jls").estimands
     # There are 5 initial parameters containing a *
     # Those are duplicated for each of the 4 targets.
-    # The PCs are appended to the confounders.
-    # GA is corrected to AG to match the data
-    outparameters = parameters_from_yaml("final.param.yaml")
-    # Input parameters 2 and 3 (ATE and CM) share treatment, confounders, covariates and will be grouped together
-    # Input parameters 4 and 5 (ATE and CM again) share treatment, confounders, covariates and will be grouped together
-    expected_parameters = [
-        ATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        CM(:BINARY_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        ATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        CM(:BINARY_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        ATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        CM(:CONTINUOUS_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        ATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        CM(:CONTINUOUS_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-        ATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
-        CM(:BINARY_1, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
-        ATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
-        CM(:BINARY_2, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
-        ATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
-        CM(:CONTINUOUS_1, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
-        ATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")), [:PC1, :PC2], [Symbol("22001")]),
-        CM(:CONTINUOUS_2, (RSID_2 = "GG", RSID_198 = "AG"), [:PC1, :PC2], [Symbol("22001")]),
-        IATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
-        IATE(:BINARY_2, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
-        IATE(:CONTINUOUS_1, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
-        IATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[]),
-    ]
-    @test outparameters == expected_parameters
+    @test length(output_estimands) == 20
+    # In all cases the PCs are appended to the confounders.
+    for Ψ ∈ output_estimands
+        # Input Estimand 1
+        if Ψ isa TMLE.StatisticalIATE
+            @test Ψ.treatment_confounders == (RSID_2 = (:PC1, :PC2), TREAT_1 = (:PC1, :PC2))
+        
+        # Input Estimand 2
+        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == (RSID_2 = (case = "AA", control = "GG"),)
+            @test Ψ.treatment_confounders == (RSID_2 = (Symbol("22001"), :PC1, :PC2),)
+            @test Ψ.outcome_extra_covariates == (Symbol("21003"), Symbol("COV_1"))
+
+        # Input Estimand 3
+        elseif Ψ isa TMLE.StatisticalCM && Ψ.treatment_values == (RSID_2 = "AA", )
+            @test Ψ.treatment_confounders == (RSID_2 = (Symbol("22001"), :PC1, :PC2),)
+            @test Ψ.outcome_extra_covariates == (Symbol("21003"), Symbol("COV_1"))
+
+        # Input Estimand 4
+        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == (RSID_198 = (case = "AG", control = "AA"), RSID_2 = (case = "AA", control = "GG"))
+            @test Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+            @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
+        
+        # Input Estimand 5: GA is corrected to AG to match the data
+        elseif Ψ isa TMLE.StatisticalCM && Ψ.treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
+            @test Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+            @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
+
+        else
+            throw(AssertionError(string("Which input did this output come from: ", Ψ)))
+        end
+    end
+
+    η_counts = TMLE.nuisance_function_counts(output_estimands)
+    memcost, _ = TMLE.evaluate_proxy_costs(output_estimands, η_counts)
+    shuffled_estimands = shuffle(MersenneTwister(123), output_estimands)
+    shuffled_memcost, _ = TMLE.evaluate_proxy_costs(shuffled_estimands, η_counts)
+    @test memcost < shuffled_memcost
+
     cleanup()
 
     # Increase positivity constraint
     parsed_args["positivity-constraint"] = 0.01
     tmle_inputs(parsed_args)
     # The IATES are the most sensitives
-    outparameters = parameters_from_yaml("final.param.yaml")
-    @test all(Ψ isa Union{CM, ATE} for Ψ in outparameters)
-    @test size(outparameters, 1) == 16
+    outestimands = deserialize("final.estimands.jls").estimands
+    @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE} for Ψ in outestimands)
+    @test size(outestimands, 1) == 16
 
     cleanup()
 
@@ -130,14 +146,15 @@ end
     @test_throws TargeneCore.NoRemainingParamsError(1.) tmle_inputs(parsed_args)
 end
 
-@testset "Test tmle_inputs from-param-file: param_without_wildcards.yaml" begin
+@testset "Test tmle_inputs from-param-file: no wildcard" begin
+    estimands_filename = make_estimands_configuration_file(make_estimands_configuration_no_wildcard)
     parsed_args = Dict(
-        "from-param-file" => Dict{String, Any}("paramfile" => joinpath("config", "param_without_wildcards.yaml")), 
-        "traits" => joinpath("data", "traits_1.csv"),
-        "pcs" => joinpath("data", "pcs.csv"),
+        "from-param-file" => Dict{String, Any}("paramfile" => estimands_filename), 
+        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
         "call-threshold" => 0.8, 
         "%COMMAND%" => "from-param-file", 
-        "bgen-prefix" => joinpath("data", "ukbb", "imputed" ,"ukbb"), 
+        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => 2,
         "positivity-constraint" => 0.,
@@ -158,23 +175,13 @@ end
     # that will be duplicated for each of the 4 targets.
     # The PCs are appended to the confounders.
     # Parameters are batched by 2
-    expected_parameters = Dict(
-        1 => [
-            CM(:BINARY_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-            CM(:BINARY_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")])
-        ],
-        2 => [
-            CM(:CONTINUOUS_1, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-            ATE(:CONTINUOUS_2, (RSID_2 = (case = "AA", control = "GG"),), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")])
-        ],
-        3 => [
-            CM(:CONTINUOUS_2, (RSID_2 = "AA",), [Symbol("22001"), :PC1, :PC2], [:COV_1, Symbol("21003")]),
-            IATE(:BINARY_1, (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)), [:PC1, :PC2], Symbol[])
-        ]
-    )
+    output_estimands = [
+        deserialize("final.estimands_1.jls").estimands,
+        deserialize("final.estimands_1.jls").estimands,
+        deserialize("final.estimands_1.jls").estimands
+    ]
     for index in 1:3
-        outparameters = parameters_from_yaml(string("final.param_", index, ".yaml"))
-        @test outparameters == expected_parameters[index]
+        @test length(output_estimands[index]) == 2
     end
 
     cleanup()

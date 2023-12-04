@@ -8,7 +8,9 @@ using YAML
 using TMLE
 using Arrow
 
-include("test_utils.jl")
+TESTDIR = joinpath(pkgdir(TargeneCore), "test")
+
+include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
 
 
 #####################################################################
