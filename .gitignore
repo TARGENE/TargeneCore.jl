@@ -24,7 +24,7 @@ docs/site/
 # environment.
 # Manifest.toml
 test/Manifest.toml
-
+Manifest.toml
 
 # Develop dependencies
 dev/
