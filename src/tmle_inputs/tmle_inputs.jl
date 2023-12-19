@@ -2,7 +2,6 @@ const CHR_REG = r"chr[1-9]+"
 
 batch_name(outprefix, batch_id) = string(outprefix, ".estimands_", batch_id, ".jls") 
 
-
 """
     read_data(filepath)
 
@@ -22,7 +21,6 @@ function write_tmle_inputs(outprefix, final_dataset, estimands; batch_size=nothi
         serialize(string(outprefix, ".estimands.jls"), Configuration(estimands=estimands))
     end
 end
-
 
 function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold::Real) where T
     n = size(probabilities, 2)
@@ -107,7 +105,6 @@ function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, th
     return genotypes
 end
 
-
 sorted_treatment_names(Ψ) = tuple(sort(collect(keys(Ψ.treatment_values)))...)
 
 function setting_iterator(Ψ::TMLE.StatisticalIATE)
@@ -156,7 +153,7 @@ read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
 pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
 
 all_confounders(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
-all_confounders(pcs, extraW) = Symbol.(vcat(pcnames(pcs), extraW))
+all_confounders(pcs, extraW) = Symbol.(unique(vcat(pcnames(pcs), extraW)))
 
 targets_from_traits(traits, non_targets) = Symbol.(filter(x -> x ∉ non_targets, names(traits)))
 
@@ -168,7 +165,6 @@ function merge(traits, pcs, genotypes)
         on="SAMPLE_ID"
     )
 end
-
 
 function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
     for outcome in outcomes
@@ -195,6 +191,8 @@ function tmle_inputs(parsed_args)
         tmle_inputs_from_actors(parsed_args)
     elseif parsed_args["%COMMAND%"] == "from-param-file"
         tmle_inputs_from_param_files(parsed_args)
+    elseif parsed_args["%COMMAND%"] == "allele-independent"
+        allele_independent_estimands(parsed_args)
     else
         throw(ArgumentError("Unrecognized command."))
     end

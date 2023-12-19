@@ -1,0 +1,22 @@
+orders: [2]
+estimands: interactions
+variants:
+  TF1:
+    bQTLs:
+      - RSID_17
+      - RSID_99
+    eQTLs:
+      - RSID_102
+  TF2:
+    bQTLs:
+      - RSID_17
+      - RSID_198
+    eQTLs:
+      - RSID_2
+extra_treatments:
+  - TREAT_1
+outcome_extra_covariates:
+  - COV_1
+extra_confounders:
+  - 21003
+  - 22001

@@ -15,6 +15,10 @@ function parse_commandline()
             action = :command
             help = "Will assume Parameter files (see README.md) to be given."
 
+        "allele-independent"
+            action = :command
+            help = "Generates allele independent estimands from a configuration file."
+
         "--out-prefix"
             arg_type = String
             help = "Output prefix"
@@ -88,6 +92,12 @@ function parse_commandline()
         "paramfile"
             arg_type = String
             help = "Parameter file"
+    end
+
+    @add_arg_table s["allele-independent"] begin
+        "config"
+            arg_type = String
+            help = "Configuration file (.yaml)."
     end
 
     return parse_args(s)
