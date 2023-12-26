@@ -293,10 +293,10 @@ end
 
     ## Dataset file
     trait_data = DataFrame(Arrow.Table("final.data.arrow"))
-    @test names(trait_data) == [
+    @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"]
+        "RSID_17", "RSID_198", "RSID_99"])
     @test size(trait_data) == (490, 16)
     
     ## Output estimands: 
@@ -366,9 +366,9 @@ end
     
     ## Dataset file
     traits = DataFrame(Arrow.Table("final.data.arrow"))
-    @test names(traits) == [
+    @test sort(names(traits)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "COV_1", "21003", "22001", 
-        "PC1", "PC2", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99"]
+        "PC1", "PC2", "RSID_2", "RSID_102", "RSID_17", "RSID_198", "RSID_99"])
     @test size(traits) == (490, 13)
 
     # Parameter files: 
@@ -449,10 +449,10 @@ end
 
     ## Dataset file
     trait_data = DataFrame(Arrow.Table("final.data.arrow"))
-    @test names(trait_data) == [
+    @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"]
+        "RSID_17", "RSID_198", "RSID_99"])
     @test size(trait_data) == (490, 16)
     
     ## Parameter file: 

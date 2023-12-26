@@ -28,10 +28,10 @@ include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
     tmle_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test names(trait_data) == [
+    @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"]
+        "RSID_17", "RSID_198", "RSID_99"])
     @test size(trait_data) == (490, 16)
     # Check estimands
     tf_estimands = Dict(:TF1 => [], :TF2 => [])
@@ -71,10 +71,10 @@ end
     tmle_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test names(trait_data) == [
+    @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"]
+        "RSID_17", "RSID_198", "RSID_99"])
     @test size(trait_data) == (490, 16)
     # Check estimands
     tf_estimands = Dict(:TF1 => [], :TF2 => [])

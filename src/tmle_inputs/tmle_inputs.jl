@@ -50,9 +50,6 @@ function read_bgen(filepath)
     return Bgen(filepath, sample_path=sample_filepath, idx_path=idx_filepath)
 end
 
-all_snps_called(found_variants::Set{<:AbstractString}, variants::Set{<:AbstractString}) = 
-    variants == found_variants
-
 """
     genotypes_encoding(variant)
 
@@ -63,8 +60,8 @@ function genotypes_encoding(variant)
     return [all₁*all₁, all₁*all₂, all₂*all₂]
 end
 
-NotAllVariantsFoundError(found_snps, snp_list) = 
-    ArgumentError(string("Some variants were not found in the genotype files: ", join(setdiff(snp_list, found_snps), ", ")))
+NotAllVariantsFoundError(rsids) = 
+    ArgumentError(string("Some variants were not found in the genotype files: ", join(rsids, ", ")))
 
 NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
 """
@@ -72,36 +69,37 @@ NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsi
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, variants::Set{<:AbstractString}, threshold::Real)
+function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString}, threshold::Real)
+    query_rsids = copy(query_rsids)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
-    found_variants = Set{String}()
     for filename in readdir(chr_dir)
-        all_snps_called(found_variants, variants) ? break : nothing
+        length(query_rsids) == 0 ? break : nothing
         if is_numbered_chromosome_file(filename, prefix_)
             bgenfile = read_bgen(joinpath(chr_dir_, filename))
             chr_genotypes = DataFrame(SAMPLE_ID=bgenfile.samples)
-            for variant in BGEN.iterator(bgenfile)
-                rsid_ = rsid(variant)
-                if rsid_ ∈ variants
-                    push!(found_variants, rsid_)
+            bgen_rsids = Set(rsids(bgenfile))
+            for query_rsid in query_rsids
+                if query_rsid ∈ bgen_rsids
+                    pop!(query_rsids, query_rsid)
+                    variant = variant_by_rsid(bgenfile, query_rsid)
                     if n_alleles(variant) != 2
-                        @warn("Skipping $rsid_, not bi-allelic")
+                        @warn("Skipping $query_rsid, not bi-allelic")
                         continue
                     end
                     minor_allele_dosage!(bgenfile, variant)
                     variant_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
-                    size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(rsid_))
-                    chr_genotypes[!, rsid_] = call_genotypes(probabilities, variant_genotypes, threshold)
+                    size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
+                    chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :
                     innerjoin(genotypes, chr_genotypes, on=:SAMPLE_ID)
         end
     end
-    all_snps_called(found_variants, variants) || throw(NotAllVariantsFoundError(found_variants, variants))
+    length(query_rsids) == 0 || throw(NotAllVariantsFoundError(query_rsids))
     return genotypes
 end
 

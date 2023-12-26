@@ -80,7 +80,7 @@ end
 
     # With missing variants -> throw ArgumentError
     variants = Set(["TOTO"])
-    @test_throws TargeneCore.NotAllVariantsFoundError([], variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
+    @test_throws TargeneCore.NotAllVariantsFoundError(variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
 end
 
 
