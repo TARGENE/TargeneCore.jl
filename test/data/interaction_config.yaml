@@ -1,6 +1,6 @@
 orders: [2, 3]
 estimands: 
-  - interactions
+  - IATE
 variants:
   TF1:
     bQTLs:

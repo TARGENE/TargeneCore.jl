@@ -37,7 +37,7 @@ function generate_treatments_combinations(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
-function generate_interactions!(batch_saver, dataset, variants_config, outcomes, confounders; 
+function generate_iates!(batch_saver, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
@@ -101,9 +101,9 @@ function allele_independent_estimands(parsed_args)
 
     # Estimands
     for estimand_type in config["estimands"]
-        if estimand_type == "interactions"
+        if estimand_type == "IATE"
             orders = config["orders"]
-            generate_interactions!(batch_saver, dataset, variants_config, outcomes, confounders; 
+            generate_iates!(batch_saver, dataset, variants_config, outcomes, confounders; 
                 extra_treatments=extra_treatments,
                 outcome_extra_covariates=outcome_extra_covariates,
                 positivity_constraint=positivity_constraint,

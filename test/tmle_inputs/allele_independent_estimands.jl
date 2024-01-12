@@ -15,7 +15,15 @@ include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
         [:RSID_1, :RSID_2],
         [:RSID_3, :RSID_4],
         [:RSID_5],
-        ] 
+        ]
+    order_1 = TargeneCore.generate_treatments_combinations(treatments_list, [1])
+    @test order_1 == [
+        (:RSID_1,),
+        (:RSID_2,),
+        (:RSID_3,),
+        (:RSID_4,),
+        (:RSID_5,)
+    ]
     order_2 = TargeneCore.generate_treatments_combinations(treatments_list, [2])
     @test order_2 == [
         (:RSID_1, :RSID_3),
