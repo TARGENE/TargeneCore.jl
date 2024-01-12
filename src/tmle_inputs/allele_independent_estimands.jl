@@ -47,11 +47,15 @@ function generate_interactions!(batch_saver, dataset, variants_config, outcomes,
         treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
         isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
         for treatments ∈ generate_treatments_combinations(treatments_lists, orders)
+            treatments_levels = TMLE.unique_treatment_values(dataset, treatments)
+            freq_table = positivity_constraint !== nothing ? TMLE.frequency_table(dataset, keys(treatments_levels)) : nothing
             for outcome in outcomes
-                Ψ = generateIATEs(dataset, treatments, outcome,
-                    confounders = confounders,
+                Ψ = generateIATEs(
+                    treatments_levels, outcome; 
+                    confounders=confounders, 
                     outcome_extra_covariates=outcome_extra_covariates,
-                    positivity_constraint=positivity_constraint,
+                    freq_table=freq_table,
+                    positivity_constraint=positivity_constraint
                 )
                 ncomponents = length(Ψ.args)
                 if ncomponents > 0 
@@ -76,8 +80,8 @@ function allele_independent_estimands(parsed_args)
     call_threshold = parsed_args["call-threshold"]
     bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = TargeneCore.read_data(parsed_args["traits"])
-    pcs = TargeneCore.read_data(parsed_args["pcs"])
+    traits = read_data(parsed_args["traits"])
+    pcs = read_data(parsed_args["pcs"])
     config = YAML.load_file(parsed_args["allele-independent"]["config"])
 
     # Variables
@@ -90,9 +94,9 @@ function allele_independent_estimands(parsed_args)
     outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
 
     # Genotypes and final dataset
-    variants_set = Set(TargeneCore.retrieve_variants_list(variants_config))
-    genotypes = TargeneCore.call_genotypes(bgen_prefix, variants_set, call_threshold)
-    dataset = TargeneCore.merge(traits, pcs, genotypes)
+    variants_set = Set(retrieve_variants_list(variants_config))
+    genotypes = call_genotypes(bgen_prefix, variants_set, call_threshold)
+    dataset = merge(traits, pcs, genotypes)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
     # Estimands
