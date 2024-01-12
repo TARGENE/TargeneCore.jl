@@ -10,6 +10,34 @@ TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
 include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
 
+@testset "Test generate_treatments_combinations" begin
+    treatments_list = [
+        [:RSID_1, :RSID_2],
+        [:RSID_3, :RSID_4],
+        [:RSID_5],
+        ] 
+    order_2 = TargeneCore.generate_treatments_combinations(treatments_list, [2])
+    @test order_2 == [
+        (:RSID_1, :RSID_3),
+        (:RSID_1, :RSID_4),
+        (:RSID_1, :RSID_5),
+        (:RSID_2, :RSID_3),
+        (:RSID_2, :RSID_4),
+        (:RSID_2, :RSID_5),
+        (:RSID_3, :RSID_5),
+        (:RSID_4, :RSID_5)
+    ]
+    order_3 = TargeneCore.generate_treatments_combinations(treatments_list, [3])
+    @test order_3 == [
+        (:RSID_1, :RSID_3, :RSID_5),
+        (:RSID_1, :RSID_4, :RSID_5),
+        (:RSID_2, :RSID_3, :RSID_5),
+        (:RSID_2, :RSID_4, :RSID_5)
+    ]
+    order_2_3 = TargeneCore.generate_treatments_combinations(treatments_list, [2, 3])
+    @test order_2_3 == sort(vcat(order_2, order_3))
+end
+
 @testset "Test allele-independent: no positivity constraint" begin
     tmpdir = mktempdir()
     parsed_args = Dict(
@@ -42,15 +70,19 @@ include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
             append!(tf_estimands[:TF2], deserialize(joinpath(tmpdir, file)).estimands)
         end
     end
+    unique_n_components = Set{Int}([])
     for (tf, estimands) ∈ tf_estimands
         # Number of generated estimands
-        ntraits, nbQTLs, neQTLs = 4, 2, 1
-        @test length(estimands) == ntraits*nbQTLs*neQTLs
+        n_traits = 4
+        n_treat_comb_order_2 = 5
+        n_treat_comb_order_3 = 2
+        @test length(estimands) == n_traits*(n_treat_comb_order_2+n_treat_comb_order_3)
         for Ψ ∈ estimands
-            # No positivity constraint
-            @test length(Ψ.args) == 9
+            push!(unique_n_components, length(Ψ.args))
         end
     end
+    # positivity constraint
+    unique_n_components == Set([3, 9])
 end
 
 @testset "Test allele-independent: with positivity constraint" begin
@@ -85,14 +117,16 @@ end
             append!(tf_estimands[:TF2], deserialize(joinpath(tmpdir, file)).estimands)
         end
     end
+    unique_n_components = Set{Int}([])
     for (tf, estimands) ∈ tf_estimands
         # Number of generated estimands
-        @test length(estimands) == 4 < 8
+        length(estimands) < 28
         for Ψ ∈ estimands
-            # No positivity constraint
-            @test length(Ψ.args) == 1 < 9
+            push!(unique_n_components, length(Ψ.args))
         end
     end
+    # positivity constraint
+    unique_n_components == Set([1, 3, 5])
 end
 
 end

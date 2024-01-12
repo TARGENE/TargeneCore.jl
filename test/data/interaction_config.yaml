@@ -1,5 +1,6 @@
-orders: [2]
-estimands: interactions
+orders: [2, 3]
+estimands: 
+  - interactions
 variants:
   TF1:
     bQTLs:

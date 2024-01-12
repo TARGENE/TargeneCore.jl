@@ -19,35 +19,34 @@ function save_batch!(batch_saver::BatchManager, groupname)
     batch_saver.current_batch_size = 0
 end
 
-function allele_independent_estimands(parsed_args)
-    outprefix = parsed_args["out-prefix"]
-    batch_saver = BatchManager(outprefix, parsed_args["batch-size"])
-    call_threshold = parsed_args["call-threshold"]
-    bgen_prefix = parsed_args["bgen-prefix"]
-    positivity_constraint = parsed_args["positivity-constraint"]
-    traits = TargeneCore.read_data(parsed_args["traits"])
-    pcs = TargeneCore.read_data(parsed_args["pcs"])
-    config = YAML.load_file(parsed_args["allele-independent"]["config"])
+"""
+    generate_treatments_combinations(treatments_lists, orders)
 
-    # Variables
-    variants = config["variants"]
-    extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
-    outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
-    extra_confounders = haskey(config, "extra_confounders") ? Symbol.(config["extra_confounders"]) : []
-    confounders = all_confounders(pcs, extra_confounders)
-    nonoutcomes = Set(vcat(:SAMPLE_ID, extra_confounders, outcome_extra_covariates, extra_treatments))
-    outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
+Generate treatment combinations for all order in orders. The final list is sorted 
+to encourage reuse of nuisance function in downstreatm estimation.
+"""
+function generate_treatments_combinations(treatments_lists, orders)
+    treatment_combinations = []
+    for order in orders
+        for treatments_lists_at_order in Combinatorics.combinations(treatments_lists, order)
+            for treatment_comb in Iterators.product(treatments_lists_at_order...)
+                push!(treatment_combinations, treatment_comb)
+            end
+        end
+    end
+    return sort(treatment_combinations)
+end
 
-    # Genotypes and final dataset
-    variants_set = Set(TargeneCore.retrieve_variants_list(variants))
-    genotypes = TargeneCore.call_genotypes(bgen_prefix, variants_set, call_threshold)
-    dataset = TargeneCore.merge(traits, pcs, genotypes)
-    Arrow.write(string(outprefix, ".data.arrow"), dataset)
-
-    # Estimands
-    for (groupname, variants_dict) ∈ variants
-        for prod ∈ Iterators.product(values(variants_dict)...)
-            treatments = vcat(collect(Symbol.(prod)), extra_treatments)
+function generate_interactions!(batch_saver, dataset, variants_config, outcomes, confounders; 
+    extra_treatments=[],
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    orders=[2]
+    )
+    for (groupname, variants_dict) ∈ variants_config
+        treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
+        isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
+        for treatments ∈ generate_treatments_combinations(treatments_lists, orders)
             for outcome in outcomes
                 Ψ = generateIATEs(dataset, treatments, outcome,
                     confounders = confounders,
@@ -67,6 +66,47 @@ function allele_independent_estimands(parsed_args)
         # Save at the end of a group
         if batch_saver.current_batch_size > 0
             save_batch!(batch_saver, groupname)
+        end
+    end
+end
+
+function allele_independent_estimands(parsed_args)
+    outprefix = parsed_args["out-prefix"]
+    batch_saver = BatchManager(outprefix, parsed_args["batch-size"])
+    call_threshold = parsed_args["call-threshold"]
+    bgen_prefix = parsed_args["bgen-prefix"]
+    positivity_constraint = parsed_args["positivity-constraint"]
+    traits = TargeneCore.read_data(parsed_args["traits"])
+    pcs = TargeneCore.read_data(parsed_args["pcs"])
+    config = YAML.load_file(parsed_args["allele-independent"]["config"])
+
+    # Variables
+    variants_config = config["variants"]
+    extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
+    outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
+    extra_confounders = haskey(config, "extra_confounders") ? Symbol.(config["extra_confounders"]) : []
+    confounders = all_confounders(pcs, extra_confounders)
+    nonoutcomes = Set(vcat(:SAMPLE_ID, extra_confounders, outcome_extra_covariates, extra_treatments))
+    outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
+
+    # Genotypes and final dataset
+    variants_set = Set(TargeneCore.retrieve_variants_list(variants_config))
+    genotypes = TargeneCore.call_genotypes(bgen_prefix, variants_set, call_threshold)
+    dataset = TargeneCore.merge(traits, pcs, genotypes)
+    Arrow.write(string(outprefix, ".data.arrow"), dataset)
+
+    # Estimands
+    for estimand_type in config["estimands"]
+        if estimand_type == "interactions"
+            orders = config["orders"]
+            generate_interactions!(batch_saver, dataset, variants_config, outcomes, confounders; 
+                extra_treatments=extra_treatments,
+                outcome_extra_covariates=outcome_extra_covariates,
+                positivity_constraint=positivity_constraint,
+                orders=orders
+            )
+        else
+            throw(ArgumentError(string("Unknown estimand type: ", estimand_type)))
         end
     end
 
