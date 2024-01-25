@@ -90,7 +90,7 @@ end
         end
     end
     # positivity constraint
-    unique_n_components == Set([3, 9])
+    @test unique_n_components == Set([2, 4])
 end
 
 @testset "Test allele-independent: with positivity constraint" begin
@@ -134,7 +134,7 @@ end
         end
     end
     # positivity constraint
-    unique_n_components == Set([1, 3, 5])
+    @test unique_n_components == Set([1, 2, 3])
 end
 
 end

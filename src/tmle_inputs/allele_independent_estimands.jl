@@ -50,7 +50,7 @@ function generate_iates!(batch_saver, dataset, variants_config, outcomes, confou
             treatments_levels = TMLE.unique_treatment_values(dataset, treatments)
             freq_table = positivity_constraint !== nothing ? TMLE.frequency_table(dataset, keys(treatments_levels)) : nothing
             for outcome in outcomes
-                Ψ = generateIATEs(
+                Ψ = factorialIATE(
                     treatments_levels, outcome; 
                     confounders=confounders, 
                     outcome_extra_covariates=outcome_extra_covariates,
