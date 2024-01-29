@@ -227,7 +227,7 @@ end
         "reltol" => 0.05,
         "rng" => 123,
     )  
-    generate_random_variants_parameters_and_dataset(parsed_args)
+    generate_random_variants_estimands(parsed_args)
     
     # Only RSID_103 is a trans actor, leading to 3*5=15 estimands
     new_estimands = deserialize(parsed_args["out"]).estimands

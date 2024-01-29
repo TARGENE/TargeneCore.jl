@@ -28,13 +28,13 @@ include(joinpath("tl_inputs", "from_actors.jl"))
 include(joinpath("tl_inputs", "from_param_files.jl"))
 include(joinpath("tl_inputs", "allele_independent_estimands.jl"))
 include(joinpath("tl_inputs", "permutation_test.jl"))
-include(joinpath("tl_inputs", "random_variants_test.jl"))
+include("random_variants_test.jl")
 
 ###############################################################################
 ###                               EXPORTS                                  ###
 ###############################################################################
 
-export permutation_tests_tl_inputs, generate_random_variants_parameters_and_dataset
+export permutation_tests_tl_inputs, generate_random_variants_estimands
 export filter_chromosome, merge_beds, adapt_flashpca
 export tl_inputs
 

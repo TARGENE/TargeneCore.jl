@@ -196,7 +196,7 @@ end
 make_random_variants_estimands(estimands, variant_map) = 
     vcat((make_random_variants_estimands(Ψ, variant_map) for Ψ in estimands)...)
 
-function generate_random_variants_parameters_and_dataset(parsed_args)
+function generate_random_variants_estimands(parsed_args)
     resultsfile = parsed_args["results"]
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
