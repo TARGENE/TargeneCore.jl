@@ -92,9 +92,10 @@ end
 Tries to group parameters together in optimal ordering 
 by group of size approximately greater than min_size.
 """
-function write_parameter_files(outdir, parameters, chunksize; prefix="permutation_estimands_")
-    for (index, batch) in enumerate(Iterators.partition(parameters, chunksize))
-        serialize(joinpath(outdir, string(prefix, index, ".jls")), Configuration(estimands=batch))
+function write_estimands_files(prefix, parameters, chunksize; fileprefix="estimands_")
+    for (batch_index, batch) in enumerate(Iterators.partition(parameters, chunksize))
+        filename = string(fileprefix, batch_index, ".jls")
+        serialize(filepath_from_prefix(prefix; filename=filename), Configuration(estimands=batch))
     end
 end
 
@@ -105,3 +106,16 @@ function unique_treatments(estimands)
     end
     return treatments
 end
+
+function filepath_from_prefix(prefix; filename="dataset.arrow")
+    return if isdir(prefix)
+        joinpath(prefix, filename)
+    else
+        dir, _prefix = splitdir(prefix)
+        joinpath(dir, string(_prefix, filename))
+    end
+end
+
+write_dataset(prefix, dataset; filename="dataset.arrow") = 
+    Arrow.write(filepath_from_prefix(prefix; filename=filename), dataset)
+

@@ -139,20 +139,22 @@ function make_permutation_parameters(estimands; optimize=true, orders=(1,))
     return parameters, all_permuted_variables
 end
 
-function generate_permutation_parameters_and_dataset(parsed_args)
+function permutation_tests_tl_inputs(parsed_args)
     # Parsing Arguments
-    datafile = parsed_args["dataset"]
-    resultsfile = parsed_args["results"]
-    outdir = parsed_args["outdir"]
-    pval_threshold = parsed_args["pval-threshold"]    
-    verbosity = parsed_args["verbosity"]
-    orders = parse.(Int, split(parsed_args["orders"], ","))
-    limit = parsed_args["limit"]
-    rng_seed = parsed_args["rng"]
-    max_attempts = parsed_args["max-attempts"]
-    chunksize = parsed_args["chunksize"]
-    estimator_key = Symbol(parsed_args["estimator-key"])
+    batchsize = parsed_args["batch-size"]
     positivity_constraint = parsed_args["positivity-constraint"]
+    verbosity = parsed_args["verbosity"]
+    outprefix = parsed_args["out-prefix"]
+
+    permutation_test_config = parsed_args["permutation-tests"]
+    datafile = permutation_test_config["dataset"]
+    resultsfile = permutation_test_config["results"]
+    pval_threshold = permutation_test_config["pval-threshold"]    
+    orders = parse.(Int, split(permutation_test_config["orders"], ","))
+    limit = permutation_test_config["limit"]
+    rng_seed = permutation_test_config["rng"]
+    max_attempts = permutation_test_config["max-attempts"]
+    estimator_key = Symbol(permutation_test_config["estimator-key"])
 
     # Generating Permutation Parameters
     verbosity > 0 && @info string("Retrieving significant parameters.")
@@ -178,8 +180,9 @@ function generate_permutation_parameters_and_dataset(parsed_args)
         permuted_estimands = permuted_estimands[1:max(limit, length(permuted_estimands))]
     end
     verbosity > 0 && @info string("Writing ", length(permuted_estimands), " permuted estimands and dataset to disk.")
-    write_parameter_files(outdir, permuted_estimands, chunksize)
-    Arrow.write(joinpath(outdir, "permutation_dataset.arrow"), dataset)
+    write_estimands_files(outprefix, permuted_estimands, batchsize; fileprefix="permutation_estimands_")
+    write_dataset(outprefix, dataset; filename="permutation_dataset.arrow")
+
 
     verbosity > 0 && @info "Done."
     return 0

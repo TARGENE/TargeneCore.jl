@@ -34,7 +34,7 @@ include(joinpath("tl_inputs", "random_variants_test.jl"))
 ###                               EXPORTS                                  ###
 ###############################################################################
 
-export generate_permutation_parameters_and_dataset, generate_random_variants_parameters_and_dataset
+export permutation_tests_tl_inputs, generate_random_variants_parameters_and_dataset
 export filter_chromosome, merge_beds, adapt_flashpca
 export tl_inputs
 

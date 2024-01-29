@@ -191,6 +191,8 @@ function tl_inputs(parsed_args)
         tl_inputs_from_param_files(parsed_args)
     elseif parsed_args["%COMMAND%"] == "allele-independent"
         allele_independent_estimands(parsed_args)
+    elseif parsed_args["%COMMAND%"] == "permutation-tests"
+        permutation_tests_tl_inputs(parsed_args)
     else
         throw(ArgumentError("Unrecognized command."))
     end
