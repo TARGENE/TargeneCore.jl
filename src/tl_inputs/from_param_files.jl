@@ -172,17 +172,21 @@ function tl_inputs_from_param_files(parsed_args)
     # Read parsed_args
     batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
-    call_threshold = parsed_args["call-threshold"]
-    bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = TargeneCore.read_data(parsed_args["traits"])
-    pcs = TargeneCore.read_data(parsed_args["pcs"])
-    estimands_config_file = parsed_args["from-param-file"]["paramfile"]
+    verbosity = parsed_args["verbosity"]
+
+    estimands_config = parsed_args["from-param-file"]
+    estimands_config_file = estimands_config["paramfile"]
+    call_threshold = estimands_config["call-threshold"]
+    bgen_prefix = estimands_config["bgen-prefix"]
+    traits = TargeneCore.read_data(estimands_config["traits"])
+    pcs = TargeneCore.read_data(estimands_config["pcs"])
 
     # Load initial Parameter files
     estimands = TMLE.read_yaml(estimands_config_file).estimands
 
     # Genotypes and full data
+    verbosity > 0 && @info("Creating dataset.")
     variables = TargeneCore.get_variables(estimands, traits, pcs)
     genotypes = TargeneCore.call_genotypes(
         bgen_prefix, 
@@ -192,6 +196,7 @@ function tl_inputs_from_param_files(parsed_args)
     data = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
+    verbosity > 0 && @info("Validating estimands.")
     estimands = TargeneCore.adjusted_estimands(
         estimands, variables, data; 
         positivity_constraint=positivity_constraint

@@ -34,7 +34,10 @@ include("random_variants_test.jl")
 ###                               EXPORTS                                  ###
 ###############################################################################
 
-export permutation_tests_tl_inputs, generate_random_variants_estimands
+export permutation_tests_tl_inputs
+export generate_random_variants_estimands
+export tl_inputs_from_actors
+export tl_inputs_from_param_files
 export filter_chromosome, merge_beds, adapt_flashpca
 export tl_inputs
 

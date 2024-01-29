@@ -66,15 +66,20 @@ end
     # No positivity constraint
     estimands_filename = make_estimands_configuration_file()
     parsed_args = Dict(
-        "from-param-file" => Dict{String, Any}("paramfile" => estimands_filename), 
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-file", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => "final", 
         "batch-size" => nothing,
         "positivity-constraint" => 0.,
+        "verbosity" => 0,
+
+        "%COMMAND%" => "from-param-file",
+
+        "from-param-file" => Dict{String, Any}(
+            "paramfile" => estimands_filename,
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8, 
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            ), 
     )
 
     tl_inputs(parsed_args)
@@ -149,15 +154,20 @@ end
 @testset "Test tl_inputs from-param-file: no wildcard" begin
     estimands_filename = make_estimands_configuration_file(make_estimands_configuration_no_wildcard)
     parsed_args = Dict(
-        "from-param-file" => Dict{String, Any}("paramfile" => estimands_filename), 
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8, 
-        "%COMMAND%" => "from-param-file", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+        "verbosity" => 0,
         "out-prefix" => "final", 
         "batch-size" => 2,
         "positivity-constraint" => 0.,
+
+        "%COMMAND%" => "from-param-file", 
+
+        "from-param-file" => Dict{String, Any}(
+            "paramfile" => estimands_filename,
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8, 
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+        ), 
     )
     tl_inputs(parsed_args)
     

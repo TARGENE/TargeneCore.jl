@@ -271,6 +271,13 @@ end
     # - Extra Covariates
     # - Order 1,2
     parsed_args = Dict(
+        "out-prefix" => "final", 
+        "batch-size" => nothing,
+        "positivity-constraint" => 0.,
+        "verbosity" => 0,
+
+        "%COMMAND%" => "from-actors", 
+
         "from-actors" => Dict{String, Any}(
             "bqtls" => joinpath(TESTDIR, "data", "bqtls_1.csv"), 
             "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_1.csv"),
@@ -278,15 +285,11 @@ end
             "extra-treatments" => joinpath(TESTDIR, "data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
             "orders" => "1,2",
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8,  
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
             ),
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8,  
-        "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        "out-prefix" => "final", 
-        "batch-size" => nothing,
-        "positivity-constraint" => 0.
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
     tl_inputs(parsed_args)
@@ -343,6 +346,13 @@ end
     # - no continuous phenotypes 
     # - batched
     parsed_args = Dict(
+        "verbosity" => 0,
+        "out-prefix" => "final", 
+        "batch-size" => 100,
+        "positivity-constraint" => 0.,
+
+        "%COMMAND%" => "from-actors", 
+
         "from-actors" => Dict{String, Any}(
             "bqtls" => joinpath(TESTDIR, "data", "bqtls_1.csv"), 
             "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_2"),
@@ -350,15 +360,11 @@ end
             "extra-treatments" => nothing,
             "extra-confounders" => joinpath(TESTDIR, "data", "extra_confounders.txt"),
             "orders" => "2,3",
-            ),
-        "traits" => joinpath(TESTDIR, "data", "traits_2.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8,  
-        "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        "out-prefix" => "final", 
-        "batch-size" => 100,
-        "positivity-constraint" => 0.,
+            "traits" => joinpath(TESTDIR, "data", "traits_2.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8,  
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+        ),
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
     
@@ -427,6 +433,13 @@ end
     # - Order 1,2
     # - More than 1 TF present
     parsed_args = Dict(
+        "verbosity" => 0,
+        "out-prefix" => "final", 
+        "batch-size" => nothing,
+        "positivity-constraint" => 0.,
+
+        "%COMMAND%" => "from-actors", 
+
         "from-actors" => Dict{String, Any}(
             "bqtls" => joinpath(TESTDIR, "data", "bqtls_2.csv"), 
             "trans-actors-prefix" => joinpath(TESTDIR, "data", "trans_actors_3.csv"),
@@ -434,15 +447,11 @@ end
             "extra-treatments" => joinpath(TESTDIR, "data", "extra_treatments.txt"),
             "extra-confounders" => nothing,
             "orders" => "1,2",
-            ),
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8,  
-        "%COMMAND%" => "from-actors", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        "out-prefix" => "final", 
-        "batch-size" => nothing,
-        "positivity-constraint" => 0.
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8,  
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"),
+            ), 
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
     tl_inputs(parsed_args)

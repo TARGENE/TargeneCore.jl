@@ -28,27 +28,6 @@ function parse_commandline()
             help = "Output prefix"
             default = "final"
 
-        "--traits"
-            arg_type = String
-            required = true
-            help = "Path to the traits dataset"
-
-        "--call-threshold"
-            arg_type = Float64
-            help = "This is written down on the query file, it is the threshold that"*
-                    " is later used to hard call genotypes based on their probabilities"
-            default = 0.9
-
-        "--bgen-prefix"
-            help = "Prefix path to BGEN chromosomes."
-            required = true
-            arg_type = String
-
-        "--pcs"
-            arg_type = String
-            required = true
-            help = "Path to a genetic confounders file"
-
         "--batch-size"
             arg_type = Int
             required = false
@@ -74,7 +53,26 @@ function parse_commandline()
         "trans-actors-prefix"
             arg_type = String
             help = "Prefix path to trans-acting SNPs files"
-        
+            "--traits"
+            arg_type = String
+            required = true
+            help = "Path to the traits dataset"
+
+        "--call-threshold"
+            arg_type = Float64
+            help = "Hard call threshold for imputed genotypes"
+            default = 0.9
+
+        "--bgen-prefix"
+            help = "Prefix path to BGEN chromosomes."
+            required = true
+            arg_type = String
+
+        "--pcs"
+            arg_type = String
+            required = true
+            help = "Path to a genetic confounders file"
+
         "--extra-confounders"
             arg_type = String
             required = false
@@ -101,6 +99,26 @@ function parse_commandline()
         "paramfile"
             arg_type = String
             help = "Parameter file"
+        
+        "--traits"
+            arg_type = String
+            required = true
+            help = "Path to the traits dataset"
+
+        "--call-threshold"
+            arg_type = Float64
+            help = "Hard call threshold for imputed genotypes"
+            default = 0.9
+
+        "--bgen-prefix"
+            help = "Prefix path to BGEN chromosomes."
+            required = true
+            arg_type = String
+
+        "--pcs"
+            arg_type = String
+            required = true
+            help = "Path to a genetic confounders file"
     end
 
     @add_arg_table s["allele-independent"] begin

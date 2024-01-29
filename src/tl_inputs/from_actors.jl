@@ -209,16 +209,20 @@ end
 function tl_inputs_from_actors(parsed_args)
     batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
-    call_threshold = parsed_args["call-threshold"]
-    bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = TargeneCore.read_data(parsed_args["traits"])
-    pcs = TargeneCore.read_data(parsed_args["pcs"])
-    orders = TargeneCore.parse_orders(parsed_args["from-actors"]["orders"])
-    extraW = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-confounders"])
-    extraC = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-covariates"])
+    verbosity = parsed_args["verbosity"]
+
+    from_actors_config = parsed_args["from-actors"]
+    call_threshold = from_actors_config["call-threshold"]
+    bgen_prefix = from_actors_config["bgen-prefix"]
+    traits = TargeneCore.read_data(from_actors_config["traits"])
+    pcs = TargeneCore.read_data(from_actors_config["pcs"])
+    orders = TargeneCore.parse_orders(from_actors_config["orders"])
+    extraW = TargeneCore.read_txt_file(from_actors_config["extra-confounders"])
+    extraC = TargeneCore.read_txt_file(from_actors_config["extra-covariates"])
 
     # Retrieve SNPs and environmental treatments
+    verbosity > 0 && @info("Creating dataset.")
     bqtls, transactors, extraT = TargeneCore.treatments_from_actors(
         parsed_args["from-actors"]["bqtls"], 
         parsed_args["from-actors"]["extra-treatments"], 
@@ -227,7 +231,7 @@ function tl_inputs_from_actors(parsed_args)
     # Genotypes and final dataset
     variants = TargeneCore.all_variants(bqtls, transactors)
     genotypes = TargeneCore.call_genotypes(bgen_prefix, variants, call_threshold)
-    data = TargeneCore.merge(traits, pcs, genotypes)
+    dataset = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
     variables = TargeneCore.get_variables(pcs, traits, extraW, extraC, extraT)
@@ -235,15 +239,16 @@ function tl_inputs_from_actors(parsed_args)
     # Loop through each TF present in bqtls file 
     tfs = "TF" in names(bqtls) ? unique(bqtls.TF) : [nothing] 
     for tf in tfs
+        verbosity > 0 && @info(string("Generating estimands for TF: ", tf))
         outprefix_tf = tf !== nothing ? string(outprefix,".",tf) : outprefix
         bqtls_tf = TargeneCore.filter_snps_by_tf(bqtls, tf)
         transactors_tf = TargeneCore.filter_snps_by_tf(transactors, tf)
         TargeneCore.estimands_from_actors(
-            bqtls_tf, transactors_tf, data, variables, orders, outprefix_tf; 
+            bqtls_tf, transactors_tf, dataset, variables, orders, outprefix_tf; 
             positivity_constraint=positivity_constraint, batch_size=batch_size
         )
     end
 
     # write data
-    Arrow.write(string(outprefix, ".data.arrow"), data)
+    Arrow.write(string(outprefix, ".data.arrow"), dataset)
 end
