@@ -168,7 +168,7 @@ function adjusted_estimands(estimands, variables, data; positivity_constraint=0.
 end
 
 
-function tmle_inputs_from_param_files(parsed_args)
+function tl_inputs_from_param_files(parsed_args)
     # Read parsed_args
     batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
@@ -198,5 +198,5 @@ function tmle_inputs_from_param_files(parsed_args)
     )
 
     # write data and parameter files
-    write_tmle_inputs(outprefix, data, estimands, batch_size=batch_size)
+    write_tl_inputs(outprefix, data, estimands, batch_size=batch_size)
 end

@@ -105,4 +105,4 @@ end
 
 parsed_args = parse_commandline()
 
-tmle_inputs(parsed_args)
+tl_inputs(parsed_args)

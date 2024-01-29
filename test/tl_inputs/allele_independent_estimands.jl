@@ -8,7 +8,7 @@ using Serialization
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
 
 @testset "Test generate_treatments_combinations" begin
     treatments_list = [
@@ -61,7 +61,7 @@ end
         "batch-size" => 100,
         "positivity-constraint" => nothing,
     )
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([
@@ -108,7 +108,7 @@ end
         "batch-size" => nothing,
         "positivity-constraint" => 0.01,
     )
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([

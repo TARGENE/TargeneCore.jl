@@ -9,7 +9,7 @@ The SAMPLE_ID column should be read as a String.
 """
 read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-function write_tmle_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
+function write_tl_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write param_files
@@ -178,17 +178,17 @@ function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
 end
 
 """
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
 
 Support for the generation of estimands according to 2 strategies:
 - from-actors
 - from-param-file
 """
-function tmle_inputs(parsed_args)
+function tl_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "from-actors"
-        tmle_inputs_from_actors(parsed_args)
+        tl_inputs_from_actors(parsed_args)
     elseif parsed_args["%COMMAND%"] == "from-param-file"
-        tmle_inputs_from_param_files(parsed_args)
+        tl_inputs_from_param_files(parsed_args)
     elseif parsed_args["%COMMAND%"] == "allele-independent"
         allele_independent_estimands(parsed_args)
     else

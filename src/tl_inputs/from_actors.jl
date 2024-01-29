@@ -206,7 +206,7 @@ function estimands_from_actors(bqtls, transactors, data, variables, orders, outp
 end
 
 
-function tmle_inputs_from_actors(parsed_args)
+function tl_inputs_from_actors(parsed_args)
     batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
     call_threshold = parsed_args["call-threshold"]

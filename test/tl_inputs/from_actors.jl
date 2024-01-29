@@ -11,7 +11,7 @@ using Serialization
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
 
 function test_cates(Ψ, bqtls)
     nfixed = 0
@@ -264,7 +264,7 @@ end
 #####################################################################
 
 
-@testset "Test tmle_inputs from-actors: scenario 1" begin
+@testset "Test tl_inputs from-actors: scenario 1" begin
     # Scenario:
     # - Trans-actors
     # - Extra Treatment
@@ -289,7 +289,7 @@ end
         "positivity-constraint" => 0.
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
 
     ## Dataset file
     trait_data = DataFrame(Arrow.Table("final.data.arrow"))
@@ -333,7 +333,7 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs from-actors: scenario 2" begin
+@testset "Test tl_inputs from-actors: scenario 2" begin
     # Scenario:
     # - 2 sets of trans actors
     # - no extra treatment
@@ -362,7 +362,7 @@ end
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
     
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
     
     ## Dataset file
     traits = DataFrame(Arrow.Table("final.data.arrow"))
@@ -411,7 +411,7 @@ end
 
     # Adding positivity constraint, only 4 files are generated
     parsed_args["positivity-constraint"] = 0.1
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
 
     @test !isfile("final.param_2.yaml")
     output_estimands = deserialize("final.estimands_1.jls").estimands
@@ -419,7 +419,7 @@ end
     cleanup()
 end
 
-@testset "Test tmle_inputs from-actors: scenario 3" begin
+@testset "Test tl_inputs from-actors: scenario 3" begin
     # Scenario:
     # - Trans-actors
     # - Extra Treatment
@@ -445,7 +445,7 @@ end
         "positivity-constraint" => 0.
     )
     bqtls = Symbol.(unique(CSV.read(parsed_args["from-actors"]["bqtls"], DataFrame).ID))
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
 
     ## Dataset file
     trait_data = DataFrame(Arrow.Table("final.data.arrow"))

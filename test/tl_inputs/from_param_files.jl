@@ -13,7 +13,7 @@ using StableRNGs
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tmle_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
 
 #####################################################################
 ###############               UNIT TESTS              ###############
@@ -60,7 +60,7 @@ end
 #####################################################################
 
 
-@testset "Test tmle_inputs from-param-file" begin
+@testset "Test tl_inputs from-param-file" begin
     # Genotypes encoded as strings
     # No batching of parameter files
     # No positivity constraint
@@ -77,7 +77,7 @@ end
         "positivity-constraint" => 0.,
     )
 
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
 
     ## Data File
     data = DataFrame(Arrow.Table("final.data.arrow"))
@@ -134,7 +134,7 @@ end
 
     # Increase positivity constraint
     parsed_args["positivity-constraint"] = 0.01
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
     # The IATES are the most sensitives
     outestimands = deserialize("final.estimands.jls").estimands
     @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE} for Ψ in outestimands)
@@ -143,10 +143,10 @@ end
     cleanup()
 
     parsed_args["positivity-constraint"] = 1.
-    @test_throws TargeneCore.NoRemainingParamsError(1.) tmle_inputs(parsed_args)
+    @test_throws TargeneCore.NoRemainingParamsError(1.) tl_inputs(parsed_args)
 end
 
-@testset "Test tmle_inputs from-param-file: no wildcard" begin
+@testset "Test tl_inputs from-param-file: no wildcard" begin
     estimands_filename = make_estimands_configuration_file(make_estimands_configuration_no_wildcard)
     parsed_args = Dict(
         "from-param-file" => Dict{String, Any}("paramfile" => estimands_filename), 
@@ -159,7 +159,7 @@ end
         "batch-size" => 2,
         "positivity-constraint" => 0.,
     )
-    tmle_inputs(parsed_args)
+    tl_inputs(parsed_args)
     
     ## Data File
     data = DataFrame(Arrow.Table("final.data.arrow"))
