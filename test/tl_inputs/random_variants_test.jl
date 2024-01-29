@@ -53,13 +53,52 @@ end
 end
 
 @testset "Test is_in_regulatory_region" begin
-    v = deserialize(joinpath(TESTDIR, "data", "variants", "not_annotated_variant.bin"))
+    v = BGEN.BgenVariant(
+        UInt64(17659904),
+        UInt64(17659954),
+        UInt64(17663663),
+        UInt32(3709),
+        UInt32(487409),
+        "1:10542_C_T",
+        "rs572818783",
+        "01",
+        UInt32(10542),
+        UInt16(2),
+        ["C", "T"],
+        nothing
+    )
     @test TargeneCore.is_in_regulatory_region(v) == false
 
-    v = deserialize(joinpath(TESTDIR, "data", "variants", "regulatory_variant.bin"))
+    v = BGEN.BgenVariant(
+        UInt64(17659904),
+        UInt64(17659954),
+        UInt64(17663663),
+        UInt32(3709),
+        UInt32(487409),
+        "1:13313_T_G",
+        "rs527952245",
+        "01",
+        UInt32(13313),
+        UInt16(2),
+        ["T", "G"],
+        nothing
+    )
     @test TargeneCore.is_in_regulatory_region(v) == true
 
-    v = deserialize(joinpath(TESTDIR, "data", "variants", "failing_variant.bin"))
+    v = BGEN.BgenVariant(
+        UInt64(194507189736),
+        UInt64(194507189790),
+        UInt64(194508104141),
+        UInt32(914351),
+        UInt32(487409),
+        "1:249240539_T_G",
+        "rs545682552",
+        "01",
+        UInt32(249240539),
+        UInt16(2),
+        ["T", "G"],
+        nothing
+    )
     @test_throws HTTP.Exceptions.StatusError TargeneCore.is_in_regulatory_region(v)
 end
 
