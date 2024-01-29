@@ -127,7 +127,8 @@ function save(estimates; prefix="tmle_output")
     end
 end
 
-make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = save(estimates_generator(); prefix=prefix)
+make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 
+    save(estimates_generator(); prefix=prefix)
 
 function clean(;prefix="tmle_output")
     dir_, prefix_ = splitdir(prefix)
