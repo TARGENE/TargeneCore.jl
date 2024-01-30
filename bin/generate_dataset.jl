@@ -29,6 +29,10 @@ function parse_commandline()
             help = "Output dataset file."
             arg_type = String
             default = "dataset.arrow"
+        "--verbosity"
+            help = "Logging level."
+            arg_type = Int
+            default = 1
     end
 
     return parse_args(s)
