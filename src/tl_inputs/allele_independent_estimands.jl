@@ -75,16 +75,20 @@ function generate_iates!(batch_saver, dataset, variants_config, outcomes, confou
 end
 
 function allele_independent_estimands(parsed_args)
+    verbosity = parsed_args["verbosity"]
     outprefix = parsed_args["out-prefix"]
     batch_saver = BatchManager(outprefix, parsed_args["batch-size"])
-    call_threshold = parsed_args["call-threshold"]
-    bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = read_csv_file(parsed_args["traits"])
-    pcs = read_csv_file(parsed_args["pcs"])
-    config = YAML.load_file(parsed_args["allele-independent"]["config"])
+
+    allele_independent_config = parsed_args["allele-independent"]
+    call_threshold = allele_independent_config["call-threshold"]
+    bgen_prefix = allele_independent_config["bgen-prefix"]
+    traits = read_csv_file(allele_independent_config["traits"])
+    pcs = read_csv_file(allele_independent_config["pcs"])
+    config = YAML.load_file(allele_independent_config["config"])
 
     # Variables
+    verbosity > 0 && @info("Parsing configuration file.")
     variants_config = config["variants"]
     extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
     outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
@@ -94,6 +98,7 @@ function allele_independent_estimands(parsed_args)
     outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
 
     # Genotypes and final dataset
+    verbosity > 0 && @info("Building and writing dataset.")
     variants_set = Set(retrieve_variants_list(variants_config))
     genotypes = call_genotypes(bgen_prefix, variants_set, call_threshold)
     dataset = merge(traits, pcs, genotypes)
@@ -101,6 +106,7 @@ function allele_independent_estimands(parsed_args)
 
     # Estimands
     for estimand_type in config["estimands"]
+        verbosity > 0 && @info(string("Creating estimands files for: ", estimand_type))
         if estimand_type == "IATE"
             orders = config["orders"]
             generate_iates!(batch_saver, dataset, variants_config, outcomes, confounders; 
@@ -113,6 +119,7 @@ function allele_independent_estimands(parsed_args)
             throw(ArgumentError(string("Unknown estimand type: ", estimand_type)))
         end
     end
+    verbosity > 0 && @info("Done.")
 
     return 0
 end

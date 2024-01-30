@@ -125,6 +125,26 @@ function parse_commandline()
         "config"
             arg_type = String
             help = "Configuration file (.yaml)."
+        
+        "--traits"
+            arg_type = String
+            required = true
+            help = "Path to the traits dataset"
+
+        "--call-threshold"
+            arg_type = Float64
+            help = "Hard call threshold for imputed genotypes"
+            default = 0.9
+
+        "--bgen-prefix"
+            help = "Prefix path to BGEN chromosomes."
+            required = true
+            arg_type = String
+
+        "--pcs"
+            arg_type = String
+            required = true
+            help = "Path to a genetic confounders file"
     end
 
     @add_arg_table s["permutation-tests"] begin

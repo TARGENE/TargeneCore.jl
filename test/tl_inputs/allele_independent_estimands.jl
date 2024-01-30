@@ -49,17 +49,20 @@ end
 @testset "Test allele-independent: no positivity constraint" begin
     tmpdir = mktempdir()
     parsed_args = Dict(
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "interaction_config.yaml"), 
-            ),
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8,  
-        "%COMMAND%" => "allele-independent", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         "out-prefix" => joinpath(tmpdir, "final"), 
         "batch-size" => 100,
+        "verbosity" => 0,
         "positivity-constraint" => nothing,
+
+        "%COMMAND%" => "allele-independent", 
+
+        "allele-independent" => Dict{String, Any}(
+            "config" => joinpath(TESTDIR, "data", "interaction_config.yaml"),
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8,  
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            ),
     )
     tl_inputs(parsed_args)
     # Check dataset
@@ -96,17 +99,20 @@ end
 @testset "Test allele-independent: with positivity constraint" begin
     tmpdir = mktempdir()
     parsed_args = Dict(
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "interaction_config.yaml"), 
-            ),
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "call-threshold" => 0.8,  
-        "%COMMAND%" => "allele-independent", 
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+        "verbosity" => 0,
         "out-prefix" => joinpath(tmpdir, "final"), 
         "batch-size" => nothing,
         "positivity-constraint" => 0.01,
+
+        "%COMMAND%" => "allele-independent", 
+
+        "allele-independent" => Dict{String, Any}(
+            "config" => joinpath(TESTDIR, "data", "interaction_config.yaml"), 
+            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
+            "call-threshold" => 0.8,  
+            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+        ),
     )
     tl_inputs(parsed_args)
     # Check dataset
