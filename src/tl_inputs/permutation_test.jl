@@ -177,7 +177,7 @@ function permutation_tests_tl_inputs(parsed_args)
         throw(error("No permuted estimand remaining, consider increasing the p-value threshold or the maximum number of attempts."))
     end
     if limit !== nothing
-        permuted_estimands = permuted_estimands[1:max(limit, length(permuted_estimands))]
+        permuted_estimands = permuted_estimands[1:min(limit, length(permuted_estimands))]
     end
     verbosity > 0 && @info string("Writing ", length(permuted_estimands), " permuted estimands and dataset to disk.")
     write_estimands_files(outprefix, permuted_estimands, batchsize; fileprefix="permutation_estimands_")
