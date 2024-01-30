@@ -119,3 +119,4 @@ end
 write_dataset(prefix, dataset; filename="dataset.arrow") = 
     Arrow.write(filepath_from_prefix(prefix; filename=filename), dataset)
 
+set_from_txt_file(filepath::AbstractString) = Set(open(readlines, filepath))

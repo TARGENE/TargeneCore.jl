@@ -20,8 +20,8 @@ include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
 #####################################################################
 
 @testset "Test get_variables" begin
-    traits = TargeneCore.read_data(joinpath(TESTDIR, "data", "traits_1.csv"))
-    pcs = TargeneCore.read_data(joinpath(TESTDIR, "data", "pcs.csv"))
+    traits = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "traits_1.csv"))
+    pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
     # extraW, extraT, extraC are parsed from all param_files
     estimands = make_estimands_configuration().estimands
     variables = TargeneCore.get_variables(estimands, traits, pcs)

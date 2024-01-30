@@ -3,11 +3,11 @@ const CHR_REG = r"chr[1-9]+"
 batch_name(outprefix, batch_id) = string(outprefix, ".estimands_", batch_id, ".jls") 
 
 """
-    read_data(filepath)
+    read_csv_file(filepath)
 
 The SAMPLE_ID column should be read as a String.
 """
-read_data(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
+read_csv_file(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
 function write_tl_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
     # Write final_dataset

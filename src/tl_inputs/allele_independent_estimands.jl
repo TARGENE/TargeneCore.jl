@@ -80,8 +80,8 @@ function allele_independent_estimands(parsed_args)
     call_threshold = parsed_args["call-threshold"]
     bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = read_data(parsed_args["traits"])
-    pcs = read_data(parsed_args["pcs"])
+    traits = read_csv_file(parsed_args["traits"])
+    pcs = read_csv_file(parsed_args["pcs"])
     config = YAML.load_file(parsed_args["allele-independent"]["config"])
 
     # Variables

@@ -215,8 +215,8 @@ function tl_inputs_from_actors(parsed_args)
     from_actors_config = parsed_args["from-actors"]
     call_threshold = from_actors_config["call-threshold"]
     bgen_prefix = from_actors_config["bgen-prefix"]
-    traits = TargeneCore.read_data(from_actors_config["traits"])
-    pcs = TargeneCore.read_data(from_actors_config["pcs"])
+    traits = TargeneCore.read_csv_file(from_actors_config["traits"])
+    pcs = TargeneCore.read_csv_file(from_actors_config["pcs"])
     orders = TargeneCore.parse_orders(from_actors_config["orders"])
     extraW = TargeneCore.read_txt_file(from_actors_config["extra-confounders"])
     extraC = TargeneCore.read_txt_file(from_actors_config["extra-covariates"])

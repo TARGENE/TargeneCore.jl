@@ -6,10 +6,6 @@ NotEnoughMatchingVariantsError(rsid, p, reltol) =
     " random matching variants for ", rsid, ", consider decreasing the MAF reltol (current: ", reltol, ")"
     ))
 
-
-get_variants_to_randomize(filepath::AbstractString) = Set(open(readlines, filepath))
-
-
 """
     update_treatment_setting!(variant::Variant, origin_variant::Variant, origin_case, origin_control)
 
@@ -201,7 +197,7 @@ function generate_random_variants_estimands(parsed_args)
     p = parsed_args["p"]
     rng = StableRNG(parsed_args["rng"])
     reltol = parsed_args["reltol"]
-    trans_actors = get_variants_to_randomize(parsed_args["variants-to-randomize"])
+    trans_actors = set_from_txt_file(parsed_args["variants-to-randomize"])
     bgen_prefix = parsed_args["bgen-prefix"]
     pval_threshold = parsed_args["pval-threshold"]
     out = parsed_args["out"]

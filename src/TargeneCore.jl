@@ -26,6 +26,7 @@ using Distributions
 
 include("utils.jl")
 include("confounders.jl")
+include("dataset.jl")
 include("plots.jl")
 include(joinpath("tl_inputs", "tl_inputs.jl"))
 include(joinpath("tl_inputs", "from_actors.jl"))
@@ -43,6 +44,7 @@ export permutation_tests_tl_inputs
 export tl_inputs_from_actors
 export tl_inputs_from_param_files
 
+export generate_dataset
 export generate_random_variants_estimands
 export generate_summary_plots
 export filter_chromosome, merge_beds, adapt_flashpca

@@ -179,8 +179,8 @@ function tl_inputs_from_param_files(parsed_args)
     estimands_config_file = estimands_config["paramfile"]
     call_threshold = estimands_config["call-threshold"]
     bgen_prefix = estimands_config["bgen-prefix"]
-    traits = TargeneCore.read_data(estimands_config["traits"])
-    pcs = TargeneCore.read_data(estimands_config["pcs"])
+    traits = TargeneCore.read_csv_file(estimands_config["traits"])
+    pcs = TargeneCore.read_csv_file(estimands_config["pcs"])
 
     # Load initial Parameter files
     estimands = TMLE.read_yaml(estimands_config_file).estimands
