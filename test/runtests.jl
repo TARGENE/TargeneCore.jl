@@ -4,6 +4,7 @@ using Test
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
 @test include(joinpath(TESTDIR, "utils.jl"))
+@test include(joinpath(TESTDIR, "dataset.jl"))
 @test include(joinpath(TESTDIR, "plots.jl"))
 @test include(joinpath(TESTDIR, "confounders.jl"))
 @test include(joinpath(TESTDIR, "random_variants_test.jl"))

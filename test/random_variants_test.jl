@@ -218,7 +218,7 @@ end
     parsed_args = Dict(
         "p" => 5,
         "results" => "tmle_output.hdf5",
-        "variants-to-randomize" => joinpath(TESTDIR, "data", "variants_to_randomize.txt"),
+        "variants-to-randomize" => joinpath(TESTDIR, "data", "variants_list.txt"),
         "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed", "ukbb"),
         "out" => "random_variants_parameters.jls",
         "pval-threshold" => 0.05,
