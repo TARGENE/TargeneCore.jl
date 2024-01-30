@@ -21,7 +21,8 @@ RUN chmod a+x /usr/local/bin/gcta64
 # Import project, build and precompile
 COPY . /TargeneCore.jl 
 
-RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
+WORKDIR /TargeneCore.jl
 
-RUN julia -q --project=/TargeneCore.jl -e'using Pkg; Pkg.test()'
+RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
+RUN julia --project --startup-file=no deps/build_sysimage.jl
