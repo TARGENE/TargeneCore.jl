@@ -26,3 +26,8 @@ WORKDIR /TargeneCore.jl
 RUN julia -q --project -e'using Pkg; Pkg.instantiate(); Pkg.resolve(); Pkg.precompile(); using TargeneCore'
 
 RUN julia --project --startup-file=no deps/build_sysimage.jl
+
+# Check scripts are callable 
+RUN julia --project --startup-file=no -JTargeneCoreSysimage.so bin/prepare_confounders.jl --help
+RUN julia --project --startup-file=no -JTargeneCoreSysimage.so bin/generate_tl_inputs.jl --help
+RUN julia --project --startup-file=no -JTargeneCoreSysimage.so bin/generate_random_variant_estimands.jl --help

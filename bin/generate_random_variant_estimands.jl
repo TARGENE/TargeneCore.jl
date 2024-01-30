@@ -1,5 +1,5 @@
 using ArgParse
-using NegativeControl
+using TargeneCore
 
 function parse_commandline()
     s = ArgParseSettings(
