@@ -134,10 +134,6 @@ function parse_commandline()
         "results"
             help = "CSV file containing TarGene results."
             required = true
-        "--outdir"
-            help = "Where the data will be generated."
-            arg_type = String
-            default = pwd()
         "--pval-threshold"
             help = "The p-value threshold for significant results calling"
             default = 0.05
