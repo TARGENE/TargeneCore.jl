@@ -2,7 +2,7 @@
 
 julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "7f9d1ce296cd891228f32eca165dbc50f31ccc5e"
+project_hash = "085626dbbb99c34d164a143bd68e6b6ac355064e"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -2411,9 +2411,9 @@ version = "7.2.1+1"
 
 [[deps.TMLE]]
 deps = ["AbstractDifferentiation", "CategoricalArrays", "Combinatorics", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "PrecompileTools", "Random", "SplitApplyCombine", "Statistics", "TableOperations", "Tables", "Zygote"]
-git-tree-sha1 = "c3f75f3dd288c700d1d078f7984865c451ef1abf"
+git-tree-sha1 = "207ae2bb8541c03ffbecb0b55896ef105451676d"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
-version = "0.14.1"
+version = "0.14.2"
 weakdeps = ["JSON", "YAML"]
 
     [deps.TMLE.extensions]
