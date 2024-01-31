@@ -1,5 +1,4 @@
-TMLE.pvalue(x::TMLE.ComposedEstimate) = pvalue(OneSampleHotellingT2Test(x))
-TMLE.pvalue(x::TMLE.EICEstimate) = pvalue(OneSampleTTest(x))
+TMLE.pvalue(x) = pvalue(significance_test(x))
 TMLE.pvalue(x::TargetedEstimation.FailedEstimate) = missing
 
 log10_uniform_quantiles(n) = -log10.(collect(LinRange(0., 1., n + 1))[2:end])
@@ -40,7 +39,7 @@ function qqplot(results, outprefix)
     # QQ plots
     pvalue_cols = [colname for colname ∈ names(results) if endswith(colname, "PVALUE")]
     for pvalue_col ∈ pvalue_cols
-        pvalues = -log10.(skipmissing(results[!, pvalue_col]))
+        pvalues = -log10.(filter(x -> !isnan(x), skipmissing(results[!, pvalue_col])))
         n = length(pvalues)
         unif_quantiles = log10_uniform_quantiles(n)
         qqplot!(ax, unif_quantiles, pvalues, qqline=:identity, label=replace(string(pvalue_col), "_PVALUE" => ""))

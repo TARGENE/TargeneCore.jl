@@ -2,7 +2,7 @@
 
 julia_version = "1.10.0"
 manifest_format = "2.0"
-project_hash = "56d9d6b97a5e4f9cc5a11eadb7d3ab483061e8a6"
+project_hash = "7f9d1ce296cd891228f32eca165dbc50f31ccc5e"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -357,9 +357,9 @@ version = "1.60.0"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra"]
-git-tree-sha1 = "0d12ee16b3f62e4e33c3277773730a5b21a74152"
+git-tree-sha1 = "1287e3872d646eed95198457873249bd9f0caed2"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.20.0"
+version = "1.20.1"
 weakdeps = ["SparseArrays"]
 
     [deps.ChainRulesCore.extensions]
@@ -373,9 +373,9 @@ version = "0.1.12"
 
 [[deps.CodecBzip2]]
 deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
-git-tree-sha1 = "c0ae2a86b162fb5d7acc65269b469ff5b8a73594"
+git-tree-sha1 = "9b1ca1aa6ce3f71b3d1840c538a8210a043625eb"
 uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
-version = "0.8.1"
+version = "0.8.2"
 
 [[deps.CodecLz4]]
 deps = ["Lz4_jll", "TranscodingStreams"]
@@ -385,15 +385,15 @@ version = "0.4.1"
 
 [[deps.CodecXz]]
 deps = ["Libdl", "TranscodingStreams", "XZ_jll"]
-git-tree-sha1 = "b0a742068c86bb9c7616f8e3c0d98199318b90a6"
+git-tree-sha1 = "893153d91e4b7af48bbe394d6094451938390aba"
 uuid = "ba30903b-d9e8-5048-a5ec-d1f5b0d4b47b"
-version = "0.7.1"
+version = "0.7.2"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "cd67fc487743b2f0fd4380d4cbd3a24660d0eec8"
+git-tree-sha1 = "59939d8a997469ee05c4b4944560a820f9ba0d73"
 uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.3"
+version = "0.7.4"
 
 [[deps.CodecZstd]]
 deps = ["TranscodingStreams", "Zstd_jll"]
@@ -575,9 +575,9 @@ version = "1.9.1"
 
 [[deps.Dictionaries]]
 deps = ["Indexing", "Random", "Serialization"]
-git-tree-sha1 = "bd57fc07ff32179367a230b22c539e4776e452e2"
+git-tree-sha1 = "8b73c5a704d74e78a114b785d648ceba1e5790a9"
 uuid = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
-version = "0.3.28"
+version = "0.4.0"
 
 [[deps.DiffResults]]
 deps = ["StaticArraysCore"]
@@ -1659,9 +1659,9 @@ version = "7.8.3"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Pkg", "Random", "Requires", "Statistics"]
-git-tree-sha1 = "900a11b3a2b02e36b25cb55a80777d4a4670f0f6"
+git-tree-sha1 = "d2811b435d2f571bdfdfa644bb806a66b458e186"
 uuid = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
-version = "0.9.10"
+version = "0.9.11"
 
     [deps.NNlib.extensions]
     NNlibAMDGPUExt = "AMDGPU"
@@ -1781,9 +1781,9 @@ version = "0.5.5+0"
 
 [[deps.Optim]]
 deps = ["Compat", "FillArrays", "ForwardDiff", "LineSearches", "LinearAlgebra", "MathOptInterface", "NLSolversBase", "NaNMath", "Parameters", "PositiveFactorizations", "Printf", "SparseArrays", "StatsBase"]
-git-tree-sha1 = "931b2ecf1b43de06dddc342c6af03f2b11434958"
+git-tree-sha1 = "47fea72de134f75b105a5d4a1abe5c6aec89d390"
 uuid = "429524aa-4258-5aef-a3af-852621145aeb"
-version = "1.9.0"
+version = "1.9.1"
 
 [[deps.Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -2140,9 +2140,9 @@ version = "1.1.1"
 
 [[deps.ShaderAbstractions]]
 deps = ["ColorTypes", "FixedPointNumbers", "GeometryBasics", "LinearAlgebra", "Observables", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "db0219befe4507878b1a90e07820fed3e62c289d"
+git-tree-sha1 = "79123bc60c5507f035e6d1d9e563bb2971954ec8"
 uuid = "65257c39-d410-5151-9873-9b3e5be5013e"
-version = "0.4.0"
+version = "0.4.1"
 
 [[deps.SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
@@ -2255,9 +2255,9 @@ weakdeps = ["ChainRulesCore"]
 
 [[deps.SplitApplyCombine]]
 deps = ["Dictionaries", "Indexing"]
-git-tree-sha1 = "48f393b0231516850e39f6c756970e7ca8b77045"
+git-tree-sha1 = "c06d695d51cfb2187e6848e98d6252df9101c588"
 uuid = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
-version = "1.2.2"
+version = "1.2.3"
 
 [[deps.SplittablesBase]]
 deps = ["Setfield", "Test"]
@@ -2302,9 +2302,9 @@ weakdeps = ["OffsetArrays", "StaticArrays"]
 
 [[deps.StaticArrays]]
 deps = ["LinearAlgebra", "PrecompileTools", "Random", "StaticArraysCore"]
-git-tree-sha1 = "f68dd04d131d9a8a8eb836173ee8f105c360b0c5"
+git-tree-sha1 = "7b0e9c14c624e435076d19aea1e5cbdec2b9ca37"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.9.1"
+version = "1.9.2"
 weakdeps = ["ChainRulesCore", "Statistics"]
 
     [deps.StaticArrays.extensions]
@@ -2410,10 +2410,10 @@ uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
 version = "7.2.1+1"
 
 [[deps.TMLE]]
-deps = ["AbstractDifferentiation", "CategoricalArrays", "Combinatorics", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "PrecompileTools", "PrettyTables", "Random", "SplitApplyCombine", "Statistics", "TableOperations", "Tables", "Zygote"]
-git-tree-sha1 = "95515e50c954ca19025b3b3cef4a1e7db917722a"
+deps = ["AbstractDifferentiation", "CategoricalArrays", "Combinatorics", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "PrecompileTools", "Random", "SplitApplyCombine", "Statistics", "TableOperations", "Tables", "Zygote"]
+git-tree-sha1 = "c3f75f3dd288c700d1d078f7984865c451ef1abf"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
-version = "0.14.0"
+version = "0.14.1"
 weakdeps = ["JSON", "YAML"]
 
     [deps.TMLE.extensions]
@@ -2427,9 +2427,9 @@ version = "1.0.3"
 
 [[deps.TZJData]]
 deps = ["Artifacts"]
-git-tree-sha1 = "d39314cdbaf5b90a047db33858626f8d1cc973e1"
+git-tree-sha1 = "b69f8338df046774bd975b13be9d297eca5efacb"
 uuid = "dc5dba14-91b3-4cab-a142-028a31da12f7"
-version = "1.0.0+2023c"
+version = "1.1.0+2023d"
 
 [[deps.TableOperations]]
 deps = ["SentinelArrays", "Tables", "Test"]
