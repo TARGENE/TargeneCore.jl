@@ -8,7 +8,7 @@ TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
 include(joinpath(TESTDIR, "testutils.jl"))
 
-@testset "Test " begin
+@testset "Test generate_summary_plots" begin
     tmpdir = mktempdir()
     prefix = joinpath(tmpdir, "tmle_output")
     make_fake_outputs(; prefix=prefix)

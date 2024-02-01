@@ -21,11 +21,11 @@ end
 function load_results(file_or_prefix; verbosity=0)
     verbosity > 0 && @info "Loading results."
     results = isfile(file_or_prefix) ? read_results_file(file_or_prefix) : read_results_files(file_or_prefix)
-    estimators = collect(keys(first(results)))
+    estimators = collect(key for key ∈ keys(first(results)) if key !== :SAMPLE_IDS)
     results_df = DataFrame([[r[id] for r in results] for id in 1:length(estimators)], estimators)
     for estimator in estimators
         results_df[!, Symbol(estimator, :_PVALUE)] = [pvalue(x) for x in results_df[!, estimator]]
-    end    
+    end
     return results_df
 end
 
