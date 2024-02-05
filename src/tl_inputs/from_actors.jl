@@ -69,7 +69,7 @@ end
 sorted_unique_values(v) = sort(unique(skipmissing(v)))
 
 """
-    control_case_settings(::Type{IATE}, treatment_tuple, data::DataFrame)
+    control_case_settings(::Type{TMLE.StatisticalIATE}, treatment_tuple, data::DataFrame)
 
 Generates all possible IATE parameter treatment settings where control ≠ case. 
 The procedure works as follows:
@@ -77,7 +77,7 @@ The procedure works as follows:
     - For each treatment, control ≠ case are generated from pairwise combinations of unique values
     - The cartesian product of all those treatment case/control values is returned
 """
-function control_case_settings(::Type{IATE}, treatments, data::DataFrame)
+function control_case_settings(::Type{TMLE.StatisticalIATE}, treatments, data::DataFrame)
     control_cases_ = []
     # For each treatment variable generate the case/control options
     # where case and control are different
@@ -93,7 +93,7 @@ function control_case_settings(::Type{IATE}, treatments, data::DataFrame)
 end
 
 """
-    control_case_settings(::Type{ATE}, treatment_tuple, data)
+    control_case_settings(::Type{TMLE.StatisticalATE}, treatment_tuple, data)
 
 Generates all possible ATE parameter treatment settings where only the bQTL has control ≠ case, 
 for the rest of the treatment variables: case=control. The bQTl is assumed to 
@@ -105,7 +105,7 @@ The procedure works as follows:
     - For all other treatment variables, control = case are the unique values
     - The cartesian product of all those treatment case/control values is returned
 """
-function control_case_settings(::Type{ATE}, treatments, data)
+function control_case_settings(::Type{TMLE.StatisticalATE}, treatments, data)
     control_cases_ = []
     # The bQTL is the first treatment variable
     # We get all case/control values
@@ -123,22 +123,32 @@ function control_case_settings(::Type{ATE}, treatments, data)
     )
 end
 
-function addParameters!(parameters, treatments, variables, data; positivity_constraint=0.)
+function addEstimands!(estimands, treatments, variables, data; positivity_constraint=0.)
     freqs = TargeneCore.frequency_table(data, treatments)
-    # This loop adds all ATE parameters where all other treatments than
+    # This loop adds all ATE estimands where all other treatments than
     # the bQTL are fixed, at the order 1, this is the simple bQTL's ATE
-    for setting in control_case_settings(ATE, treatments, data)
-        Ψ = ATE(target=Symbol("*"), treatment=setting, confounders=variables.confounders, covariates=variables.covariates)
+    for setting in control_case_settings(TMLE.StatisticalATE, treatments, data)
+        Ψ = ATE(
+            outcome = :ALL, 
+            treatment_values = setting, 
+            treatment_confounders = NamedTuple{keys(setting)}([variables.confounders for key in keys(setting)]), 
+            outcome_extra_covariates = variables.covariates
+        )
         if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
-            update_parameters_from_targets!(parameters, Ψ, variables.targets)
+            update_estimands_from_outcomes!(estimands, Ψ, variables.targets)
         end
     end
-    # This loop adds all IATE parameters that pass the positivity threshold
+    # This loop adds all IATE estimands that pass the positivity threshold
     if size(treatments, 1) >= 2
-        for setting in control_case_settings(IATE, treatments, data)
-            Ψ = IATE(target=Symbol("*"), treatment=setting, confounders=variables.confounders, covariates=variables.covariates)
+        for setting in control_case_settings(TMLE.StatisticalIATE, treatments, data)
+            Ψ = IATE(
+                outcome = :ALL, 
+                treatment_values = setting, 
+                treatment_confounders = NamedTuple{keys(setting)}([variables.confounders for key in keys(setting)]),
+                outcome_extra_covariates = variables.covariates
+            )
             if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
-                update_parameters_from_targets!(parameters, Ψ, variables.targets)
+                update_estimands_from_outcomes!(estimands, Ψ, variables.targets)
             end
         end
     end
@@ -154,8 +164,8 @@ function get_variables(pcs, traits, extraW, extraC, extraT)
     )
 end
 
-function parameters_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
-    parameters = TMLE.Parameter[]
+function estimands_from_actors(bqtls, transactors, data, variables, orders, outprefix; positivity_constraint=0., batch_size=nothing)
+    estimands = TMLE.Estimand[]
     batch_id = 1
     extraT_df = variables.extra_treatments isa Nothing ? nothing : DataFrame(ID=variables.extra_treatments)
     # For each interaction order generate parameter files
@@ -170,16 +180,16 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
                 continue
             end
 
-            addParameters!(parameters, treatments, variables, data; positivity_constraint=positivity_constraint)
+            addEstimands!(estimands, treatments, variables, data; positivity_constraint=positivity_constraint)
 
-            if batch_size !== nothing && size(parameters, 1) >= batch_size
-                optimize_ordering!(parameters)
-                for batch in Iterators.partition(parameters, batch_size)
+            if batch_size !== nothing && size(estimands, 1) >= batch_size
+                estimands = groups_ordering(estimands, brute_force=false, do_shuffle=false)
+                for batch in Iterators.partition(estimands, batch_size)
                     if size(batch, 1) >= batch_size
-                        parameters_to_yaml(param_batch_name(outprefix, batch_id), batch)
+                        serialize(batch_name(outprefix, batch_id), Configuration(estimands=batch))
                         batch_id += 1
                     else
-                        parameters = collect(batch)
+                        estimands = collect(batch)
                     end
                 end
             end
@@ -187,28 +197,32 @@ function parameters_from_actors(bqtls, transactors, data, variables, orders, out
         end
     end
 
-    if length(parameters) == 0
+    if length(estimands) == 0
         batch_id != 1 || throw(NoRemainingParamsError(positivity_constraint))
     else
-        optimize_ordering!(parameters)
-        parameters_to_yaml(param_batch_name(outprefix, batch_id), parameters)
+        groups_ordering(estimands, brute_force=false, do_shuffle=false)
+        serialize(batch_name(outprefix, batch_id), Configuration(estimands=estimands))
     end
 end
 
 
-function tmle_inputs_from_actors(parsed_args)
+function tl_inputs_from_actors(parsed_args)
     batch_size = parsed_args["batch-size"]
     outprefix = parsed_args["out-prefix"]
-    call_threshold = parsed_args["call-threshold"]
-    bgen_prefix = parsed_args["bgen-prefix"]
     positivity_constraint = parsed_args["positivity-constraint"]
-    traits = TargeneCore.read_data(parsed_args["traits"])
-    pcs = TargeneCore.read_data(parsed_args["pcs"])
-    orders = TargeneCore.parse_orders(parsed_args["from-actors"]["orders"])
-    extraW = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-confounders"])
-    extraC = TargeneCore.read_txt_file(parsed_args["from-actors"]["extra-covariates"])
+    verbosity = parsed_args["verbosity"]
+
+    from_actors_config = parsed_args["from-actors"]
+    call_threshold = from_actors_config["call-threshold"]
+    bgen_prefix = from_actors_config["bgen-prefix"]
+    traits = TargeneCore.read_csv_file(from_actors_config["traits"])
+    pcs = TargeneCore.read_csv_file(from_actors_config["pcs"])
+    orders = TargeneCore.parse_orders(from_actors_config["orders"])
+    extraW = TargeneCore.read_txt_file(from_actors_config["extra-confounders"])
+    extraC = TargeneCore.read_txt_file(from_actors_config["extra-covariates"])
 
     # Retrieve SNPs and environmental treatments
+    verbosity > 0 && @info("Creating dataset.")
     bqtls, transactors, extraT = TargeneCore.treatments_from_actors(
         parsed_args["from-actors"]["bqtls"], 
         parsed_args["from-actors"]["extra-treatments"], 
@@ -217,7 +231,7 @@ function tmle_inputs_from_actors(parsed_args)
     # Genotypes and final dataset
     variants = TargeneCore.all_variants(bqtls, transactors)
     genotypes = TargeneCore.call_genotypes(bgen_prefix, variants, call_threshold)
-    data = TargeneCore.merge(traits, pcs, genotypes)
+    dataset = TargeneCore.merge(traits, pcs, genotypes)
 
     # Parameter files
     variables = TargeneCore.get_variables(pcs, traits, extraW, extraC, extraT)
@@ -225,15 +239,16 @@ function tmle_inputs_from_actors(parsed_args)
     # Loop through each TF present in bqtls file 
     tfs = "TF" in names(bqtls) ? unique(bqtls.TF) : [nothing] 
     for tf in tfs
+        verbosity > 0 && @info(string("Generating estimands for TF: ", tf))
         outprefix_tf = tf !== nothing ? string(outprefix,".",tf) : outprefix
         bqtls_tf = TargeneCore.filter_snps_by_tf(bqtls, tf)
         transactors_tf = TargeneCore.filter_snps_by_tf(transactors, tf)
-        TargeneCore.parameters_from_actors(
-        bqtls_tf, transactors_tf, data, variables, orders, outprefix_tf; 
-        positivity_constraint=positivity_constraint, batch_size=batch_size
+        TargeneCore.estimands_from_actors(
+            bqtls_tf, transactors_tf, dataset, variables, orders, outprefix_tf; 
+            positivity_constraint=positivity_constraint, batch_size=batch_size
         )
     end
 
     # write data
-    Arrow.write(string(outprefix, ".data.arrow"), data)
+    Arrow.write(string(outprefix, ".data.arrow"), dataset)
 end

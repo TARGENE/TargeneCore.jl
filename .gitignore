@@ -25,7 +25,6 @@ docs/site/
 # Manifest.toml
 test/Manifest.toml
 
-
 # Develop dependencies
 dev/
 

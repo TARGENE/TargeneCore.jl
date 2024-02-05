@@ -8,6 +8,9 @@ using YAML
 using StableRNGs
 using BGEN
 using TMLE
+
+TESTDIR = joinpath(pkgdir(TargeneCore), "test")
+
 #####################################################################
 ##################           UNIT TESTS            ##################
 #####################################################################
@@ -62,7 +65,7 @@ end
 end
 
 @testset "Test call_genotypes for all SNPs" begin
-    bgen_dir = joinpath("data", "ukbb", "imputed" , "ukbb")
+    bgen_dir = joinpath(TESTDIR, "data", "ukbb", "imputed" , "ukbb")
     variants = Set(["RSID_10", "RSID_100"])
     genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
     # I only look at the first 10 rows
@@ -77,7 +80,7 @@ end
 
     # With missing variants -> throw ArgumentError
     variants = Set(["TOTO"])
-    @test_throws TargeneCore.NotAllVariantsFoundError([], variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
+    @test_throws TargeneCore.NotAllVariantsFoundError(variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
 end
 
 
@@ -93,12 +96,20 @@ end
         (A = 2,) => 0.25,
         (A = 1,) => 0.5
     )
-    Ψ = CM(target=:toto, treatment=(A=1,), confounders=[])
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (A=1,), 
+        treatment_confounders = (A=[],)
+    )
     @test TargeneCore.setting_iterator(Ψ) == ((A = 1,),)
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.4) == true
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.6) == false
 
-    Ψ = ATE(target=:toto, treatment=(A=(case=1, control=0),), confounders=[])
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values= (A= (case=1, control=0),), 
+        treatment_confounders = (A=[],)
+    )
     @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1,), (A = 0,)]
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == true
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
@@ -114,17 +125,29 @@ end
         (A = 2, B = "AA") => 0.25
     )
 
-    Ψ = CM(target=:toto, treatment=(B = "CC", A = 1), confounders=[])
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (B = "CC", A = 1), 
+        treatment_confounders = (B = [], A = [])
+    )
     @test TargeneCore.setting_iterator(Ψ) == ((A = 1, B = "CC"),)
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.15) == false
     
-    Ψ = ATE(target=:toto, treatment=(B=(case="AA", control="AC"), A=(case=1, control=1),), confounders=[])
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AA", control="AC"), A=(case=1, control=1),), 
+        treatment_confounders = (B = (), A = (),)
+    )
     @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1, B = "AA"), (A = 1, B = "AC")]
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == false
     
-    Ψ = IATE(target=:toto, treatment=(B=(case="AC", control="AA"), A=(case=1, control=0),), confounders=[])
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0),), 
+        treatment_confounders = (B=(), A=()), 
+    )
     @test collect(TargeneCore.setting_iterator(Ψ)) == [
         (A = 1, B = "AC")  (A = 1, B = "AA")
         (A = 0, B = "AC")  (A = 0, B = "AA")]
@@ -140,8 +163,12 @@ end
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
     @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
 
-    Ψ = IATE(target=:toto, treatment=(B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), confounders=[])
-    expected_settings = [
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), 
+        treatment_confounders = (B=(), A=(), C=())
+    )
+    expected_settings = Set([
         (A = 1, B = "AC", C = 0),
         (A = 0, B = "AC", C = 0),
         (A = 1, B = "AA", C = 0),
@@ -149,10 +176,8 @@ end
         (A = 1, B = "AC", C = 2),
         (A = 0, B = "AC", C = 2),
         (A = 1, B = "AA", C = 2),
-        (A = 0, B = "AA", C = 2)]
-    for (index, s) in enumerate(TargeneCore.setting_iterator(Ψ))
-        @test s == expected_settings[index]
-    end
+        (A = 0, B = "AA", C = 2)])
+    @test expected_settings == Set(TargeneCore.setting_iterator(Ψ))
 end
 
 end
