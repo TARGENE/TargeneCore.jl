@@ -1,6 +1,11 @@
-orders: [2, 3]
+type: groups
+
 estimands: 
-  - IATE
+  - type: IATE
+    orders: [2, 3]
+  - type: CM
+    orders: [2]
+
 variants:
   TF1:
     bQTLs:

@@ -1,31 +1,23 @@
 retrieve_variants_list(config::Dict) = vcat((retrieve_variants_list(x) for x in values(config))...)
 retrieve_variants_list(variants::AbstractVector) = variants
 
-mutable struct BatchManager
-    outprefix::String
-    max_batch_size::Union{Int, Nothing}
-    current_batch_id::Int
-    current_estimands::Vector
-    current_batch_size::Int
-    batch_id::Int
-    BatchManager(outprefix, max_batch_size) = new(outprefix, max_batch_size, 1, [], 0, 1)
-end
+save_estimands(outprefix, estimands, batchsize::Nothing) = 
+    serialize(batch_name(outprefix, 1), Configuration(estimands=estimands))
 
-function save_batch!(batch_saver::BatchManager, groupname)
-    batchfilename = batch_name(string(batch_saver.outprefix, ".", groupname), batch_saver.batch_id)
-    serialize(batchfilename, Configuration(estimands=batch_saver.current_estimands))
-    batch_saver.batch_id += 1
-    batch_saver.current_estimands = []
-    batch_saver.current_batch_size = 0
+function save_estimands(outprefix, estimands, batchsize)
+    for (batch_id, batch) ∈ enumerate(Iterators.partition(estimands, batchsize))
+        batchfilename = batch_name(outprefix, batch_id)
+        serialize(batchfilename, Configuration(estimands=batch))
+    end
 end
 
 """
-    generate_treatments_combinations(treatments_lists, orders)
+    treatment_tuples_from_groups(treatments_lists, orders)
 
 Generate treatment combinations for all order in orders. The final list is sorted 
 to encourage reuse of nuisance function in downstreatm estimation.
 """
-function generate_treatments_combinations(treatments_lists, orders)
+function treatment_tuples_from_groups(treatments_lists, orders)
     treatment_combinations = []
     for order in orders
         for treatments_lists_at_order in Combinatorics.combinations(treatments_lists, order)
@@ -37,47 +29,70 @@ function generate_treatments_combinations(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
-function generate_iates!(batch_saver, dataset, variants_config, outcomes, confounders; 
+function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
-    orders=[2]
+    verbosity=1
     )
+    estimands = []
     for (groupname, variants_dict) ∈ variants_config
-        treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
-        isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
-        for treatments ∈ generate_treatments_combinations(treatments_lists, orders)
-            treatments_levels = TMLE.unique_treatment_values(dataset, treatments)
-            freq_table = positivity_constraint !== nothing ? TMLE.frequency_table(dataset, keys(treatments_levels)) : nothing
-            for outcome in outcomes
-                Ψ = factorialIATE(
-                    treatments_levels, outcome; 
+        verbosity > 0 && @info(string("Generating estimands for group: ", groupname))
+        for estimands_config in estimands_configs
+            estimand_constructor = eval(Symbol(estimands_config["type"]))
+            orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
+            treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
+            isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
+            for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
+                append!(estimands, factorialEstimands(
+                    estimand_constructor, dataset, treatments, outcomes; 
                     confounders=confounders, 
                     outcome_extra_covariates=outcome_extra_covariates,
-                    freq_table=freq_table,
-                    positivity_constraint=positivity_constraint
-                )
-                ncomponents = length(Ψ.args)
-                if ncomponents > 0 
-                    push!(batch_saver.current_estimands, Ψ)
-                    batch_saver.current_batch_size += ncomponents + 1
-                end
-                if batch_saver.max_batch_size !== nothing && batch_saver.current_batch_size > batch_saver.max_batch_size
-                    save_batch!(batch_saver, groupname)
-                end
+                    positivity_constraint=positivity_constraint, 
+                    verbosity=verbosity-1
+                ))
             end
         end
-        # Save at the end of a group
-        if batch_saver.current_batch_size > 0
-            save_batch!(batch_saver, groupname)
+    end
+    return estimands
+end
+
+default_order(::Union{typeof(ATE), typeof(CM)}) = [1]
+default_order(::typeof(IATE)) = [2]
+
+treatment_tuples_from_single_list(treatment_variables, orders) =
+    reduce(vcat, collect(Combinatorics.combinations(treatment_variables, order)) for order in orders)
+
+function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes, confounders; 
+    extra_treatments=[],
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=1,
+    )
+    estimands = []
+    treatment_variables = isempty(extra_treatments) ? Symbol.(variants) : Symbol.(vcat(variants, extra_treatments))
+    for estimands_config in estimands_configs
+        estimand_constructor = eval(Symbol(estimands_config["type"]))
+        verbosity > 0 && @info(string("Generating estimands: "))
+        orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
+        for treatments ∈ treatment_tuples_from_single_list(treatment_variables, orders)
+            append!(estimands, factorialEstimands(
+                estimand_constructor, dataset,
+                treatments, outcomes; 
+                confounders=confounders, 
+                outcome_extra_covariates=outcome_extra_covariates,
+                positivity_constraint=positivity_constraint, 
+                verbosity=verbosity-1
+            ))
         end
     end
+    return estimands
 end
 
 function allele_independent_estimands(parsed_args)
     verbosity = parsed_args["verbosity"]
     outprefix = parsed_args["out-prefix"]
-    batch_saver = BatchManager(outprefix, parsed_args["batch-size"])
+    batchsize = parsed_args["batch-size"]
     positivity_constraint = parsed_args["positivity-constraint"]
 
     allele_independent_config = parsed_args["allele-independent"]
@@ -105,20 +120,27 @@ function allele_independent_estimands(parsed_args)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
     # Estimands
-    for estimand_type in config["estimands"]
-        verbosity > 0 && @info(string("Creating estimands files for: ", estimand_type))
-        if estimand_type == "IATE"
-            orders = config["orders"]
-            generate_iates!(batch_saver, dataset, variants_config, outcomes, confounders; 
-                extra_treatments=extra_treatments,
-                outcome_extra_covariates=outcome_extra_covariates,
-                positivity_constraint=positivity_constraint,
-                orders=orders
-            )
-        else
-            throw(ArgumentError(string("Unknown estimand type: ", estimand_type)))
-        end
+    config_type = config["type"]
+    estimands_configs = config["estimands"]
+    estimands = if config_type == "flat"
+        estimands_from_flat_list(estimands_configs, dataset, variants_config, outcomes, confounders;
+            extra_treatments=extra_treatments,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity)
+    elseif config_type == "groups"
+        estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
+            extra_treatments=extra_treatments,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity
+        )
+    else
+        throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat, groups)")))
     end
+
+    TargeneCore.save_estimands(outprefix, groups_ordering(estimands), batchsize)
+
     verbosity > 0 && @info("Done.")
 
     return 0
