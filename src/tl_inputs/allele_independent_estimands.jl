@@ -139,7 +139,7 @@ function allele_independent_estimands(parsed_args)
         throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat, groups)")))
     end
 
-    TargeneCore.save_estimands(outprefix, groups_ordering(estimands), batchsize)
+    save_estimands(outprefix, groups_ordering(estimands), batchsize)
 
     verbosity > 0 && @info("Done.")
 
