@@ -193,6 +193,8 @@ function tl_inputs(parsed_args)
         allele_independent_estimands(parsed_args)
     elseif parsed_args["%COMMAND%"] == "permutation-tests"
         permutation_tests_tl_inputs(parsed_args)
+    elseif parsed_args["%COMMAND%"] == "loco-gwas"
+        loco_gwas(parsed_args)
     else
         throw(ArgumentError("Unrecognized command."))
     end
