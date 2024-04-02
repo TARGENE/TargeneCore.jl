@@ -96,7 +96,10 @@ function loco_gwas(parsed_args)
     positivity_constraint = parsed_args["positivity-constraint"]
 
     loco_gwas_config = parsed_args["loco-gwas"]
-    bed_prefix = loco_gwas_config["bed-prefix"]
+    bed_file = loco_gwas_config["bed-file"]
+    bim_file = loco_gwas_config["bim-file"]
+    fam_file = loco_gwas_config["fam-file"]
+
     traits = read_csv_file(loco_gwas_config["traits"])
     pcs = read_csv_file(loco_gwas_config["pcs"])
     config = YAML.load_file(loco_gwas_config["config"])
@@ -113,7 +116,7 @@ function loco_gwas(parsed_args)
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
-    chromosome = SnpData(SnpArrays.datadir(bed_prefix))
+    chromosome = SnpData(replace(bed_file, r"\.bed$" => ""), famnm=fam_file, bimnm=bim_file)
     chr_array = convert(Matrix{Float16}, chromosome.snparray)
     genotypes = DataFrame(chr_array, chromosome.snp_info."snpid")
     insertcols!(genotypes, 1, :SAMPLE_ID => chromosome.person_info."iid")

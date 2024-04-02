@@ -54,8 +54,18 @@ function parse_commandline()
             arg_type = String
             help = "Configuration file (.yaml)."
 
-        "--bed-prefix"
-            help = "Prefix path to BED chromosomes. This should already be QC'd"
+        "--bed-file"
+            help = "Prefix path to BED file. This should already be QC'd"
+            required = true
+            arg_type = String
+        
+        "--bim-file"
+            help = "Path to BIM file. This should already be QC'd"
+            required = true
+            arg_type = String
+        
+        "--fam-file"
+            help = "Path to FAM file. This should already be QC'd"
             required = true
             arg_type = String
 

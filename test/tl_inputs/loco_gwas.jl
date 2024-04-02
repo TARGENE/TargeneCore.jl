@@ -32,7 +32,9 @@ end
             "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "bed-prefix" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12"), 
+            "bed-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.bed"), 
+            "bim-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.bim"),
+            "fam-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.fam")
         ),
     )
     tl_inputs(parsed_args)
@@ -73,7 +75,9 @@ end
             "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "bed-prefix" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12"), 
+            "bed-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.bed"), 
+            "bim-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.bim"),
+            "fam-file" => joinpath(TESTDIR, "data", "ukbb", "loco_gwas_genotypes" ,"test_chr12.fam")
         ),
     )
     tl_inputs(parsed_args)
