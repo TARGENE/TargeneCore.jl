@@ -124,7 +124,7 @@ function control_case_settings(::Type{TMLE.StatisticalATE}, treatments, data)
 end
 
 function addEstimands!(estimands, treatments, variables, data; positivity_constraint=0.)
-    freqs = TargeneCore.frequency_table(data, treatments)
+    freqs = TMLE.frequency_table(data, treatments)
     # This loop adds all ATE estimands where all other treatments than
     # the bQTL are fixed, at the order 1, this is the simple bQTL's ATE
     for setting in control_case_settings(TMLE.StatisticalATE, treatments, data)
@@ -134,7 +134,7 @@ function addEstimands!(estimands, treatments, variables, data; positivity_constr
             treatment_confounders = NamedTuple{keys(setting)}([variables.confounders for key in keys(setting)]), 
             outcome_extra_covariates = variables.covariates
         )
-        if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
+        if TMLE.satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
             update_estimands_from_outcomes!(estimands, Ψ, variables.targets)
         end
     end
@@ -147,7 +147,7 @@ function addEstimands!(estimands, treatments, variables, data; positivity_constr
                 treatment_confounders = NamedTuple{keys(setting)}([variables.confounders for key in keys(setting)]),
                 outcome_extra_covariates = variables.covariates
             )
-            if satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
+            if TMLE.satisfies_positivity(Ψ, freqs; positivity_constraint=positivity_constraint)
                 update_estimands_from_outcomes!(estimands, Ψ, variables.targets)
             end
         end
