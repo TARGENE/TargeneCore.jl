@@ -117,7 +117,7 @@ function loco_gwas(parsed_args)
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
     chromosome = SnpData(replace(bed_file, r"\.bed$" => ""), famnm=fam_file, bimnm=bim_file)
-    chr_array = convert(Matrix{Float16}, chromosome.snparray)
+    chr_array = convert(Matrix{UInt8}, chromosome.snparray)
     genotypes = DataFrame(chr_array, chromosome.snp_info."snpid")
     insertcols!(genotypes, 1, :SAMPLE_ID => chromosome.person_info."iid")
 
