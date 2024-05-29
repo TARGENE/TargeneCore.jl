@@ -214,7 +214,7 @@ end
             "paramfile" => estimands_filename,
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8, 
+            "call-threshold" => nothing, 
             "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ), 
     )

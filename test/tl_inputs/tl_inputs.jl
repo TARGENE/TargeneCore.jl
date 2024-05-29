@@ -30,11 +30,21 @@ TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 end
 
 @testset "Test call_genotypes for a single SNP" begin
-    probabilities = [NaN 0.3 0.2 0.9;
-                     NaN 0.5 0.2 0.05;
-                     NaN 0.2 0.6 0.05]
+    probabilities = [-Inf 0.3 0.2 0.9 -Inf;
+                    -Inf 0.5 0.2 0.05 0.3;
+                    -Inf 0.2 0.6 0.05 0.7]
     variant_genotypes = [2, 1, 0]
 
+    # No threshold results in max probability genotype being called
+    threshold = nothing
+    genotypes = TargeneCore.call_genotypes(
+        probabilities, 
+        variant_genotypes, 
+        threshold
+    )
+    @test all(x === y for (x,y) in zip(genotypes,[missing, 1, 0, 2, 0]))
+
+    # If a threshold is set, the genotype is only called if the max probability is greater than the threshold
     threshold = 0.9
     genotypes = TargeneCore.call_genotypes(
         probabilities, 
@@ -42,6 +52,7 @@ end
         threshold)
     @test genotypes[1] === genotypes[2] === genotypes[3] === missing
     @test genotypes[4] == 2
+    @test genotypes[5] === missing
     genotypes = TargeneCore.call_genotypes(
         probabilities, 
         ["AA", "AG", "GG"], 
@@ -56,6 +67,8 @@ end
     @test genotypes[1] === genotypes[2]  === missing
     @test genotypes[3] == 0
     @test genotypes[4] == 2
+    @test genotypes[5] == 0
+
     genotypes = TargeneCore.call_genotypes(
         probabilities, 
         ["AA", "AG", "GG"], 
@@ -66,17 +79,34 @@ end
 
 @testset "Test call_genotypes for all SNPs" begin
     bgen_dir = joinpath(TESTDIR, "data", "ukbb", "imputed" , "ukbb")
-    variants = Set(["RSID_10", "RSID_100"])
+    variants = Set(["RSID_10", "RSID_100", "RSID_2"])
+    # With a threshold
     genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
-    # I only look at the first 10 rows
+    # I only looked at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
     # RSID_10
     @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
     # RSID_100
     @test all(genotypes[1:10, "RSID_100"] .=== ["AG", "AA", "AG", missing, "AG", "AG", missing, "AG", "GG", "AG"])
+    # RSID_2: contains NaN
+    @test all(genotypes[1:10, "RSID_2"] .=== [missing, "GG", missing, missing, missing, missing, missing, "GG", missing, missing])
     # Test column order
-    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100"]
+    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100", "RSID_2"]
+
+    # With no threshold
+    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, nothing)
+    # I only looked at the first 10 rows
+    # SAMPLE_ID    
+    @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
+    # RSID_10
+    @test genotypes[1:10, "RSID_10"] == repeat(["AG"], 10)
+    # RSID_100
+    @test all(genotypes[1:10, "RSID_100"] .=== ["AG", "AA", "AG", "AA", "AG", "AG", "AG", "AG", "GG", "AG"])
+    # RSID_2: contains NaN
+    @test all(genotypes[1:10, "RSID_2"] .=== [missing, "GG", "GG", "AG", "GG", "GG", "AG", "GG", "GG", "GG"])
+    # Test column order
+    @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100", "RSID_2"]
 
     # With missing variants -> throw ArgumentError
     variants = Set(["TOTO"])
