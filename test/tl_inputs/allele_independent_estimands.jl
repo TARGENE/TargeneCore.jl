@@ -17,6 +17,7 @@ function summary_stats_df(estimands)
     estimands.ORDER = [length(first(x.args).treatment_values) for x in estimands.ESTIMAND]
     return sort(DataFrames.combine(groupby(estimands, [:ESTIMAND_TYPE, :ORDER]), nrow), [:ORDER, :ESTIMAND_TYPE])
 end
+
 @testset "Test treatment_tuples_from_groups" begin
     treatments_list = [
         [:RSID_1, :RSID_2],
@@ -143,7 +144,7 @@ end
             append!(estimands, deserialize(file).estimands)
         end
     end
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
 
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
@@ -186,7 +187,7 @@ end
             append!(estimands, deserialize(file).estimands)
         end
     end
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
         ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
@@ -223,7 +224,7 @@ end
     @test size(trait_data) == (490, 14)
     # Check estimands
     estimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
         ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],

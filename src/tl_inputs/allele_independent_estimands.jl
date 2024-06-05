@@ -45,8 +45,9 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
             isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
             for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
                 append!(estimands, factorialEstimands(
-                    estimand_constructor, dataset, treatments, outcomes; 
+                    estimand_constructor, treatments, outcomes; 
                     confounders=confounders, 
+                    dataset=dataset,
                     outcome_extra_covariates=outcome_extra_covariates,
                     positivity_constraint=positivity_constraint, 
                     verbosity=verbosity-1
@@ -89,6 +90,34 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
+function estimands_from_flat_gwas_list(estimands_configs, dataset, variants, outcomes, confounders; 
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=0,
+    )
+    estimands = []
+
+    for estimands_config in estimands_configs
+        estimand_constructor = eval(Symbol(estimands_config["type"]))
+        verbosity > 0 && @info(string("Generating estimands: "))
+        
+        for v in variants
+            try
+                dynamic_tuple = NamedTuple{(Symbol(v),)}((Union{Missing, UInt8}[0, 1, 2],))
+                resultant_estimand = factorialEstimand(estimand_constructor, dynamic_tuple, outcomes;
+                                                        confounders=confounders,outcome_extra_covariates=outcome_extra_covariates, 
+                                                        dataset=dataset, positivity_constraint=positivity_constraint)
+                push!(estimands, resultant_estimand)
+            catch e
+                verbosity > 0 && @error(string("Estimand $v could not be estimated "))
+                continue
+            end
+        end
+    end
+    
+    return estimands
+end
+
 function loco_gwas(parsed_args)
     verbosity = parsed_args["verbosity"]
     outprefix = parsed_args["out-prefix"]
@@ -119,8 +148,12 @@ function loco_gwas(parsed_args)
     chromosome = SnpData(replace(bed_file, r"\.bed$" => ""), famnm=fam_file, bimnm=bim_file)
     chr_array = convert(Matrix{UInt8}, chromosome.snparray)
     genotypes = DataFrame(chr_array, chromosome.snp_info."snpid")
+    genotype_map = Dict(0=>0, 1=>missing, 2=>1, 3=>2)
+    for col in names(genotypes)
+        genotypes[!, col] = convert(Vector{Union{eltype(genotypes[!, col]), Missing}}, genotypes[!, col])
+        map!(x->genotype_map[x], genotypes[!, col], genotypes[!, col]) 
+    end
     insertcols!(genotypes, 1, :SAMPLE_ID => chromosome.person_info."iid")
-
     dataset = merge(traits, pcs, genotypes)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
@@ -129,14 +162,13 @@ function loco_gwas(parsed_args)
     #Estimands
     config_type = config["type"]
     estimands_configs = config["estimands"]
-    estimands = if config_type == "flat"
-        estimands_from_flat_list(estimands_configs, dataset, variants_config, outcomes, confounders;
-            extra_treatments=extra_treatments,
+    estimands = if config_type == "flat-gwas"
+        estimands_from_flat_gwas_list(estimands_configs, dataset, variants_config, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity)
     else
-        throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat, groups)")))
+        throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat-gwas)")))
     end
 
     save_estimands(outprefix, groups_ordering(estimands), batchsize)

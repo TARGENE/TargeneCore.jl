@@ -1,15 +1,7 @@
-type: flat
-
-variants:
-  - RSID_17
-  - RSID_99
-  - RSID_102
+type: flat-gwas
   
 estimands: 
   - type: ATE
-
-extra_treatments:
-  - TREAT_1
 
 outcome_extra_covariates:
   - COV_1

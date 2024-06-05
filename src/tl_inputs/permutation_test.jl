@@ -1,9 +1,9 @@
 
 permuted_name(name) = Symbol(name, :_permuted)
 
-function permuted_estimand!(permutation_variables::Set, Ψ::ComposedEstimand)
+function permuted_estimand!(permutation_variables::Set, Ψ::JointEstimand)
     newargs = Tuple(permuted_estimand!(copy(permutation_variables), arg) for arg in Ψ.args)
-    return ComposedEstimand(Ψ.f, newargs)
+    return JointEstimand(newargs...)
 end
 
 function permuted_estimand!(permutation_variables::Set, Ψ::T) where T
@@ -33,13 +33,13 @@ function permute_dataset!(dataset, variables; rng=StableRNG(123))
     end
 end
 
-function update_valid_estimands!(valid_estimands, Ψ::ComposedEstimand, frequency_table; positivity_constraint=0.01)
+function update_valid_estimands!(valid_estimands, Ψ::JointEstimand, frequency_table; positivity_constraint=0.01)
     new_args = filter(
         x -> TMLE.satisfies_positivity(x, frequency_table, positivity_constraint=positivity_constraint), 
         Ψ.args
     )
     isempty(new_args) && return
-    push!(valid_estimands, ComposedEstimand(Ψ.f, new_args))
+    push!(valid_estimands, JointEstimand(new_args...))
 end
 
 function update_valid_estimands!(valid_estimands, Ψ, frequency_table; positivity_constraint=0.01)
@@ -51,14 +51,14 @@ end
 filter_by_positivity_constraint(estimands, dataset, positivity_constraint::Nothing) = estimands
 
 function filter_by_positivity_constraint(estimands, dataset, positivity_constraint=0.01)
-    frequency_table = Dict()
+    frequency_table_ = Dict()
     valid_estimands = []
     for Ψ in estimands
         treatments = treatment_variables(Ψ)
-        if !haskey(frequency_table, treatments)
-            frequency_table[treatments] = TMLE.frequency_table(dataset, treatments)
+        if !haskey(frequency_table_, treatments)
+            frequency_table_[treatments] = TMLE.get_frequency_table(dataset, treatments)
         end
-        update_valid_estimands!(valid_estimands, Ψ, frequency_table[treatments],
+        update_valid_estimands!(valid_estimands, Ψ, frequency_table_[treatments],
             positivity_constraint=positivity_constraint
         )
     end

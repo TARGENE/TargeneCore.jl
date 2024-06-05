@@ -9,14 +9,14 @@ instantiate_dataset(path::String) =
 
 BGEN.rsid(s::Symbol) = s
 
-treatment_variables(Ψ::ComposedEstimand) =
+treatment_variables(Ψ::JointEstimand) =
     unique(vcat((treatment_variables(arg) for arg ∈ Ψ.args)...))
 
 treatment_variables(Ψ) = collect(keys(Ψ.treatment_values))
 
 outcome_variables(Ψ) = [Ψ.outcome]
 
-outcome_variables(Ψ::ComposedEstimand) = 
+outcome_variables(Ψ::JointEstimand) = 
     unique(vcat((outcome_variables(arg) for arg ∈ Ψ.args)...))
 
 """
@@ -29,8 +29,8 @@ getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_strin
 is_significant(Ψ̂::TMLE.Estimate; threshold=0.05) = 
     pvalue(OneSampleTTest(Ψ̂)) < threshold
 
-function is_significant(Ψ̂::TMLE.ComposedEstimate; threshold=0.05)
-    sig = if length(Ψ̂.estimate) > 1 
+function is_significant(Ψ̂::JointEstimate; threshold=0.05)
+    sig = if length(Ψ̂.estimates) > 1 
         pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold
     else 
         pvalue(TMLE.OneSampleTTest(Ψ̂)) < threshold

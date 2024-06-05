@@ -146,9 +146,9 @@ function find_maf_matching_random_variants(
 end
 
 
-function make_random_variants_estimands(Ψ::ComposedEstimand, variant_map)
+function make_random_variants_estimands(Ψ::JointEstimand, variant_map)
     newargs = Tuple(make_random_variants_estimands(arg, variant_map) for arg ∈ Ψ.args)
-    return [ComposedEstimand(Ψ.f, Tuple(args)) for args ∈ zip(newargs...)]
+    return [JointEstimand(Ψ.f, Tuple(args)) for args ∈ zip(newargs...)]
 end
 
 function make_random_variants_estimands(Ψ::T, variant_map) where T <: TMLE.Estimand
