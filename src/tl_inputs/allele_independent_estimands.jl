@@ -107,7 +107,7 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     treatment_variables = isempty(extra_treatments) ? Symbol.(variants) : Symbol.(vcat(variants, extra_treatments))
     for estimands_config in estimands_configs
         estimand_constructor = eval(Symbol(estimands_config["type"]))
-        verbosity > 0 && @info(string("Generating estimands: "))
+        verbosity > 0 && @info(string("Generating estimands: ", estimand_constructor))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
         for treatments ∈ treatment_tuples_from_single_list(treatment_variables, orders)
             try_append_new_estimands!(
@@ -126,31 +126,28 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
-function estimands_from_flat_gwas_list(estimands_configs, dataset, variants, outcomes, confounders; 
+function gwas_estimands(dataset, variants, outcomes, confounders; 
     outcome_extra_covariates=[],
     positivity_constraint=0.,
     verbosity=0,
     )
     estimands = []
-
-    for estimands_config in estimands_configs
-        estimand_constructor = eval(Symbol(estimands_config["type"]))
-        verbosity > 0 && @info(string("Generating estimands: "))
-        
-        for v in variants
-            try
-                dynamic_tuple = NamedTuple{(Symbol(v),)}((Union{Missing, UInt8}[0, 1, 2],))
-                resultant_estimand = factorialEstimand(estimand_constructor, dynamic_tuple, outcomes;
-                                                        confounders=confounders,outcome_extra_covariates=outcome_extra_covariates, 
-                                                        dataset=dataset, positivity_constraint=positivity_constraint, verbosity=verbosity)
-                push!(estimands, resultant_estimand)
-            catch e
-                verbosity > 0 && @error(string("Estimand $v could not be estimated "))
-                continue
-            end
-        end
+    verbosity > 0 && @info(string("Generating GWAS estimands."))
+    for v in variants
+        variant_levels = sort(levels(dataset[!, v], skipmissing=true))
+        treatments = NamedTuple{(Symbol(v),)}([variant_levels])
+        try_append_new_estimands!(
+            estimands, 
+            dataset, 
+            ATE, 
+            treatments, 
+            outcomes, 
+            confounders;
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity
+        )
     end
-    
     return estimands
 end
 
@@ -217,9 +214,8 @@ function allele_independent_estimands(parsed_args)
 
     # Estimands
     config_type = config["type"]
-    estimands_configs = config["estimands"]
     estimands = if config_type == "flat"
-        estimands_from_flat_list(estimands_configs, dataset, config["variants"], outcomes, confounders;
+        estimands_from_flat_list(config["estimands"], dataset, config["variants"], outcomes, confounders;
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
@@ -232,11 +228,12 @@ function allele_independent_estimands(parsed_args)
             verbosity=verbosity
         )
     elseif config_type == "gwas"
-        # Adjust inputs
-        estimands_from_flat_gwas_list(estimands_configs, dataset, names(dataset), outcomes, confounders;
+        variants = filter(!=("SAMPLE_ID"), names(genotypes))
+        gwas_estimands(dataset, variants, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
-            verbosity=verbosity)
+            verbosity=verbosity
+        )
     else
         throw(ArgumentError(string("Unknown extraction type: ", config_type, ", use any of: (flat, groups, gwas)")))
     end
