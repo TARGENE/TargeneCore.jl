@@ -148,7 +148,7 @@ end
 
 function make_random_variants_estimands(Ψ::JointEstimand, variant_map)
     newargs = Tuple(make_random_variants_estimands(arg, variant_map) for arg ∈ Ψ.args)
-    return [JointEstimand(Ψ.f, Tuple(args)) for args ∈ zip(newargs...)]
+    return [JointEstimand(args...) for args ∈ zip(newargs...)]
 end
 
 function make_random_variants_estimands(Ψ::T, variant_map) where T <: TMLE.Estimand
