@@ -27,15 +27,14 @@ end
         "batch-size" => 5,
         "positivity-constraint" => 0.0,
 
-        "%COMMAND%" => "loco-gwas", 
+        "%COMMAND%" => "allele-independent", 
 
-        "loco-gwas" => Dict{String, Any}(
+        "allele-independent" => Dict{String, Any}(
+            "call-threshold" => nothing,
             "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
             "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
-            "bed-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.bed"), 
-            "bim-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.bim"),
-            "fam-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.fam")
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."), 
         ),
     )
     tl_inputs(parsed_args)
@@ -70,15 +69,14 @@ end
         "batch-size" => 5,
         "positivity-constraint" => 0.2,
 
-        "%COMMAND%" => "loco-gwas", 
+        "%COMMAND%" => "allele-independent", 
 
-        "loco-gwas" => Dict{String, Any}(
+        "allele-independent" => Dict{String, Any}(
+            "call-threshold" => nothing,
             "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
             "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
-            "bed-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.bed"), 
-            "bim-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.bim"),
-            "fam-file" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1.fam")
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1")
         ),
     )
     tl_inputs(parsed_args)

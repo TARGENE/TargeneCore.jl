@@ -1,7 +1,4 @@
-type: flat-gwas
-  
-estimands: 
-  - type: ATE
+type: gwas
 
 outcome_extra_covariates:
   - COV_1

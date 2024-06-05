@@ -84,7 +84,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
             ),
     )
     tl_inputs(parsed_args)
@@ -126,7 +126,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
 
@@ -170,7 +170,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
     tl_inputs(parsed_args)
@@ -212,7 +212,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
     tl_inputs(parsed_args)

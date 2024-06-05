@@ -1,4 +1,17 @@
 
+function files_matching_prefix(prefix)
+    directory, _prefix = splitdir(prefix)
+    _directory = directory == "" ? "." : directory
+
+    return map(
+        f -> joinpath(directory, f),
+        filter(
+            f -> startswith(f, _prefix), 
+            readdir(_directory)
+        )
+    )
+end
+
 """
     instantiate_dataset(path::String)
 
