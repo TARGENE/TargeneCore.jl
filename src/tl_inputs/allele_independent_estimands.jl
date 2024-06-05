@@ -221,7 +221,7 @@ function allele_independent_estimands(parsed_args)
             positivity_constraint=positivity_constraint,
             verbosity=verbosity)
     elseif config_type == "groups"
-        estimands_from_groups(estimands_configs, dataset, config["variants"], outcomes, confounders; 
+        estimands_from_groups(config["estimands"], dataset, config["variants"], outcomes, confounders; 
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
