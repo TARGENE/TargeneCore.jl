@@ -106,7 +106,7 @@ function estimands_from_flat_gwas_list(estimands_configs, dataset, variants, out
                 dynamic_tuple = NamedTuple{(Symbol(v),)}((Union{Missing, UInt8}[0, 1, 2],))
                 resultant_estimand = factorialEstimand(estimand_constructor, dynamic_tuple, outcomes;
                                                         confounders=confounders,outcome_extra_covariates=outcome_extra_covariates, 
-                                                        dataset=dataset, positivity_constraint=positivity_constraint)
+                                                        dataset=dataset, positivity_constraint=positivity_constraint, verbosity=verbosity)
                 push!(estimands, resultant_estimand)
             catch e
                 verbosity > 0 && @error(string("Estimand $v could not be estimated "))
