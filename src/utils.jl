@@ -29,7 +29,7 @@ getconfounders(v) = Symbol.(filter(x -> !occursin(r"^PC[0-9]*$", x), split_strin
 is_significant(Ψ̂::TMLE.Estimate; threshold=0.05) = 
     pvalue(OneSampleTTest(Ψ̂)) < threshold
 
-function is_significant(Ψ̂::JointEstimate; threshold=0.05)
+function is_significant(Ψ̂::TMLE.JointEstimate; threshold=0.05)
     sig = if length(Ψ̂.estimates) > 1 
         pvalue(TMLE.OneSampleHotellingT2Test(Ψ̂)) < threshold
     else 
