@@ -29,6 +29,36 @@ function treatment_tuples_from_groups(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
+function try_append_new_estimands!(
+    estimands, 
+    dataset, 
+    estimand_constructor, 
+    treatments, 
+    outcomes, 
+    confounders;
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=1
+    )
+    local Ψ
+    try
+        Ψ = factorialEstimands(
+        estimand_constructor, treatments, outcomes; 
+        confounders=confounders, 
+        dataset=dataset,
+        outcome_extra_covariates=outcome_extra_covariates,
+        positivity_constraint=positivity_constraint, 
+        verbosity=verbosity-1
+    )
+    catch e
+        if !(e == ArgumentError("No component passed the positivity constraint."))
+            throw(e)
+        end
+    else
+        append!(estimands, Ψ)
+    end
+end
+
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
@@ -44,14 +74,17 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
             treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
             isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
             for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
-                append!(estimands, factorialEstimands(
-                    estimand_constructor, treatments, outcomes; 
-                    confounders=confounders, 
-                    dataset=dataset,
+                try_append_new_estimands!(
+                    estimands, 
+                    dataset, 
+                    estimand_constructor, 
+                    treatments, 
+                    outcomes, 
+                    confounders;
                     outcome_extra_covariates=outcome_extra_covariates,
-                    positivity_constraint=positivity_constraint, 
+                    positivity_constraint=positivity_constraint,
                     verbosity=verbosity-1
-                ))
+                )
             end
         end
     end
@@ -77,14 +110,17 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
         verbosity > 0 && @info(string("Generating estimands: "))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
         for treatments ∈ treatment_tuples_from_single_list(treatment_variables, orders)
-            append!(estimands, factorialEstimands(
-                estimand_constructor, dataset,
-                treatments, outcomes; 
-                confounders=confounders, 
+            try_append_new_estimands!(
+                estimands, 
+                dataset, 
+                estimand_constructor, 
+                treatments, 
+                outcomes, 
+                confounders;
                 outcome_extra_covariates=outcome_extra_covariates,
-                positivity_constraint=positivity_constraint, 
+                positivity_constraint=positivity_constraint,
                 verbosity=verbosity-1
-            ))
+            )
         end
     end
     return estimands
@@ -159,7 +195,7 @@ function loco_gwas(parsed_args)
 
     variants_config = chromosome.snp_info."snpid"
 
-    #Estimands
+    # Estimands
     config_type = config["type"]
     estimands_configs = config["estimands"]
     estimands = if config_type == "flat-gwas"
@@ -170,7 +206,7 @@ function loco_gwas(parsed_args)
     else
         throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat-gwas)")))
     end
-
+    
     save_estimands(outprefix, groups_ordering(estimands), batchsize)
 
     verbosity > 0 && @info("Done.")
@@ -227,6 +263,8 @@ function allele_independent_estimands(parsed_args)
     else
         throw(ArgumentError(string("Unknown extraction type: ", type, ", use any of: (flat, groups)")))
     end
+
+    @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."
 
     save_estimands(outprefix, groups_ordering(estimands), batchsize)
 
