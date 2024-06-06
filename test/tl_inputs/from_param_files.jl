@@ -24,40 +24,6 @@ include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
     pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
     # extraW, extraT, extraC are parsed from all param_files
     estimands = make_estimands_configuration().estimands
-    # get_treatments, get_outcome, ...
-    ## Simple Estimand
-    Ψ = estimands[1]
-    @test TargeneCore.get_outcome(Ψ) == :ALL
-    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
-    @test TargeneCore.get_outcome_extra_covariates(Ψ) == ()
-    ## ComposedEstimand
-    Ψ = estimands[5]
-    @test TargeneCore.get_outcome(Ψ) == :ALL
-    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
-    @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("22001"), )
-    ## Bad ComposedEstimand
-    Ψ = ComposedEstimand(
-        TMLE.joint_estimand, (
-            CM(
-            outcome = "Y1",
-            treatment_values = (RSID_3 = "GG", RSID_198 = "AG"),
-            treatment_confounders = (RSID_3 = [], RSID_198 = []),
-            outcome_extra_covariates = [22001]
-        ),
-            CM(
-            outcome = "Y2",
-            treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
-            treatment_confounders = (RSID_2 = [:PC1], RSID_198 = []),
-            outcome_extra_covariates = []
-        ))
-    )
-    @test_throws ArgumentError TargeneCore.get_outcome(Ψ) == :ALL
-    @test_throws ArgumentError TargeneCore.get_treatments(Ψ)
-    @test_throws ArgumentError TargeneCore.get_confounders(Ψ)
-    @test_throws ArgumentError TargeneCore.get_outcome_extra_covariates(Ψ)
-    # get_variables
     variables = TargeneCore.get_variables(estimands, traits, pcs)
     @test variables.genetic_variants == Set([:RSID_198, :RSID_2])
     @test variables.outcomes == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
@@ -72,9 +38,8 @@ end
     )
     pcs = Set([:PC1, :PC2])
     variants_alleles = Dict(:RSID_198 => Set(genotypes.RSID_198))
-    estimands = make_estimands_configuration().estimands
-    # RS198 AG is not in the genotypes but GA is
-    Ψ = estimands[4]
+    # AG is not in the genotypes but GA is
+    Ψ = make_estimands_configuration().estimands[4]
     @test Ψ.treatment_values.RSID_198 == (case="AG", control="AA")
     new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
     @test new_Ψ.outcome == Ψ.outcome
@@ -85,19 +50,6 @@ end
         RSID_2 = (case = "AA", control = "GG")
     )
 
-    # ComnposedEstimand
-    Ψ = estimands[5]
-    @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
-    @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
-    new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
-    for index in 1:length(Ψ.args)
-        @test new_Ψ.args[index].outcome == Ψ.args[index].outcome
-        @test new_Ψ.args[index].outcome_extra_covariates == (Symbol(22001),)
-        @test new_Ψ.args[index].treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2),)
-    end
-    @test new_Ψ.args[1].treatment_values == (RSID_198 = "GA", RSID_2 = "GG")
-    @test new_Ψ.args[2].treatment_values == (RSID_198 = "GA", RSID_2 = "AA")
-    
     # If the allele is not present 
     variants_alleles = Dict(:RSID_198 => Set(["AA"]))
     @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
@@ -143,8 +95,8 @@ end
 
     ## Estimands file:
     output_estimands = deserialize("final.estimands.jls").estimands
-    # There are 5 initial estimands containing a :ALL
-    # Those are duplicated for each of the 4 outcomes.
+    # There are 5 initial estimands containing a *
+    # Those are duplicated for each of the 4 targets.
     @test length(output_estimands) == 20
     # In all cases the PCs are appended to the confounders.
     for Ψ ∈ output_estimands
@@ -168,11 +120,10 @@ end
             @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
         
         # Input Estimand 5: GA is corrected to AG to match the data
-        elseif Ψ isa TMLE.ComposedEstimand
-            @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
-            @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
-            @test Ψ.args[1].treatment_confounders == Ψ.args[2].treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
-            @test Ψ.args[1].outcome_extra_covariates == Ψ.args[2].outcome_extra_covariates == (Symbol("22001"),)
+        elseif Ψ isa TMLE.StatisticalCM && Ψ.treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
+            @test Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+            @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
+
         else
             throw(AssertionError(string("Which input did this output come from: ", Ψ)))
         end
@@ -191,7 +142,7 @@ end
     tl_inputs(parsed_args)
     # The IATES are the most sensitives
     outestimands = deserialize("final.estimands.jls").estimands
-    @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, ComposedEstimand} for Ψ in outestimands)
+    @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE} for Ψ in outestimands)
     @test size(outestimands, 1) == 16
 
     cleanup()
