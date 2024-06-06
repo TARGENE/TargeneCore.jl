@@ -5,10 +5,6 @@ function parse_commandline()
     s = ArgParseSettings(description="Preparation of data for TMLE, two modes are currently available.")
 
     @add_arg_table s begin
-        "loco-gwas"
-            action = :command
-            help = "Runs loco-gwas"
-            
         "from-actors"
             action = :command
             help = "Will generate interaction estimands between SNPs output by the "*
@@ -47,37 +43,6 @@ function parse_commandline()
             help = "Verbosity level"
             arg_type = Int
             default = 1
-    end
-
-    @add_arg_table s["loco-gwas"] begin
-        "config"
-            arg_type = String
-            help = "Configuration file (.yaml)."
-
-        "--bed-file"
-            help = "Prefix path to BED file. This should already be QC'd"
-            required = true
-            arg_type = String
-        
-        "--bim-file"
-            help = "Path to BIM file. This should already be QC'd"
-            required = true
-            arg_type = String
-        
-        "--fam-file"
-            help = "Path to FAM file. This should already be QC'd"
-            required = true
-            arg_type = String
-
-        "--traits"
-            arg_type = String
-            required = true
-            help = "Path to the traits dataset"
-
-        "--pcs"
-            arg_type = String
-            required = true
-            help = "Path to a genetic confounders file"
     end
 
     @add_arg_table s["from-actors"] begin
@@ -171,8 +136,8 @@ function parse_commandline()
             help = "Hard call threshold for imputed genotypes"
             default = 0.9
 
-        "--bgen-prefix"
-            help = "Prefix path to BGEN chromosomes."
+        "--genotype-prefix"
+            help = "Prefix path to BGEN/BED chromosomes."
             required = true
             arg_type = String
 

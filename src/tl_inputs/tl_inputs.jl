@@ -183,6 +183,7 @@ end
 Support for the generation of estimands according to 2 strategies:
 - from-actors
 - from-param-file
+- allele-independent
 """
 function tl_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "from-actors"
