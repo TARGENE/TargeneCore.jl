@@ -49,7 +49,7 @@ function make_estimands()
         ),
         outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
     )
-    jointIATE = ComposedEstimand(TMLE.joint_estimand, (IATE₁, IATE₂))
+    jointIATE = JointEstimand(IATE₁, IATE₂)
     return (IATE₁, IATE₂, jointIATE, ATE₁)
 end
 
@@ -70,10 +70,9 @@ function make_estimates()
         IC = []
     )
 
-    jointIATE = TMLE.ComposedEstimate(
+    jointIATE = TMLE.JointEstimate(
         estimand = jointIATE,
         estimates = (IATE₁, IATE₂),
-        estimate = [-1., -0.003],
         cov = [
         0.003 0.
         0. 0.003

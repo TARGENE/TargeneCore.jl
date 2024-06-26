@@ -17,6 +17,7 @@ function summary_stats_df(estimands)
     estimands.ORDER = [length(first(x.args).treatment_values) for x in estimands.ESTIMAND]
     return sort(DataFrames.combine(groupby(estimands, [:ESTIMAND_TYPE, :ORDER]), nrow), [:ORDER, :ESTIMAND_TYPE])
 end
+
 @testset "Test treatment_tuples_from_groups" begin
     treatments_list = [
         [:RSID_1, :RSID_2],
@@ -83,7 +84,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
             ),
     )
     tl_inputs(parsed_args)
@@ -125,9 +126,10 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
+
     tl_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
@@ -143,7 +145,7 @@ end
             append!(estimands, deserialize(file).estimands)
         end
     end
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
 
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
@@ -168,7 +170,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
     tl_inputs(parsed_args)
@@ -186,7 +188,7 @@ end
             append!(estimands, deserialize(file).estimands)
         end
     end
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
         ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
@@ -210,7 +212,7 @@ end
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
             "call-threshold" => 0.8,  
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ),
     )
     tl_inputs(parsed_args)
@@ -223,7 +225,7 @@ end
     @test size(trait_data) == (490, 14)
     # Check estimands
     estimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
-    @test all(e isa ComposedEstimand for e in estimands)
+    @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
         ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],

@@ -136,8 +136,8 @@ function parse_commandline()
             help = "Hard call threshold for imputed genotypes"
             default = 0.9
 
-        "--bgen-prefix"
-            help = "Prefix path to BGEN chromosomes."
+        "--genotype-prefix"
+            help = "Prefix path to BGEN/BED chromosomes."
             required = true
             arg_type = String
 
