@@ -163,10 +163,9 @@ end
 
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    genotypes = convert(Matrix{UInt8}, snpdata.snparray)
-    genotypes = DataFrame(genotypes, snpdata.snp_info."snpid")
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
     allowmissing!(genotypes)
-    genotype_map = [0, missing, 1, 2]
+    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
     for col in names(genotypes)
         genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
     end
