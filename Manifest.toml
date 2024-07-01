@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "2816e09497fbd070509ea0717ed404af98636844"
+project_hash = "a85edbb0f3124bfe8aa9d8a9db21fa45688234c8"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -2323,7 +2323,9 @@ version = "7.2.1+1"
 
 [[deps.TMLE]]
 deps = ["AbstractDifferentiation", "CategoricalArrays", "Combinatorics", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "PrecompileTools", "Random", "SplitApplyCombine", "Statistics", "TableOperations", "Tables", "Zygote"]
-git-tree-sha1 = "53bc88d5243544a3292affa2fc6207600d3a36b8"
+git-tree-sha1 = "86f8ca5c47ab2b96a871beaeaae649a865d7d3f6"
+repo-rev = "agnostic_composed"
+repo-url = "https://github.com/TARGENE/TMLE.jl"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
 version = "0.16.1"
 weakdeps = ["JSON", "YAML"]
@@ -2368,9 +2370,9 @@ version = "1.10.0"
 
 [[deps.TargetedEstimation]]
 deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "HDF5", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "MultipleTesting", "Optim", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "0ffd144ef571ea480daf8292d90966a100dcc6cc"
-repo-rev = "fdfa3a66e24fa3046b605b04c2443ff4ec6e4d0b"
-repo-url = "https://github.com/TARGENE/TargetedEstimation.jl.git"
+git-tree-sha1 = "98ae29ef85f5bbeb088b1003c58ced0e0e6104d3"
+repo-rev = "agnostic_composed"
+repo-url = "https://github.com/TARGENE/TargetedEstimation.jl"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
 version = "0.9.0"
 
