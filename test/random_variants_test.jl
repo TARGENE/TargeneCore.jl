@@ -187,7 +187,7 @@ end
         @test length(unique(treatment_variables)) == 1
         treatment_values = [values(ts) for ts in treatment_settings]
         @test length(unique(treatment_values)) == length(treatment_variables)
-        @test Ψ isa ComposedEstimand
+        @test Ψ isa JointEstimand
         @test Ψ != estimands[3]
     end
     # Check 5 new estimands generated from estimand 4
@@ -224,7 +224,7 @@ end
         "IATE" => 0,
     )
     for Ψ ∈ new_estimands
-        if Ψ isa ComposedEstimand
+        if Ψ isa JointEstimand
             counts["Composed"] += 1
         elseif Ψ isa TMLE.StatisticalIATE
             counts["IATE"] += 1

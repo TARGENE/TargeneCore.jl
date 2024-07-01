@@ -44,13 +44,12 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test Ψpermuted.outcome_extra_covariates == Ψ.outcome_extra_covariates
     # Composed Estimand
     Ψ = estimates[3].TMLE.estimand
-    @test Ψ isa ComposedEstimand
+    @test Ψ isa JointEstimand
     outcome = Symbol("High light scatter reticulocyte percentage")
     permutation_variables = Set([:RSID_103, outcome])
     Ψpermuted = TargeneCore.permuted_estimand!(permutation_variables, Ψ)
     arg₁ = Ψpermuted.args[1]
     arg₂ = Ψpermuted.args[2]
-    @test Ψpermuted.f == Ψ.f
     @test arg₁.outcome == arg₂.outcome == TargeneCore.permuted_name(outcome)
     @test keys(arg₁.treatment_values) == keys(arg₂.treatment_values) == (:RSID_103_permuted, :rs10043934)
     @test values(arg₁.treatment_values) == values(Ψ.args[1].treatment_values)
@@ -75,7 +74,7 @@ end
     @test length(permutation_estimands) == 12
     @test all(values(Ψ.treatment_values) == values(estimands[1].treatment_values) for Ψ ∈ permutation_estimands[1:3])
     @test all(values(Ψ.treatment_values) == values(estimands[2].treatment_values) for Ψ ∈ permutation_estimands[4:6])
-    @test all(Ψ isa ComposedEstimand for Ψ ∈ permutation_estimands[7:9])
+    @test all(Ψ isa JointEstimand for Ψ ∈ permutation_estimands[7:9])
     @test all(values(Ψ.treatment_values) == values(estimands[4].treatment_values) for Ψ ∈ permutation_estimands[10:12])
 
     @test all_permuted_variables == expected_permuted_variables
@@ -89,7 +88,7 @@ end
     @test length(permutation_estimands) == 28
     @test all(values(Ψ.treatment_values) == values(estimands[1].treatment_values) for Ψ ∈ permutation_estimands[1:7])
     @test all(values(Ψ.treatment_values) == values(estimands[2].treatment_values) for Ψ ∈ permutation_estimands[8:14])
-    @test all(Ψ isa ComposedEstimand for Ψ ∈ permutation_estimands[15:21])
+    @test all(Ψ isa JointEstimand for Ψ ∈ permutation_estimands[15:21])
     @test all(values(Ψ.treatment_values) == values(estimands[4].treatment_values) for Ψ ∈ permutation_estimands[22:28])
 
     @test all_permuted_variables == expected_permuted_variables
