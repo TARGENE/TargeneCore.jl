@@ -29,33 +29,41 @@ include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
     Ψ = estimands[1]
     @test TargeneCore.get_outcome(Ψ) == :ALL
     @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
+    @test TargeneCore.get_all_confounders(Ψ) == ()
     @test TargeneCore.get_outcome_extra_covariates(Ψ) == ()
+    ## Simple Estimand with Confounders
+    Ψ = estimands[2]
+    @test TargeneCore.get_outcome(Ψ) == :ALL
+    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test TargeneCore.get_all_confounders(Ψ) == (Symbol("22001"),)
+    @test TargeneCore.get_confounders(Ψ, :RSID_2) == (Symbol("22001"),)
+    @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("21003"), :COV_1)
     ## ComposedEstimand
     Ψ = estimands[5]
     @test TargeneCore.get_outcome(Ψ) == :ALL
     @test TargeneCore.get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
+    @test TargeneCore.get_all_confounders(Ψ) == (:PC1, :PC2)
+    @test TargeneCore.get_confounders(Ψ, :RSID_198) == (:PC2,)
+    TargeneCore.get_confounders(Ψ, :RSID_2) == (:PC1, )
     @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("22001"), )
     ## Bad ComposedEstimand
-    Ψ = ComposedEstimand(
-        TMLE.joint_estimand, (
-            CM(
+    Ψ = JointEstimand(
+        CM(
             outcome = "Y1",
             treatment_values = (RSID_3 = "GG", RSID_198 = "AG"),
             treatment_confounders = (RSID_3 = [], RSID_198 = []),
             outcome_extra_covariates = [22001]
         ),
-            CM(
+        CM(
             outcome = "Y2",
             treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
             treatment_confounders = (RSID_2 = [:PC1], RSID_198 = []),
             outcome_extra_covariates = []
-        ))
+        )
     )
-    @test_throws ArgumentError TargeneCore.get_outcome(Ψ) == :ALL
+    @test_throws ArgumentError TargeneCore.get_outcome(Ψ)
     @test_throws ArgumentError TargeneCore.get_treatments(Ψ)
-    @test_throws ArgumentError TargeneCore.get_confounders(Ψ)
+    @test_throws ArgumentError TargeneCore.get_all_confounders(Ψ)
     @test_throws ArgumentError TargeneCore.get_outcome_extra_covariates(Ψ)
     # get_variables
     variables = TargeneCore.get_variables(estimands, traits, pcs)
@@ -85,7 +93,7 @@ end
         RSID_2 = (case = "AA", control = "GG")
     )
 
-    # ComnposedEstimand
+    # JointEstimand
     Ψ = estimands[5]
     @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
     @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
@@ -106,7 +114,6 @@ end
 #####################################################################
 ###############           END-TO-END TESTS            ###############
 #####################################################################
-
 
 @testset "Test tl_inputs from-param-file" begin
     # Genotypes encoded as strings
@@ -168,7 +175,7 @@ end
             @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
         
         # Input Estimand 5: GA is corrected to AG to match the data
-        elseif Ψ isa TMLE.ComposedEstimand
+        elseif Ψ isa JointEstimand
             @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
             @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
             @test Ψ.args[1].treatment_confounders == Ψ.args[2].treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
@@ -191,7 +198,7 @@ end
     tl_inputs(parsed_args)
     # The IATES are the most sensitives
     outestimands = deserialize("final.estimands.jls").estimands
-    @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, ComposedEstimand} for Ψ in outestimands)
+    @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, JointEstimand} for Ψ in outestimands)
     @test size(outestimands, 1) == 16
 
     cleanup()
@@ -214,7 +221,7 @@ end
             "paramfile" => estimands_filename,
             "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
             "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8, 
+            "call-threshold" => nothing, 
             "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
         ), 
     )

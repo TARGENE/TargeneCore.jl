@@ -124,7 +124,7 @@ function control_case_settings(::Type{TMLE.StatisticalATE}, treatments, data)
 end
 
 function addEstimands!(estimands, treatments, variables, data; positivity_constraint=0.)
-    freqs = TMLE.frequency_table(data, treatments)
+    freqs = TMLE.get_frequency_table(data, treatments)
     # This loop adds all ATE estimands where all other treatments than
     # the bQTL are fixed, at the order 1, this is the simple bQTL's ATE
     for setting in control_case_settings(TMLE.StatisticalATE, treatments, data)

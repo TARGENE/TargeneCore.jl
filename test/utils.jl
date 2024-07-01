@@ -16,7 +16,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test TargeneCore.outcome_variables(Ψ) == [Ψ.outcome]
     # Composed estimand
     Ψ = estimates[3].TMLE.estimand
-    @test Ψ isa ComposedEstimand
+    @test Ψ isa JointEstimand
     @test TargeneCore.treatment_variables(Ψ) == [:RSID_103, :rs10043934]
     @test TargeneCore.outcome_variables(Ψ) == [Symbol("High light scatter reticulocyte percentage")]
 end

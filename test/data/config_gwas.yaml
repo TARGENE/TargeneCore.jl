@@ -1,0 +1,8 @@
+type: gwas
+
+outcome_extra_covariates:
+  - COV_1
+
+extra_confounders:
+  - 21003
+  - 22001

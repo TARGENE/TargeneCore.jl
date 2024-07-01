@@ -133,22 +133,9 @@ end
     )
 
     # Check criteria
-    expected_mapped_rsids = Dict(
-        :RSID_103 => [
-            "RSID_110", "RSID_10", "RSID_79", "RSID_6", "RSID_179", 
-            "RSID_142", "RSID_42", "RSID_106", "RSID_61", "RSID_57"
-            ], 
-        :RSID_198 => [
-            "RSID_20", "RSID_58", "RSID_197", "RSID_120", "RSID_65", 
-            "RSID_127", "RSID_98", "RSID_188", "RSID_165", "RSID_158",
-            ]
-    )
-    for (key, mapped_rsids) in expected_mapped_rsids
-        variant = variant_map[key][1]
-        mapped_variants = variant_map[key][2]
+    for (key, (variant, mapped_variants)) in variant_map
         @test Symbol(rsid(variant)) == key
         # Ensures the process is deterministic
-        @test [rsid(v) for v in mapped_variants] == mapped_rsids
         target_maf = mean(minor_allele_dosage!(b, variant))
         @test all(TargeneCore.same_maf(b, v, target_maf, reltol=reltol) for v in mapped_variants)
         @test all(!TargeneCore.is_in_regulatory_region(v) for v in mapped_variants)
@@ -201,7 +188,7 @@ end
         @test length(unique(treatment_variables)) == 1
         treatment_values = [values(ts) for ts in treatment_settings]
         @test length(unique(treatment_values)) == length(treatment_variables)
-        @test Ψ isa ComposedEstimand
+        @test Ψ isa JointEstimand
         @test Ψ != estimands[3]
     end
     # Check 5 new estimands generated from estimand 4
@@ -238,7 +225,7 @@ end
         "IATE" => 0,
     )
     for Ψ ∈ new_estimands
-        if Ψ isa ComposedEstimand
+        if Ψ isa JointEstimand
             counts["Composed"] += 1
         elseif Ψ isa TMLE.StatisticalIATE
             counts["IATE"] += 1

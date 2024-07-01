@@ -22,14 +22,20 @@ function write_tl_inputs(outprefix, final_dataset, estimands; batch_size=nothing
     end
 end
 
-function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold::Real) where T
+call_genotype(variant_genotypes, max_index, max_prob, threshold::Nothing) = variant_genotypes[max_index]
+
+call_genotype(variant_genotypes, max_index, max_prob, threshold::Real) = max_prob >= threshold ? variant_genotypes[max_index] : missing
+
+function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold) where T
     n = size(probabilities, 2)
     t = Vector{Union{T, Missing}}(missing, n)
     for i in 1:n
         # If no allele has been annotated with sufficient confidence
         # the sample is declared as missing for this variant
-        genotype_index = findfirst(x -> x >= threshold, probabilities[:, i])
-        genotype_index isa Nothing || (t[i] = variant_genotypes[genotype_index])
+        max_prob, max_index = findmax(probabilities[:, i])
+        if !isinf(max_prob)
+            t[i] = call_genotype(variant_genotypes, max_index, max_prob, threshold)
+        end
     end
     return t
 end
@@ -64,13 +70,12 @@ NotAllVariantsFoundError(rsids) =
     ArgumentError(string("Some variants were not found in the genotype files: ", join(rsids, ", ")))
 
 NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
-
 """
     bgen_files(snps, bgen_prefix)
 
 This function assumes the UK-Biobank structure
 """
-function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString}, threshold::Real)
+function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString}, threshold)
     query_rsids = copy(query_rsids)
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
@@ -92,6 +97,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                     minor_allele_dosage!(bgenfile, variant)
                     variant_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
+                    probabilities[isnan.(probabilities)] .= -Inf
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
                     chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
                 end
@@ -103,9 +109,6 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     length(query_rsids) == 0 || throw(NotAllVariantsFoundError(query_rsids))
     return genotypes
 end
-
-TMLE.satisfies_positivity(Ψ::ComposedEstimand, freqs; positivity_constraint=0.01) =
-    all(TMLE.satisfies_positivity(arg, freqs; positivity_constraint=positivity_constraint) for arg in Ψ.args)
 
 read_txt_file(path::Nothing) = nothing
 read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
@@ -136,17 +139,22 @@ estimand_with_new_outcome(Ψ::T, outcome) where T = T(
 function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
     for outcome in outcomes
         push!(
-            estimands,
-            estimand_with_new_outcome(Ψ, outcome)
+            estimands, 
+            T(
+                outcome=outcome, 
+                treatment_values=Ψ.treatment_values, 
+                treatment_confounders=Ψ.treatment_confounders, 
+                outcome_extra_covariates=Ψ.outcome_extra_covariates)
         )
     end
 end
 
-function update_estimands_from_outcomes!(estimands, Ψ::ComposedEstimand, outcomes)
+
+function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
     for outcome in outcomes
         push!(
             estimands,
-            ComposedEstimand(Ψ.f, Tuple(estimand_with_new_outcome(arg, outcome) for arg in Ψ.args))
+            JointEstimand((estimand_with_new_outcome(arg, outcome) for arg in Ψ.args)...)
         )
     end
 end
@@ -157,6 +165,7 @@ end
 Support for the generation of estimands according to 2 strategies:
 - from-actors
 - from-param-file
+- allele-independent
 """
 function tl_inputs(parsed_args)
     if parsed_args["%COMMAND%"] == "from-actors"

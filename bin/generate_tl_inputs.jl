@@ -61,7 +61,7 @@ function parse_commandline()
         "--call-threshold"
             arg_type = Float64
             help = "Hard call threshold for imputed genotypes"
-            default = 0.9
+            default = nothing
 
         "--bgen-prefix"
             help = "Prefix path to BGEN chromosomes."
@@ -108,7 +108,7 @@ function parse_commandline()
         "--call-threshold"
             arg_type = Float64
             help = "Hard call threshold for imputed genotypes"
-            default = 0.9
+            default = nothing
 
         "--bgen-prefix"
             help = "Prefix path to BGEN chromosomes."
@@ -134,10 +134,10 @@ function parse_commandline()
         "--call-threshold"
             arg_type = Float64
             help = "Hard call threshold for imputed genotypes"
-            default = 0.9
+            default = nothing
 
-        "--bgen-prefix"
-            help = "Prefix path to BGEN chromosomes."
+        "--genotype-prefix"
+            help = "Prefix path to BGEN/BED chromosomes."
             required = true
             arg_type = String
 
