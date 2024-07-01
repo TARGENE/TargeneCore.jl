@@ -16,6 +16,7 @@ MismatchedCaseControlEncodingError() =
 
 NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No parameter passed the given positivity constraint: ", positivity_constraint))
 
+MismatchedVariableError(variable) = ArgumentError(string("Each component of a ComposedEstimand should contain the same ", variable, " variables."))
 
 function check_genotypes_encoding(val::NamedTuple, type)
     if !(typeof(val.case) <: type && typeof(val.control) <: type)
@@ -27,17 +28,66 @@ check_genotypes_encoding(val::T, type) where T =
     T <: type || throw(MismatchedCaseControlEncodingError())
 
 
+get_treatments(Ψ) = keys(Ψ.treatment_values)
+
+function get_treatments(Ψ::JointEstimand)
+    treatments = get_treatments(first(Ψ.args))
+    if length(Ψ.args) > 1
+        for arg in Ψ.args[2:end]
+            get_treatments(arg) == treatments || throw(MismatchedVariableError("treatments"))
+        end
+    end
+    return treatments
+end
+
+get_confounders(Ψ) = Tuple(Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders)))
+
+function get_confounders(Ψ::JointEstimand)
+    confounders = get_confounders(first(Ψ.args))
+    if length(Ψ.args) > 1
+        for arg in Ψ.args[2:end]
+            get_confounders(arg) == confounders || throw(MismatchedVariableError("confounders"))
+        end
+    end
+    return confounders
+end
+
+get_outcome_extra_covariates(Ψ) = Ψ.outcome_extra_covariates
+
+function get_outcome_extra_covariates(Ψ::JointEstimand)
+    outcome_extra_covariates = get_outcome_extra_covariates(first(Ψ.args))
+    if length(Ψ.args) > 1
+        for arg in Ψ.args[2:end]
+            get_outcome_extra_covariates(arg) == outcome_extra_covariates || throw(MismatchedVariableError("outcome extra covariates"))
+        end
+    end
+    return outcome_extra_covariates
+end
+
+get_outcome(Ψ) = Ψ.outcome
+
+function get_outcome(Ψ::JointEstimand)
+    outcome = get_outcome(first(Ψ.args))
+    if length(Ψ.args) > 1
+        for arg in Ψ.args[2:end]
+            get_outcome(arg) == outcome || throw(MismatchedVariableError("outcome"))
+        end
+    end
+    return outcome
+end
+
 function get_variables(estimands, traits, pcs)
     genetic_variants = Set{Symbol}()
     others = Set{Symbol}()
     pcs = Set{Symbol}(filter(x -> x != :SAMPLE_ID, propertynames(pcs)))
     alltraits = Set{Symbol}(filter(x -> x != :SAMPLE_ID, propertynames(traits)))
     for Ψ in estimands
-        treatments = keys(Ψ.treatment_values)
-        confounders = Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders))
+        treatments = get_treatments(Ψ)
+        confounders = get_confounders(Ψ)
+        outcome_extra_covariates = get_outcome_extra_covariates(Ψ)
         push!(
             others, 
-            Ψ.outcome_extra_covariates..., 
+            outcome_extra_covariates..., 
             confounders..., 
             treatments...
         )
@@ -123,6 +173,25 @@ function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.E
     return T(outcome=Ψ.outcome, treatment_values=treatments, treatment_confounders=confounders, outcome_extra_covariates=Ψ.outcome_extra_covariates)
 end
 
+adjust_parameter_sections(Ψ::JointEstimand, variants_alleles, pcs) = 
+    JointEstimand((adjust_parameter_sections(arg, variants_alleles, pcs) for arg in Ψ.args)...)
+
+function estimand_satisfying_positivity(Ψ, frequency_table; positivity_constraint=0.01)
+    if TMLE.satisfies_positivity(Ψ, frequency_table;positivity_constraint=positivity_constraint)
+        return Ψ
+    else
+        return nothing
+    end
+end
+
+function estimand_satisfying_positivity(Ψ::JointEstimand, frequency_table; positivity_constraint=0.01)
+    new_args = Tuple((arg for arg in Ψ.args if TMLE.satisfies_positivity(arg, frequency_table;positivity_constraint=positivity_constraint)))
+    if isempty(new_args)
+        return nothing
+    else
+        return JointEstimand(new_args...)
+    end
+end
     
 function append_from_valid_estimands!(
     estimands::Vector{<:TMLE.Estimand},
@@ -136,19 +205,20 @@ function append_from_valid_estimands!(
     # Update treatment's and confounders's sections of Ψ
     Ψ = adjust_parameter_sections(Ψ, variants_alleles, variables.pcs)
     # Update frequency tables with current treatments
-    treatments = sorted_treatment_names(Ψ)
+    treatments = get_treatments(Ψ)
     if !haskey(frequency_tables, treatments)
-        frequency_tables[treatments] = TargeneCore.frequency_table(data, collect(treatments))
+        frequency_tables[treatments] = TMLE.get_frequency_table(data, treatments)
     end
-    # Check if parameter satisfies positivity
-    satisfies_positivity(Ψ, frequency_tables[treatments]; 
-        positivity_constraint=positivity_constraint) || return
-    # Expand wildcard to all outcomes
-    if Ψ.outcome === :ALL
-        update_estimands_from_outcomes!(estimands, Ψ, variables.outcomes)
-    else
-        # Ψ.target || MissingVariableError(variable)
-        push!(estimands, Ψ)
+    # Check estimand or filter joint estimand to satisfy positivity
+    Ψ = estimand_satisfying_positivity(Ψ, frequency_tables[treatments]; positivity_constraint=positivity_constraint)
+    if !(Ψ === nothing)
+        # Expand wildcard to all outcomes
+        if get_outcome(Ψ) === :ALL
+            update_estimands_from_outcomes!(estimands, Ψ, variables.outcomes)
+        else
+            # Ψ.target || MissingVariableError(variable)
+            push!(estimands, Ψ)
+        end
     end
 end
 

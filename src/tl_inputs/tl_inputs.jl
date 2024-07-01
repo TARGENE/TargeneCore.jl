@@ -110,48 +110,6 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     return genotypes
 end
 
-sorted_treatment_names(Ψ) = tuple(sort(collect(keys(Ψ.treatment_values)))...)
-
-function setting_iterator(Ψ::TMLE.StatisticalIATE)
-    treatments = sorted_treatment_names(Ψ)
-    return (
-        NamedTuple{treatments}(collect(Tval)) for 
-            Tval in Iterators.product((values(Ψ.treatment_values[T]) for T in treatments)...)
-    )
-end
-
-function setting_iterator(Ψ::TMLE.StatisticalATE)
-    treatments = sorted_treatment_names(Ψ)
-    return (
-        NamedTuple{treatments}([(Ψ.treatment_values[T][c]) for T in treatments])
-            for c in (:case, :control)
-    )
-end
-
-function setting_iterator(Ψ::TMLE.StatisticalCM)
-    treatments = sorted_treatment_names(Ψ)
-    return (NamedTuple{treatments}(Ψ.treatment_values[T] for T in treatments), )
-end
-
-function satisfies_positivity(Ψ::TMLE.Estimand, freqs; positivity_constraint=0.01)
-    for base_setting in setting_iterator(Ψ)
-        if !haskey(freqs, base_setting) || freqs[base_setting] < positivity_constraint
-            return false
-        end
-    end
-    return true
-end
-
-function frequency_table(data, treatments::AbstractVector)
-    treatments = sort(treatments)
-    freqs = Dict()
-    N = nrow(data)
-    for (key, group) in pairs(groupby(data, treatments; skipmissing=true))
-        freqs[NamedTuple(key)] = nrow(group) / N
-    end
-    return freqs
-end
-
 read_txt_file(path::Nothing) = nothing
 read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
 
@@ -171,6 +129,13 @@ function merge(traits, pcs, genotypes)
     )
 end
 
+estimand_with_new_outcome(Ψ::T, outcome) where T = T(
+    outcome=outcome, 
+    treatment_values=Ψ.treatment_values, 
+    treatment_confounders=Ψ.treatment_confounders, 
+    outcome_extra_covariates=Ψ.outcome_extra_covariates
+)
+
 function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
     for outcome in outcomes
         push!(
@@ -180,6 +145,16 @@ function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
                 treatment_values=Ψ.treatment_values, 
                 treatment_confounders=Ψ.treatment_confounders, 
                 outcome_extra_covariates=Ψ.outcome_extra_covariates)
+        )
+    end
+end
+
+
+function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
+    for outcome in outcomes
+        push!(
+            estimands,
+            JointEstimand((estimand_with_new_outcome(arg, outcome) for arg in Ψ.args)...)
         )
     end
 end

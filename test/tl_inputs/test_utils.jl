@@ -31,20 +31,19 @@ function make_estimands_configuration()
             treatment_confounders = (RSID_2 = [], RSID_198 = []),
             outcome_extra_covariates = [22001]
         ),
-        ComposedEstimand(
-            TMLE.joint_estimand, (
-                CM(
+        JointEstimand(
+            CM(
                 outcome = "ALL",
                 treatment_values = (RSID_2 = "GG", RSID_198 = "AG"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
             ),
-                CM(
+            CM(
                 outcome = "ALL",
                 treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
                 treatment_confounders = (RSID_2 = [], RSID_198 = []),
                 outcome_extra_covariates = [22001]
-            ))
+            )
         )
     ]
     return Configuration(estimands=estimands)
