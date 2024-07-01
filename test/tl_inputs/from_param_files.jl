@@ -29,13 +29,22 @@ include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
     Ψ = estimands[1]
     @test TargeneCore.get_outcome(Ψ) == :ALL
     @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
+    @test TargeneCore.get_all_confounders(Ψ) == ()
     @test TargeneCore.get_outcome_extra_covariates(Ψ) == ()
+    ## Simple Estimand with Confounders
+    Ψ = estimands[2]
+    @test TargeneCore.get_outcome(Ψ) == :ALL
+    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test TargeneCore.get_all_confounders(Ψ) == (Symbol("22001"),)
+    @test TargeneCore.get_confounders(Ψ, :RSID_2) == (Symbol("22001"),)
+    @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("21003"), :COV_1)
     ## ComposedEstimand
     Ψ = estimands[5]
     @test TargeneCore.get_outcome(Ψ) == :ALL
     @test TargeneCore.get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
-    @test TargeneCore.get_confounders(Ψ) == ()
+    @test TargeneCore.get_all_confounders(Ψ) == (:PC1, :PC2)
+    @test TargeneCore.get_confounders(Ψ, :RSID_198) == (:PC2,)
+    TargeneCore.get_confounders(Ψ, :RSID_2) == (:PC1, )
     @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("22001"), )
     ## Bad ComposedEstimand
     Ψ = JointEstimand(
@@ -54,7 +63,7 @@ include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
     )
     @test_throws ArgumentError TargeneCore.get_outcome(Ψ)
     @test_throws ArgumentError TargeneCore.get_treatments(Ψ)
-    @test_throws ArgumentError TargeneCore.get_confounders(Ψ)
+    @test_throws ArgumentError TargeneCore.get_all_confounders(Ψ)
     @test_throws ArgumentError TargeneCore.get_outcome_extra_covariates(Ψ)
     # get_variables
     variables = TargeneCore.get_variables(estimands, traits, pcs)

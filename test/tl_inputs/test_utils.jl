@@ -35,13 +35,13 @@ function make_estimands_configuration()
             CM(
                 outcome = "ALL",
                 treatment_values = (RSID_2 = "GG", RSID_198 = "AG"),
-                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                treatment_confounders = (RSID_2 = [:PC1], RSID_198 = [:PC2]),
                 outcome_extra_covariates = [22001]
             ),
             CM(
                 outcome = "ALL",
                 treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
-                treatment_confounders = (RSID_2 = [], RSID_198 = []),
+                treatment_confounders = (RSID_2 = [:PC1], RSID_198 = [:PC2]),
                 outcome_extra_covariates = [22001]
             )
         )

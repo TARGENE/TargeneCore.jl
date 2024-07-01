@@ -40,13 +40,26 @@ function get_treatments(Ψ::JointEstimand)
     return treatments
 end
 
-get_confounders(Ψ) = Tuple(Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders)))
 
-function get_confounders(Ψ::JointEstimand)
-    confounders = get_confounders(first(Ψ.args))
+function get_all_confounders(Ψ::JointEstimand)
+    confounders = get_all_confounders(first(Ψ.args))
     if length(Ψ.args) > 1
         for arg in Ψ.args[2:end]
-            get_confounders(arg) == confounders || throw(MismatchedVariableError("confounders"))
+            get_all_confounders(arg) == confounders || throw(MismatchedVariableError("confounders"))
+        end
+    end
+    return confounders
+end
+
+get_all_confounders(Ψ) = Tuple(sort(collect(Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders)))))
+
+get_confounders(Ψ, treatment) = Ψ.treatment_confounders[treatment]
+
+function get_confounders(Ψ::JointEstimand, treatment)
+    confounders = get_confounders(first(Ψ.args), treatment)
+    if length(Ψ.args) > 1
+        for arg in Ψ.args[2:end]
+            get_confounders(arg, treatment) == confounders || throw(MismatchedVariableError("confounders"))
         end
     end
     return confounders
@@ -83,7 +96,7 @@ function get_variables(estimands, traits, pcs)
     alltraits = Set{Symbol}(filter(x -> x != :SAMPLE_ID, propertynames(traits)))
     for Ψ in estimands
         treatments = get_treatments(Ψ)
-        confounders = get_confounders(Ψ)
+        confounders = get_all_confounders(Ψ)
         outcome_extra_covariates = get_outcome_extra_covariates(Ψ)
         push!(
             others, 
