@@ -135,6 +135,7 @@ end
     # Check criteria
     for (key, (variant, mapped_variants)) in variant_map
         @test Symbol(rsid(variant)) == key
+        # Ensures the process is deterministic
         target_maf = mean(minor_allele_dosage!(b, variant))
         @test all(TargeneCore.same_maf(b, v, target_maf, reltol=reltol) for v in mapped_variants)
         @test all(!TargeneCore.is_in_regulatory_region(v) for v in mapped_variants)

@@ -113,6 +113,103 @@ end
     @test_throws TargeneCore.NotAllVariantsFoundError(variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
 end
 
+
+@testset "Test positivity_constraint" begin
+    data = DataFrame(
+        A = [1, 1, 0, 1, 0, 2, 2, 1],
+        B = ["AC", "CC", "AA", "AA", "AA", "AA", "AA", "AA"]
+    ) 
+    ## One variable
+    freqs = TargeneCore.frequency_table(data, [:A])
+    @test freqs == Dict(
+        (A = 0,) => 0.25,
+        (A = 2,) => 0.25,
+        (A = 1,) => 0.5
+    )
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (A=1,), 
+        treatment_confounders = (A=[],)
+    )
+    @test TargeneCore.setting_iterator(Ψ) == ((A = 1,),)
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.4) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.6) == false
+
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values= (A= (case=1, control=0),), 
+        treatment_confounders = (A=[],)
+    )
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1,), (A = 0,)]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
+
+    ## Two variables
+    # Treatments are sorted: [:B, :A] -> [:A, :B]
+    freqs = TargeneCore.frequency_table(data, [:B, :A])
+    @test freqs == Dict(
+        (A = 1, B = "CC") => 0.125,
+        (A = 1, B = "AA") => 0.25,
+        (A = 0, B = "AA") => 0.25,
+        (A = 1, B = "AC") => 0.125,
+        (A = 2, B = "AA") => 0.25
+    )
+
+    Ψ = CM(
+        outcome = :toto, 
+        treatment_values = (B = "CC", A = 1), 
+        treatment_confounders = (B = [], A = [])
+    )
+    @test TargeneCore.setting_iterator(Ψ) == ((A = 1, B = "CC"),)
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.15) == false
+    
+    Ψ = ATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AA", control="AC"), A=(case=1, control=1),), 
+        treatment_confounders = (B = (), A = (),)
+    )
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [(A = 1, B = "AA"), (A = 1, B = "AC")]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.2) == false
+    
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0),), 
+        treatment_confounders = (B=(), A=()), 
+    )
+    @test collect(TargeneCore.setting_iterator(Ψ)) == [
+        (A = 1, B = "AC")  (A = 1, B = "AA")
+        (A = 0, B = "AC")  (A = 0, B = "AA")]
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=1.) == false
+    freqs = Dict(
+        (A = 1, B = "CC") => 0.125,
+        (A = 1, B = "AA") => 0.25,
+        (A = 0, B = "AA") => 0.25,
+        (A = 0, B = "AC") => 0.25,
+        (A = 1, B = "AC") => 0.125,
+        (A = 2, B = "AA") => 0.25
+    )
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.3) == false
+    @test TargeneCore.satisfies_positivity(Ψ, freqs, positivity_constraint=0.1) == true
+
+    Ψ = IATE(
+        outcome = :toto, 
+        treatment_values = (B=(case="AC", control="AA"), A=(case=1, control=0), C=(control=0, case=2)), 
+        treatment_confounders = (B=(), A=(), C=())
+    )
+    expected_settings = Set([
+        (A = 1, B = "AC", C = 0),
+        (A = 0, B = "AC", C = 0),
+        (A = 1, B = "AA", C = 0),
+        (A = 0, B = "AA", C = 0),
+        (A = 1, B = "AC", C = 2),
+        (A = 0, B = "AC", C = 2),
+        (A = 1, B = "AA", C = 2),
+        (A = 0, B = "AA", C = 2)])
+    @test expected_settings == Set(TargeneCore.setting_iterator(Ψ))
+end
+
 end
 
 true

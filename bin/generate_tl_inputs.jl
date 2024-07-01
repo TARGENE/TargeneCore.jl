@@ -137,7 +137,7 @@ function parse_commandline()
             default = nothing
 
         "--genotype-prefix"
-            help = "Prefix path to BGEN chromosomes."
+            help = "Prefix path to BGEN/BED chromosomes."
             required = true
             arg_type = String
 
