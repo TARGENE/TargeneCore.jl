@@ -4,8 +4,6 @@ retrieve_variants_list(variants::AbstractVector) = variants
 save_estimands(outprefix, estimands, batchsize::Nothing) = 
     serialize(batch_name(outprefix, 1), Configuration(estimands=estimands))
 
-is_biallelic(row) = length(row.allele1) == 1 && length(row.allele2) == 1
-
 function save_estimands(outprefix, estimands, batchsize)
     for (batch_id, batch) ∈ enumerate(Iterators.partition(estimands, batchsize))
         batchfilename = batch_name(outprefix, batch_id)
@@ -31,8 +29,9 @@ function treatment_tuples_from_groups(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
-function try_append_new_estimands!(
+function try_index_new_estimands!(
     estimands, 
+    index,
     dataset, 
     estimand_constructor, 
     treatments, 
@@ -57,10 +56,9 @@ function try_append_new_estimands!(
             throw(e)
         end
     else
-        append!(estimands, Ψ)
+        estimands[index] = Ψ
     end
 end
-
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
@@ -133,14 +131,14 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
     positivity_constraint=0.,
     verbosity=0,
     )
-    estimands = [Vector{JointEstimand}() for _ in 1:Threads.nthreads()]
-    verbosity > 0 && @info(string("Generating GWAS estimands."))
-
-    Threads.@threads for v in variants
+    estimands = Vector{Union{Any, Missing}}(undef, length(variants))
+    fill!(estimands, missing)
+    Threads.@threads for (index, v) ∈ collect(enumerate(variants))
         variant_levels = sort(levels(dataset[!, v], skipmissing=true))
         treatments = NamedTuple{(Symbol(v),)}([variant_levels])
-        try_append_new_estimands!(
-            estimands[Threads.threadid()], 
+        try_index_new_estimands!(
+            estimands, 
+            index,
             dataset, 
             ATE, 
             treatments, 
@@ -152,7 +150,7 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
         )
     end
     estimands = vcat(estimands...)
-    return estimands
+    filter!(x -> x !== missing, estimands)
 end
 
 get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
@@ -167,8 +165,7 @@ end
 
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    # Apply a biallelic filter
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray)[:, findall(row -> is_biallelic(row), eachrow(snpdata.snp_info))], filter(is_biallelic, eachrow(snpdata.snp_info))."snpid")
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
     allowmissing!(genotypes)
     genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
     for col in names(genotypes)

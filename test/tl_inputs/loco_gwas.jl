@@ -35,7 +35,6 @@ function check_estimands_levels_order(estimands)
 end
 @testset "Test loco-gwas from flat list: no positivity constraint" begin
     tmpdir = mktempdir()
-    snp_data = TargeneCore.read_bed_chromosome(joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."))
     parsed_args = Dict(
         "verbosity" => 0,
         "out-prefix" => joinpath(tmpdir, "final"), 
