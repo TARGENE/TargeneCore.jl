@@ -4,6 +4,8 @@ retrieve_variants_list(variants::AbstractVector) = variants
 save_estimands(outprefix, estimands, batchsize::Nothing) = 
     serialize(batch_name(outprefix, 1), Configuration(estimands=estimands))
 
+is_biallelic(row) = length(row.allele1) == 1 && length(row.allele2) == 1
+
 function save_estimands(outprefix, estimands, batchsize)
     for (batch_id, batch) ∈ enumerate(Iterators.partition(estimands, batchsize))
         batchfilename = batch_name(outprefix, batch_id)
@@ -131,13 +133,14 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
     positivity_constraint=0.,
     verbosity=0,
     )
-    estimands = []
+    estimands = [Vector{JointEstimand}() for _ in 1:Threads.nthreads()]
     verbosity > 0 && @info(string("Generating GWAS estimands."))
-    for v in variants
+
+    Threads.@threads for v in variants
         variant_levels = sort(levels(dataset[!, v], skipmissing=true))
         treatments = NamedTuple{(Symbol(v),)}([variant_levels])
         try_append_new_estimands!(
-            estimands, 
+            estimands[Threads.threadid()], 
             dataset, 
             ATE, 
             treatments, 
@@ -148,6 +151,7 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
             verbosity=verbosity
         )
     end
+    estimands = vcat(estimands...)
     return estimands
 end
 
@@ -163,7 +167,8 @@ end
 
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
+    # Apply a biallelic filter
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray)[:, findall(row -> is_biallelic(row), eachrow(snpdata.snp_info))], filter(is_biallelic, eachrow(snpdata.snp_info))."snpid")
     allowmissing!(genotypes)
     genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
     for col in names(genotypes)
@@ -193,7 +198,7 @@ function allele_independent_estimands(parsed_args)
     call_threshold = allele_independent_config["call-threshold"]
     genotypes_prefix = allele_independent_config["genotype-prefix"]
     traits = read_csv_file(allele_independent_config["traits"])
-    pcs = read_csv_file(allele_independent_config["pcs"])
+    pcs = read_csv_file(allele_independent_config["pcs"]) 
     config = YAML.load_file(allele_independent_config["config"])
 
     # Variables
@@ -209,7 +214,7 @@ function allele_independent_estimands(parsed_args)
     verbosity > 0 && @info("Building and writing dataset.")
     genotypes = make_genotypes(genotypes_prefix, config, call_threshold)
     dataset = merge(traits, pcs, genotypes)
-    Arrow.write(string(outprefix, ".data.arrow"), dataset)
+    Arrow.write(string(outprefix, ".data.arrow"), dataset) 
 
     # Estimands
     config_type = config["type"]
@@ -227,6 +232,7 @@ function allele_independent_estimands(parsed_args)
             verbosity=verbosity
         )
     elseif config_type == "gwas"
+        verbosity > 0 && @info("Generating estimands.")
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
         gwas_estimands(dataset, variants, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
