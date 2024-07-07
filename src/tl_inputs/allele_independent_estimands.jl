@@ -29,6 +29,36 @@ function treatment_tuples_from_groups(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
+function try_append_new_estimands!(
+    estimands,
+    dataset, 
+    estimand_constructor, 
+    treatments, 
+    outcomes, 
+    confounders;
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=1
+    )
+    local Ψ
+    try
+        Ψ = factorialEstimands(
+        estimand_constructor, treatments, outcomes; 
+        confounders=confounders, 
+        dataset=dataset,
+        outcome_extra_covariates=outcome_extra_covariates,
+        positivity_constraint=positivity_constraint, 
+        verbosity=verbosity-1
+    )
+    catch e
+        if !(e == ArgumentError("No component passed the positivity constraint."))
+            throw(e)
+        end
+    else
+        append!(estimands, Ψ)
+    end
+end
+
 function try_index_new_estimands!(
     estimands, 
     index,
