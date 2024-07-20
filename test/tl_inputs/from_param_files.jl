@@ -119,28 +119,22 @@ end
     # Genotypes encoded as strings
     # No batching of parameter files
     # No positivity constraint
+    tmpdir = mktempdir()
     estimands_filename = make_estimands_configuration_file()
-    parsed_args = Dict(
-        "out-prefix" => "final", 
-        "batch-size" => nothing,
-        "positivity-constraint" => 0.,
-        "verbosity" => 0,
-
-        "%COMMAND%" => "from-param-file",
-
-        "from-param-file" => Dict{String, Any}(
-            "paramfile" => estimands_filename,
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8, 
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-            ), 
-    )
-
-    tl_inputs(parsed_args)
-
+    copy!(ARGS, [
+        "estimation-inputs",
+        estimands_filename,
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    TargeneCore.julia_main()
     ## Data File
-    data = DataFrame(Arrow.Table("final.data.arrow"))
+    data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test names(data) == [
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
         "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
@@ -149,7 +143,7 @@ end
     @test size(data) == (490, 13)
 
     ## Estimands file:
-    output_estimands = deserialize("final.estimands.jls").estimands
+    output_estimands = deserialize(joinpath(tmpdir, "final.estimands.jls")).estimands
     # There are 5 initial estimands containing a :ALL
     # Those are duplicated for each of the 4 outcomes.
     @test length(output_estimands) == 20
@@ -194,41 +188,60 @@ end
     cleanup()
 
     # Increase positivity constraint
-    parsed_args["positivity-constraint"] = 0.01
-    tl_inputs(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        estimands_filename,
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=0.01"
+    ])
+    TargeneCore.julia_main()
+
     # The IATES are the most sensitives
-    outestimands = deserialize("final.estimands.jls").estimands
+    outestimands = deserialize(joinpath(tmpdir, "final.estimands.jls")).estimands
     @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, JointEstimand} for Ψ in outestimands)
     @test size(outestimands, 1) == 16
 
     cleanup()
 
-    parsed_args["positivity-constraint"] = 1.
-    @test_throws TargeneCore.NoRemainingParamsError(1.) tl_inputs(parsed_args)
+    # No Remaining Estimand Error
+    copy!(ARGS, [
+        "estimation-inputs",
+        estimands_filename,
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=1"
+    ])
+    
+    @test_throws TargeneCore.NoRemainingParamsError(1.) TargeneCore.julia_main()
 end
 
 @testset "Test tl_inputs from-param-file: no wildcard" begin
     estimands_filename = make_estimands_configuration_file(make_estimands_configuration_no_wildcard)
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => "final", 
-        "batch-size" => 2,
-        "positivity-constraint" => 0.,
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        estimands_filename,
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")),
+        "--batchsize=2",
+        "--verbosity=0",
+        "--positivity-constraint=0."
+    ])
+    TargeneCore.julia_main()
 
-        "%COMMAND%" => "from-param-file", 
-
-        "from-param-file" => Dict{String, Any}(
-            "paramfile" => estimands_filename,
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => nothing, 
-            "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        ), 
-    )
-    tl_inputs(parsed_args)
-    
     ## Data File
-    data = DataFrame(Arrow.Table("final.data.arrow"))
+    data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test names(data) == [
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", 
         "CONTINUOUS_2", "COV_1", "21003", "22001", "TREAT_1", 
@@ -242,9 +255,9 @@ end
     # The PCs are appended to the confounders.
     # Estimands are batched by 2
     output_estimands = [
-        deserialize("final.estimands_1.jls").estimands,
-        deserialize("final.estimands_1.jls").estimands,
-        deserialize("final.estimands_1.jls").estimands
+        deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands,
+        deserialize(joinpath(tmpdir,"final.estimands_1.jls")).estimands,
+        deserialize(joinpath(tmpdir,"final.estimands_1.jls")).estimands
     ]
     for index in 1:3
         @test length(output_estimands[index]) == 2

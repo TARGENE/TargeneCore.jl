@@ -71,23 +71,18 @@ end
 
 @testset "Test allele-independent from groups: no positivity constraint" begin
     tmpdir = mktempdir()
-    parsed_args = Dict(
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => 100,
-        "verbosity" => 0,
-        "positivity-constraint" => nothing,
-
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "config_groups.yaml"),
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8,  
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-            ),
-    )
-    tl_inputs(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_groups.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=100",
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+    ])
+    TargeneCore.julia_main()
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([
@@ -113,24 +108,20 @@ end
 
 @testset "Test allele-independent from groups: with positivity constraint" begin
     tmpdir = mktempdir()
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => 10,
-        "positivity-constraint" => 0.01,
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_groups.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=10",
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=0.01"
+    ])
+    TargeneCore.julia_main()
 
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "config_groups.yaml"), 
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8,  
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        ),
-    )
-
-    tl_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([
@@ -157,23 +148,20 @@ end
 
 @testset "Test allele-independent from flat list: no positivity constraint" begin
     tmpdir = mktempdir()
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => 5,
-        "positivity-constraint" => 0.0,
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_flat.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=5",
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    TargeneCore.julia_main()
 
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "config_flat.yaml"), 
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8,  
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        ),
-    )
-    tl_inputs(parsed_args)
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([
@@ -199,23 +187,18 @@ end
 
 @testset "Test allele-independent from flat list: positivity constraint" begin
     tmpdir = mktempdir()
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => nothing,
-        "positivity-constraint" => 0.01,
-
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "config" => joinpath(TESTDIR, "data", "config_flat.yaml"), 
-            "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "pcs.csv"),
-            "call-threshold" => 0.8,  
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"), 
-        ),
-    )
-    tl_inputs(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_flat.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--call-threshold=0.8",  
+        "--verbosity=0",
+        "--positivity-constraint=0.01"
+    ])
+    TargeneCore.julia_main()
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test sort(names(trait_data)) == sort([

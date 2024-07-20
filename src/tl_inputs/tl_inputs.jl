@@ -159,26 +159,5 @@ function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
     end
 end
 
-"""
-    tl_inputs(parsed_args)
-
-Support for the generation of estimands according to 2 strategies:
-- from-actors
-- from-param-file
-- allele-independent
-"""
-function tl_inputs(parsed_args)
-    if parsed_args["%COMMAND%"] == "from-actors"
-        tl_inputs_from_actors(parsed_args)
-    elseif parsed_args["%COMMAND%"] == "from-param-file"
-        tl_inputs_from_param_files(parsed_args)
-    elseif parsed_args["%COMMAND%"] == "allele-independent"
-        allele_independent_estimands(parsed_args)
-    elseif parsed_args["%COMMAND%"] == "permutation-tests"
-        permutation_tests_tl_inputs(parsed_args)
-    else
-        throw(ArgumentError("Unrecognized command."))
-    end
-end
 
 

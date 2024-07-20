@@ -1,5 +1,6 @@
 module TargeneCore
 
+using ArgParse
 using DataFrames
 using CSV
 using BGEN
@@ -28,6 +29,8 @@ include("plots.jl")
 include(joinpath("tl_inputs", "tl_inputs.jl"))
 include(joinpath("tl_inputs", "from_param_files.jl"))
 include(joinpath("tl_inputs", "allele_independent_estimands.jl"))
+include("estimation_inputs.jl")
+include("cli.jl")
 
 ###############################################################################
 ###                               EXPORTS                                  ###

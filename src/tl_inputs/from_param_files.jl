@@ -251,34 +251,29 @@ function adjusted_estimands(estimands, variables, data; positivity_constraint=0.
 end
 
 
-function tl_inputs_from_param_files(parsed_args)
-    # Read parsed_args
-    batch_size = parsed_args["batch-size"]
-    outprefix = parsed_args["out-prefix"]
-    positivity_constraint = parsed_args["positivity-constraint"]
-    verbosity = parsed_args["verbosity"]
+function tl_inputs_from_param_files(config_file, genotypes_prefix, traits_file, pcs_file;
+    outprefix="final",
+    batchsize=nothing,
+    call_threshold=0.9,
+    positivity_constraint=0.01,
+    verbosity=0)
 
-    estimands_config = parsed_args["from-param-file"]
-    estimands_config_file = estimands_config["paramfile"]
-    call_threshold = estimands_config["call-threshold"]
-    bgen_prefix = estimands_config["bgen-prefix"]
-    traits = TargeneCore.read_csv_file(estimands_config["traits"])
-    pcs = TargeneCore.read_csv_file(estimands_config["pcs"])
-
-    # Load initial Parameter files
-    estimands = TMLE.read_yaml(estimands_config_file).estimands
+    # Load initial Parameter files and data
+    estimands = TMLE.read_yaml(config_file).estimands
+    traits = TargeneCore.read_csv_file(traits_file)
+    pcs = TargeneCore.read_csv_file(pcs_file)
 
     # Genotypes and full data
     verbosity > 0 && @info("Creating dataset.")
     variables = TargeneCore.get_variables(estimands, traits, pcs)
     genotypes = TargeneCore.call_genotypes(
-        bgen_prefix, 
+        genotypes_prefix, 
         Set(string.(variables.genetic_variants)), 
         call_threshold
     )
     data = TargeneCore.merge(traits, pcs, genotypes)
 
-    # Parameter files
+    # Adjusted Estimands
     verbosity > 0 && @info("Validating estimands.")
     estimands = TargeneCore.adjusted_estimands(
         estimands, variables, data; 
@@ -286,5 +281,5 @@ function tl_inputs_from_param_files(parsed_args)
     )
 
     # write data and parameter files
-    write_tl_inputs(outprefix, data, estimands, batch_size=batch_size)
+    write_tl_inputs(outprefix, data, estimands, batch_size=batchsize)
 end

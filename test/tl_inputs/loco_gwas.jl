@@ -35,24 +35,18 @@ function check_estimands_levels_order(estimands)
 end
 @testset "Test loco-gwas from flat list: no positivity constraint" begin
     tmpdir = mktempdir()
-    snp_data = TargeneCore.read_bed_chromosome(joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."))
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => 5,
-        "positivity-constraint" => 0.0,
-
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "call-threshold" => nothing,
-            "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
-            "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."), 
-        ),
-    )
-    tl_inputs(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_gwas.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=5",
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    TargeneCore.julia_main()
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(trait_data) == (1940, 886)
@@ -77,23 +71,18 @@ end
 
 @testset "Test loco-gwas from flat list: positivity constraint" begin
     tmpdir = mktempdir()
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "out-prefix" => joinpath(tmpdir, "final"), 
-        "batch-size" => 5,
-        "positivity-constraint" => 0.2,
-
-        "%COMMAND%" => "allele-independent", 
-
-        "allele-independent" => Dict{String, Any}(
-            "call-threshold" => nothing,
-            "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
-            "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
-            "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
-            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1")
-        ),
-    )
-    tl_inputs(parsed_args)
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_gwas.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=5",
+        "--verbosity=0",
+        "--positivity-constraint=0.2"
+    ])
+    TargeneCore.julia_main()
     # Check dataset
     trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(trait_data) == (1940, 886)
@@ -112,7 +101,6 @@ end
     )
    
     check_estimands_levels_order(estimands)
-
 end
 
 end

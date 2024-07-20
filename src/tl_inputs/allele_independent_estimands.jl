@@ -182,18 +182,16 @@ function make_genotypes(genotype_prefix, config, call_threshold)
     return genotypes
 end
 
-function allele_independent_estimands(parsed_args)
-    verbosity = parsed_args["verbosity"]
-    outprefix = parsed_args["out-prefix"]
-    batchsize = parsed_args["batch-size"]
-    positivity_constraint = parsed_args["positivity-constraint"]
+function allele_independent_estimands(config_file, genotypes_prefix, traits_file, pcs_file;
+    outprefix="final",
+    batchsize=nothing,
+    call_threshold=0.9,
+    positivity_constraint=0.01,
+    verbosity=0)
 
-    allele_independent_config = parsed_args["allele-independent"]
-    call_threshold = allele_independent_config["call-threshold"]
-    genotypes_prefix = allele_independent_config["genotype-prefix"]
-    traits = read_csv_file(allele_independent_config["traits"])
-    pcs = read_csv_file(allele_independent_config["pcs"])
-    config = YAML.load_file(allele_independent_config["config"])
+    traits = read_csv_file(traits_file)
+    pcs = read_csv_file(pcs_file)
+    config = YAML.load_file(config_file)
 
     # Variables
     verbosity > 0 && @info("Parsing configuration file.")

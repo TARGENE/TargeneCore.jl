@@ -57,10 +57,10 @@ function qqplot(results, outprefix)
     return fig
 end
 
-function generate_summary_plots(parsed_args)
-    file_or_prefix = parsed_args["results-prefix"]
-    outprefix = parsed_args["out-prefix"]
-    verbosity = parsed_args["verbosity"]
-    results = load_results(file_or_prefix; verbosity=verbosity)
+function summary_plots(results_prefix;
+    outprefix="final",
+    verbosity=0
+    )
+    results = load_results(results_prefix; verbosity=verbosity)
     qqplot(results, outprefix)
 end
