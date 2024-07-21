@@ -72,7 +72,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test variables.pcs == Set([:PC1, :PC2])
 end
 
-@testset "Test adjust_parameter_sections" begin
+@testset "Test adjust_estimand_fields" begin
     genotypes = DataFrame(
         SAMPLE_ID = [1, 2, 3],
         RSID_198 = ["GA", "GG", "AA"],
@@ -84,7 +84,7 @@ end
     # RS198 AG is not in the genotypes but GA is
     Ψ = estimands[4]
     @test Ψ.treatment_values.RSID_198 == (case="AG", control="AA")
-    new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
+    new_Ψ = TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs)
     @test new_Ψ.outcome == Ψ.outcome
     @test new_Ψ.outcome_extra_covariates == Ψ.outcome_extra_covariates
     @test new_Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
@@ -97,7 +97,7 @@ end
     Ψ = estimands[5]
     @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
     @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
-    new_Ψ = TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
+    new_Ψ = TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs)
     for index in 1:length(Ψ.args)
         @test new_Ψ.args[index].outcome == Ψ.args[index].outcome
         @test new_Ψ.args[index].outcome_extra_covariates == (Symbol(22001),)
@@ -108,7 +108,7 @@ end
     
     # If the allele is not present 
     variants_alleles = Dict(:RSID_198 => Set(["AA"]))
-    @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_parameter_sections(Ψ, variants_alleles, pcs)
+    @test_throws TargeneCore.AbsentAlleleError("RSID_198", "AG") TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs)
 end
 
 #####################################################################
@@ -117,7 +117,7 @@ end
 
 @testset "Test inputs_from_estimands" begin
     # Genotypes encoded as strings
-    # No batching of parameter files
+    # No batching of estimands files
     # No positivity constraint
     tmpdir = mktempdir()
     estimands_filename = make_estimands_configuration_file()

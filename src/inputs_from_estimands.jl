@@ -9,12 +9,12 @@ AbsentAlleleError(variant, allele) =
 
 MismatchedCaseControlEncodingError() = 
     ArgumentError(
-                "All case/control values in the provided parameter 
+                "All case/control values in the provided estimands 
                 files should respect the same encoding. They should either 
                 represent the number of minor alleles (i.e. 0, 1, 2) or use the genotypes string representation."
                 )
 
-NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No parameter passed the given positivity constraint: ", positivity_constraint))
+NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No estimand passed the given positivity constraint: ", positivity_constraint))
 
 MismatchedVariableError(variable) = ArgumentError(string("Each component of a ComposedEstimand should contain the same ", variable, " variables."))
 
@@ -150,19 +150,19 @@ function adjust_treatment_encoding(treatment_setting::NamedTuple{names, }, varia
 end
 
 """
-    adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
+    adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
 
 This function adjusts the treatment field of a `TMLE.Estimand`. 
     
 Currently, there is one main issue to deal with. Since we are assuming 
 the genotypes are unphased, if a variant's allele is represented 
-as "AG" in the parameter file and as "GA" in the genotypes, there will be a mismatch 
+as "AG" in the estimands file and as "GA" in the genotypes, there will be a mismatch 
 between those representations that we want to resolve.
 
-Furthermore if the parameter file's allele is simply not present in the 
+Furthermore if the estimands file's allele is simply not present in the 
 genotypes, an error in thrown.
 """
-function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
+function adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
     treatment_variables = keys(Ψ.treatment_values)
     treatment_values = []
     treatment_confounders = []
@@ -186,8 +186,8 @@ function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.E
     return T(outcome=Ψ.outcome, treatment_values=treatments, treatment_confounders=confounders, outcome_extra_covariates=Ψ.outcome_extra_covariates)
 end
 
-adjust_parameter_sections(Ψ::JointEstimand, variants_alleles, pcs) = 
-    JointEstimand((adjust_parameter_sections(arg, variants_alleles, pcs) for arg in Ψ.args)...)
+adjust_estimand_fields(Ψ::JointEstimand, variants_alleles, pcs) = 
+    JointEstimand((adjust_estimand_fields(arg, variants_alleles, pcs) for arg in Ψ.args)...)
 
 function estimand_satisfying_positivity(Ψ, frequency_table; positivity_constraint=0.01)
     if TMLE.satisfies_positivity(Ψ, frequency_table;positivity_constraint=positivity_constraint)
@@ -216,7 +216,7 @@ function append_from_valid_estimands!(
     positivity_constraint=0.
     ) where T
     # Update treatment's and confounders's sections of Ψ
-    Ψ = adjust_parameter_sections(Ψ, variants_alleles, variables.pcs)
+    Ψ = adjust_estimand_fields(Ψ, variants_alleles, variables.pcs)
     # Update frequency tables with current treatments
     treatments = get_treatments(Ψ)
     if !haskey(frequency_tables, treatments)
@@ -280,6 +280,6 @@ function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_f
         positivity_constraint=positivity_constraint
     )
 
-    # write data and parameter files
+    # write data and estimands files
     write_tl_inputs(outprefix, data, estimands, batch_size=batchsize)
 end

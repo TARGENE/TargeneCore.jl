@@ -1,3 +1,5 @@
+const CHR_REG = r"chr[1-9]+"
+
 function files_matching_prefix(prefix)
     directory, _prefix = splitdir(prefix)
     _directory = directory == "" ? "." : directory
@@ -23,10 +25,6 @@ function filepath_from_prefix(prefix; filename="dataset.arrow")
 end
 
 set_from_txt_file(filepath::AbstractString) = Set(open(readlines, filepath))
-
-#### From tl_inputs
-
-const CHR_REG = r"chr[1-9]+"
 
 batch_name(outprefix, batch_id) = string(outprefix, ".estimands_", batch_id, ".jls") 
 
@@ -98,6 +96,7 @@ NotAllVariantsFoundError(rsids) =
     ArgumentError(string("Some variants were not found in the genotype files: ", join(rsids, ", ")))
 
 NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
+
 """
     bgen_files(snps, bgen_prefix)
 
@@ -138,16 +137,10 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     return genotypes
 end
 
-read_txt_file(path::Nothing) = nothing
-read_txt_file(path) = CSV.read(path, DataFrame, header=false)[!, 1]
-
 pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
 
 all_confounders(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
 all_confounders(pcs, extraW) = Symbol.(unique(vcat(pcnames(pcs), extraW)))
-
-targets_from_traits(traits, non_targets) = Symbol.(filter(x -> x ∉ non_targets, names(traits)))
-
 
 function merge(traits, pcs, genotypes)
     return innerjoin(
