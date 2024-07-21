@@ -14,7 +14,7 @@ TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 include(joinpath(TESTDIR, "testutils.jl"))
 
 function get_summary_stats(estimands)
-    outcomes = [only(TargeneCore.outcome_variables(Ψ)) for Ψ in estimands]
+    outcomes = [TargeneCore.get_outcome(Ψ) for Ψ in estimands]
     results = DataFrame(ESTIMAND = estimands, OUTCOME = outcomes)
     return sort(combine(groupby(results, :OUTCOME), nrow), :OUTCOME)
 end
