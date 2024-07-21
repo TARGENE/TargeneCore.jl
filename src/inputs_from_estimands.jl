@@ -138,7 +138,7 @@ function adjust_treatment_encoding(treatment_setting::NamedTuple{names, }, varia
     case_control_values = []
     for c in names
         # If there is a mismatch between a case/control value in the 
-        # proposed param file and the actual genotypes
+        # proposed estimands file and the actual genotypes
         if treatment_setting[c] ∉ variant_alleles
             new_setting = fix_mismatch(variant, treatment_setting[c], variant_alleles)
             push!(case_control_values, new_setting)
@@ -281,5 +281,5 @@ function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_f
     )
 
     # write data and estimands files
-    write_tl_inputs(outprefix, data, estimands, batch_size=batchsize)
+    write_estimation_inputs(outprefix, data, estimands, batch_size=batchsize)
 end

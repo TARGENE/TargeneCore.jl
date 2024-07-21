@@ -22,7 +22,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 @testset "Test get_variables" begin
     traits = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "traits_1.csv"))
     pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
-    # extraW, extraT, extraC are parsed from all param_files
+    # extraW, extraT, extraC are parsed from all estimands_files
     estimands = make_estimands_configuration().estimands
     # get_treatments, get_outcome, ...
     ## Simple Estimand
@@ -220,7 +220,7 @@ end
     @test_throws TargeneCore.NoRemainingParamsError(1.) TargeneCore.julia_main()
 end
 
-@testset "Test tl_inputs from-param-file: no wildcard" begin
+@testset "Test estimation_inputs from-estimands-file: no wildcard" begin
     estimands_filename = make_estimands_configuration_file(make_estimands_configuration_no_wildcard)
     tmpdir = mktempdir()
     copy!(ARGS, [

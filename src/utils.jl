@@ -35,10 +35,10 @@ The SAMPLE_ID column should be read as a String.
 """
 read_csv_file(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
-function write_tl_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
+function write_estimation_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
-    # Write param_files
+    # Write estimands_files
     if batch_size !== nothing
         for (batch_id, batch) in enumerate(Iterators.partition(estimands, batch_size))
             serialize(batch_name(outprefix, batch_id), Configuration(estimands=batch))
