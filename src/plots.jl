@@ -53,7 +53,7 @@ function qqplot(results, outprefix)
     # Legend
     axislegend(position=:lt)
     # Save figure
-    CairoMakie.save(TargeneCore.filepath_from_prefix(outprefix; filename="QQ.png"), fig)
+    CairoMakie.save(TargeneCore.make_filepath_from_prefix(outprefix; filename="QQ.png"), fig)
     return fig
 end
 

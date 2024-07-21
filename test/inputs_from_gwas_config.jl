@@ -1,4 +1,4 @@
-module TestLocoGwasEstimands
+module TestGwasEstimands
 
 using Test
 using SnpArrays

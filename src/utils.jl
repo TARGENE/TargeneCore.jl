@@ -1,4 +1,13 @@
-const CHR_REG = r"chr[1-9]+"
+###############################################################################
+###                             MISC UTILITIES                              ###
+###############################################################################
+
+"""
+    read_csv_file(filepath)
+
+The SAMPLE_ID column should be read as a String.
+"""
+read_csv_file(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
 function files_matching_prefix(prefix)
     directory, _prefix = splitdir(prefix)
@@ -13,9 +22,7 @@ function files_matching_prefix(prefix)
     )
 end
 
-BGEN.rsid(s::Symbol) = s
-
-function filepath_from_prefix(prefix; filename="dataset.arrow")
+function make_filepath_from_prefix(prefix; filename="dataset.arrow")
     return if isdir(prefix)
         joinpath(prefix, filename)
     else
@@ -24,47 +31,49 @@ function filepath_from_prefix(prefix; filename="dataset.arrow")
     end
 end
 
-set_from_txt_file(filepath::AbstractString) = Set(open(readlines, filepath))
+function merge(traits, pcs, genotypes)
+    return innerjoin(
+        innerjoin(traits, pcs, on="SAMPLE_ID"),
+        genotypes,
+        on="SAMPLE_ID"
+    )
+end
+
+###############################################################################
+###                      ESTIMATION INPUTS WRITING                          ###
+###############################################################################
 
 batch_name(outprefix, batch_id) = string(outprefix, ".estimands_", batch_id, ".jls") 
 
-"""
-    read_csv_file(filepath)
+save_estimands(outprefix, estimands, batchsize::Nothing) = 
+    serialize(batch_name(outprefix, 1), Configuration(estimands=estimands))
 
-The SAMPLE_ID column should be read as a String.
-"""
-read_csv_file(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
+function save_estimands(outprefix, estimands, batchsize)
+    for (batch_id, batch) ∈ enumerate(Iterators.partition(estimands, batchsize))
+        batchfilename = batch_name(outprefix, batch_id)
+        serialize(batchfilename, Configuration(estimands=batch))
+    end
+end
 
-function write_estimation_inputs(outprefix, final_dataset, estimands; batch_size=nothing)
+function write_estimation_inputs(outprefix, final_dataset, estimands; batchsize=nothing)
     # Write final_dataset
     Arrow.write(string(outprefix, ".data.arrow"), final_dataset)
     # Write estimands_files
-    if batch_size !== nothing
-        for (batch_id, batch) in enumerate(Iterators.partition(estimands, batch_size))
-            serialize(batch_name(outprefix, batch_id), Configuration(estimands=batch))
-        end
-    else
-        serialize(string(outprefix, ".estimands.jls"), Configuration(estimands=estimands))
-    end
+    save_estimands(outprefix, estimands, batchsize)
 end
 
-call_genotype(variant_genotypes, max_index, max_prob, threshold::Nothing) = variant_genotypes[max_index]
+###############################################################################
+###                      GENOTYPES CALLING FROM BGEN                        ###
+###############################################################################
 
-call_genotype(variant_genotypes, max_index, max_prob, threshold::Real) = max_prob >= threshold ? variant_genotypes[max_index] : missing
+const CHR_REG = r"chr[1-9]+"
 
-function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold) where T
-    n = size(probabilities, 2)
-    t = Vector{Union{T, Missing}}(missing, n)
-    for i in 1:n
-        # If no allele has been annotated with sufficient confidence
-        # the sample is declared as missing for this variant
-        max_prob, max_index = findmax(probabilities[:, i])
-        if !isinf(max_prob)
-            t[i] = call_genotype(variant_genotypes, max_index, max_prob, threshold)
-        end
-    end
-    return t
-end
+NotAllVariantsFoundError(rsids) = 
+    ArgumentError(string("Some variants were not found in the genotype files: ", join(rsids, ", ")))
+
+NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
+
+BGEN.rsid(s::Symbol) = s
 
 function is_numbered_chromosome_file(filename, prefix)
     if occursin(prefix, filename) && endswith(filename, "bgen")
@@ -92,10 +101,23 @@ function genotypes_encoding(variant)
     return [all₁*all₁, all₁*all₂, all₂*all₂]
 end
 
-NotAllVariantsFoundError(rsids) = 
-    ArgumentError(string("Some variants were not found in the genotype files: ", join(rsids, ", ")))
+call_genotype(variant_genotypes, max_index, max_prob, threshold::Nothing) = variant_genotypes[max_index]
 
-NotBiAllelicOrUnphasedVariantError(rsid) = ArgumentError(string("Variant: ", rsid, " is not bi-allelic or not unphased."))
+call_genotype(variant_genotypes, max_index, max_prob, threshold::Real) = max_prob >= threshold ? variant_genotypes[max_index] : missing
+
+function call_genotypes(probabilities::AbstractArray, variant_genotypes::AbstractVector{T}, threshold) where T
+    n = size(probabilities, 2)
+    t = Vector{Union{T, Missing}}(missing, n)
+    for i in 1:n
+        # If no allele has been annotated with sufficient confidence
+        # the sample is declared as missing for this variant
+        max_prob, max_index = findmax(probabilities[:, i])
+        if !isinf(max_prob)
+            t[i] = call_genotype(variant_genotypes, max_index, max_prob, threshold)
+        end
+    end
+    return t
+end
 
 """
     bgen_files(snps, bgen_prefix)
@@ -136,50 +158,6 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     length(query_rsids) == 0 || throw(NotAllVariantsFoundError(query_rsids))
     return genotypes
 end
-
-pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
-
-all_confounders(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
-all_confounders(pcs, extraW) = Symbol.(unique(vcat(pcnames(pcs), extraW)))
-
-function merge(traits, pcs, genotypes)
-    return innerjoin(
-        innerjoin(traits, pcs, on="SAMPLE_ID"),
-        genotypes,
-        on="SAMPLE_ID"
-    )
-end
-
-estimand_with_new_outcome(Ψ::T, outcome) where T = T(
-    outcome=outcome, 
-    treatment_values=Ψ.treatment_values, 
-    treatment_confounders=Ψ.treatment_confounders, 
-    outcome_extra_covariates=Ψ.outcome_extra_covariates
-)
-
-function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
-    for outcome in outcomes
-        push!(
-            estimands, 
-            T(
-                outcome=outcome, 
-                treatment_values=Ψ.treatment_values, 
-                treatment_confounders=Ψ.treatment_confounders, 
-                outcome_extra_covariates=Ψ.outcome_extra_covariates)
-        )
-    end
-end
-
-
-function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
-    for outcome in outcomes
-        push!(
-            estimands,
-            JointEstimand((estimand_with_new_outcome(arg, outcome) for arg in Ψ.args)...)
-        )
-    end
-end
-
 
 ###############################################################################
 ###                          ESTIMANDS ACCESSORS                            ###

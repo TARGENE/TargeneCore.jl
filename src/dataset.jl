@@ -1,3 +1,5 @@
+set_from_txt_file(filepath::AbstractString) = Set(open(readlines, filepath))
+
 function make_dataset(genotypes_prefix,
     traits_file,
     pcs_file,

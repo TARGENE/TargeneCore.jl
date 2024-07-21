@@ -52,7 +52,6 @@ function adjust_treatment_encoding(treatment_setting, variants_alleles, variant)
     return treatment_setting
 end
 
-
 function adjust_treatment_encoding(treatment_setting::NamedTuple{names, }, variants_alleles, variant) where names
     variant_alleles = variants_alleles[variant]
     case_control_values = []
@@ -125,7 +124,36 @@ function estimand_satisfying_positivity(Ψ::JointEstimand, frequency_table; posi
         return JointEstimand(new_args...)
     end
 end
-    
+
+estimand_with_new_outcome(Ψ::T, outcome) where T = T(
+    outcome=outcome, 
+    treatment_values=Ψ.treatment_values, 
+    treatment_confounders=Ψ.treatment_confounders, 
+    outcome_extra_covariates=Ψ.outcome_extra_covariates
+)
+
+function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
+    for outcome in outcomes
+        push!(
+            estimands, 
+            T(
+                outcome=outcome, 
+                treatment_values=Ψ.treatment_values, 
+                treatment_confounders=Ψ.treatment_confounders, 
+                outcome_extra_covariates=Ψ.outcome_extra_covariates)
+        )
+    end
+end
+
+function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
+    for outcome in outcomes
+        push!(
+            estimands,
+            JointEstimand((estimand_with_new_outcome(arg, outcome) for arg in Ψ.args)...)
+        )
+    end
+end
+
 function append_from_valid_estimands!(
     estimands::Vector{<:TMLE.Estimand},
     frequency_tables::Dict,
@@ -201,5 +229,5 @@ function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_f
     )
 
     # write data and estimands files
-    write_estimation_inputs(outprefix, data, estimands, batch_size=batchsize)
+    write_estimation_inputs(outprefix, data, estimands, batchsize=batchsize)
 end

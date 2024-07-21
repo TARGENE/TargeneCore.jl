@@ -1,3 +1,8 @@
+pcnames(pcs) = filter(!=("SAMPLE_ID"), names(pcs))
+
+confounders_from_pcs(pcs, extraW::Nothing) = Symbol.(pcnames(pcs))
+confounders_from_pcs(pcs, extraW) = Symbol.(unique(vcat(pcnames(pcs), extraW)))
+
 retrieve_variants_list(config::Dict) = vcat((retrieve_variants_list(x) for x in values(config))...)
 retrieve_variants_list(variants::AbstractVector) = variants
 
@@ -198,7 +203,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
     extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
     outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
     extra_confounders = haskey(config, "extra_confounders") ? Symbol.(config["extra_confounders"]) : []
-    confounders = all_confounders(pcs, extra_confounders)
+    confounders = confounders_from_pcs(pcs, extra_confounders)
     nonoutcomes = Set(vcat(:SAMPLE_ID, extra_confounders, outcome_extra_covariates, extra_treatments))
     outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
 

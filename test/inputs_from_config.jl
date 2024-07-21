@@ -69,7 +69,7 @@ end
     ]
 end
 
-@testset "Test allele-independent from groups: no positivity constraint" begin
+@testset "Test inputs_from_config from groups: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
@@ -106,7 +106,7 @@ end
     @test ngroups*n_traits*(2n_treat_comb_order_2+n_treat_comb_order_3) == 96
 end
 
-@testset "Test allele-independent from groups: with positivity constraint" begin
+@testset "Test inputs_from_config from groups: with positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
@@ -146,7 +146,7 @@ end
     )
 end
 
-@testset "Test allele-independent from flat list: no positivity constraint" begin
+@testset "Test inputs_from_config from flat list: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
@@ -185,7 +185,7 @@ end
     )
 end
 
-@testset "Test allele-independent from flat list: positivity constraint" begin
+@testset "Test inputs_from_config from flat list: positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",

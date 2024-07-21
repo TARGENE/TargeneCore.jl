@@ -18,7 +18,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
         string("--outprefix=", prefix)
     ])
     TargeneCore.julia_main()
-    @test isfile(TargeneCore.filepath_from_prefix(prefix; filename="QQ.png"))
+    @test isfile(TargeneCore.make_filepath_from_prefix(prefix; filename="QQ.png"))
 end
 
 end

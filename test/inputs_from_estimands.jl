@@ -1,4 +1,4 @@
-module TestFromParamFiles
+module TestFromEstimandsFile
 
 using Test
 using CSV
@@ -90,7 +90,7 @@ end
     @test size(data) == (490, 13)
 
     ## Estimands file:
-    output_estimands = deserialize(joinpath(tmpdir, "final.estimands.jls")).estimands
+    output_estimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
     # There are 5 initial estimands containing a :ALL
     # Those are duplicated for each of the 4 outcomes.
     @test length(output_estimands) == 20
@@ -147,7 +147,7 @@ end
     TargeneCore.julia_main()
 
     # The IATES are the most sensitives
-    outestimands = deserialize(joinpath(tmpdir, "final.estimands.jls")).estimands
+    outestimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
     @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, JointEstimand} for Ψ in outestimands)
     @test size(outestimands, 1) == 16
 
