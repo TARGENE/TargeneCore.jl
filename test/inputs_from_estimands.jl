@@ -19,59 +19,6 @@ include(joinpath(TESTDIR, "testutils.jl"))
 ###############               UNIT TESTS              ###############
 #####################################################################
 
-@testset "Test get_variables" begin
-    traits = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "traits_1.csv"))
-    pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
-    # extraW, extraT, extraC are parsed from all estimands_files
-    estimands = make_estimands_configuration().estimands
-    # get_treatments, get_outcome, ...
-    ## Simple Estimand
-    Ψ = estimands[1]
-    @test TargeneCore.get_outcome(Ψ) == :ALL
-    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
-    @test TargeneCore.get_all_confounders(Ψ) == ()
-    @test TargeneCore.get_outcome_extra_covariates(Ψ) == ()
-    ## Simple Estimand with Confounders
-    Ψ = estimands[2]
-    @test TargeneCore.get_outcome(Ψ) == :ALL
-    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.treatment_values)
-    @test TargeneCore.get_all_confounders(Ψ) == (Symbol("22001"),)
-    @test TargeneCore.get_confounders(Ψ, :RSID_2) == (Symbol("22001"),)
-    @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("21003"), :COV_1)
-    ## ComposedEstimand
-    Ψ = estimands[5]
-    @test TargeneCore.get_outcome(Ψ) == :ALL
-    @test TargeneCore.get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
-    @test TargeneCore.get_all_confounders(Ψ) == (:PC1, :PC2)
-    @test TargeneCore.get_confounders(Ψ, :RSID_198) == (:PC2,)
-    TargeneCore.get_confounders(Ψ, :RSID_2) == (:PC1, )
-    @test TargeneCore.get_outcome_extra_covariates(Ψ) == (Symbol("22001"), )
-    ## Bad ComposedEstimand
-    Ψ = JointEstimand(
-        CM(
-            outcome = "Y1",
-            treatment_values = (RSID_3 = "GG", RSID_198 = "AG"),
-            treatment_confounders = (RSID_3 = [], RSID_198 = []),
-            outcome_extra_covariates = [22001]
-        ),
-        CM(
-            outcome = "Y2",
-            treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
-            treatment_confounders = (RSID_2 = [:PC1], RSID_198 = []),
-            outcome_extra_covariates = []
-        )
-    )
-    @test_throws ArgumentError TargeneCore.get_outcome(Ψ)
-    @test_throws ArgumentError TargeneCore.get_treatments(Ψ)
-    @test_throws ArgumentError TargeneCore.get_all_confounders(Ψ)
-    @test_throws ArgumentError TargeneCore.get_outcome_extra_covariates(Ψ)
-    # get_variables
-    variables = TargeneCore.get_variables(estimands, traits, pcs)
-    @test variables.genetic_variants == Set([:RSID_198, :RSID_2])
-    @test variables.outcomes == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
-    @test variables.pcs == Set([:PC1, :PC2])
-end
-
 @testset "Test adjust_estimand_fields" begin
     genotypes = DataFrame(
         SAMPLE_ID = [1, 2, 3],

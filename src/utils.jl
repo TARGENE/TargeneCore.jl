@@ -179,3 +179,58 @@ function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
         )
     end
 end
+
+
+###############################################################################
+###                          ESTIMANDS ACCESSORS                            ###
+###############################################################################
+
+MismatchedVariableError(variable) = ArgumentError(string("Each component of a JointEstimand should contain the same ", variable, " variables."))
+
+function check_variables_are_consistent(Ψ::JointEstimand, variable, variable_accessor, args...)
+    if length(Ψ.args) > 1
+        for Ψᵢ in Ψ.args[2:end]
+            variable_accessor(Ψᵢ, args...) == variable || throw(MismatchedVariableError(split(string(variable_accessor), "_")[end]))
+        end
+    end
+end
+
+get_outcome(Ψ) = Ψ.outcome
+
+function get_outcome(Ψ::JointEstimand)
+    outcome = get_outcome(first(Ψ.args))
+    check_variables_are_consistent(Ψ, outcome, get_outcome)
+    return outcome
+end
+
+get_treatments(Ψ) = keys(Ψ.treatment_values)
+
+function get_treatments(Ψ::JointEstimand)
+    treatments = get_treatments(first(Ψ.args))
+    check_variables_are_consistent(Ψ, treatments, get_treatments)
+    return treatments
+end
+
+function get_all_confounders(Ψ::JointEstimand)
+    all_confounders = get_all_confounders(first(Ψ.args))
+    check_variables_are_consistent(Ψ, all_confounders, get_all_confounders)
+    return all_confounders
+end
+
+get_all_confounders(Ψ) = Tuple(sort(collect(Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders)))))
+
+get_confounders(Ψ, treatment) = Ψ.treatment_confounders[treatment]
+
+function get_confounders(Ψ::JointEstimand, treatment)
+    confounders = get_confounders(first(Ψ.args), treatment)
+    check_variables_are_consistent(Ψ, confounders, get_confounders, treatment)
+    return confounders
+end
+
+get_outcome_extra_covariates(Ψ) = Ψ.outcome_extra_covariates
+
+function get_outcome_extra_covariates(Ψ::JointEstimand)
+    outcome_extra_covariates = get_outcome_extra_covariates(first(Ψ.args))
+    check_variables_are_consistent(Ψ, outcome_extra_covariates, get_outcome_extra_covariates)
+    return outcome_extra_covariates
+end

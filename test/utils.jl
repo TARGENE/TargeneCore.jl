@@ -9,6 +9,59 @@ TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
 include(joinpath(TESTDIR, "testutils.jl"))
 
+@testset "Test Estimands Accessors" begin
+    traits = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "traits_1.csv"))
+    pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
+    # extraW, extraT, extraC are parsed from all estimands_files
+    estimands = make_estimands_configuration().estimands
+    # get_treatments, get_outcome, ...
+    ## Simple Estimand
+    Ψ = estimands[1]
+    @test get_outcome(Ψ) == :ALL
+    @test get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test get_all_confounders(Ψ) == ()
+    @test get_outcome_extra_covariates(Ψ) == ()
+    ## Simple Estimand with Confounders
+    Ψ = estimands[2]
+    @test get_outcome(Ψ) == :ALL
+    @test get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test get_all_confounders(Ψ) == (Symbol("22001"),)
+    @test get_confounders(Ψ, :RSID_2) == (Symbol("22001"),)
+    @test get_outcome_extra_covariates(Ψ) == (Symbol("21003"), :COV_1)
+    ## JointEstimand
+    Ψ = estimands[5]
+    @test get_outcome(Ψ) == :ALL
+    @test get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
+    @test get_all_confounders(Ψ) == (:PC1, :PC2)
+    @test get_confounders(Ψ, :RSID_198) == (:PC2,)
+    @test get_confounders(Ψ, :RSID_2) == (:PC1, )
+    @test get_outcome_extra_covariates(Ψ) == (Symbol("22001"), )
+    ## Bad JointEstimand
+    Ψ = JointEstimand(
+        CM(
+            outcome = "Y1",
+            treatment_values = (RSID_3 = "GG", RSID_198 = "AG"),
+            treatment_confounders = (RSID_3 = [], RSID_198 = []),
+            outcome_extra_covariates = [22001]
+        ),
+        CM(
+            outcome = "Y2",
+            treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
+            treatment_confounders = (RSID_2 = [:PC1], RSID_198 = []),
+            outcome_extra_covariates = []
+        )
+    )
+    @test_throws ArgumentError get_outcome(Ψ)
+    @test_throws ArgumentError get_treatments(Ψ)
+    @test_throws ArgumentError get_all_confounders(Ψ)
+    @test_throws ArgumentError get_outcome_extra_covariates(Ψ)
+    # get_variables
+    variables = TargeneCore.get_variables(estimands, traits, pcs)
+    @test variables.genetic_variants == Set([:RSID_198, :RSID_2])
+    @test variables.outcomes == Set([:BINARY_1, :CONTINUOUS_2, :CONTINUOUS_1, :BINARY_2])
+    @test variables.pcs == Set([:PC1, :PC2])
+end
+
 @testset "Test genotypes_encoding" begin
     b = Bgen(BGEN.datadir("example.8bits.bgen"))
     v = variant_by_rsid(b, "RSID_10")

@@ -40,4 +40,6 @@ export make_dataset
 export summary_plots
 export filter_chromosome, merge_beds, adapt_flashpca
 
+export get_outcome, get_treatments, get_outcome_extra_covariates, get_confounders, get_all_confounders
+
 end
