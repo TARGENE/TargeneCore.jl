@@ -182,7 +182,7 @@ function make_genotypes(genotype_prefix, config, call_threshold)
     return genotypes
 end
 
-function allele_independent_estimands(config_file, genotypes_prefix, traits_file, pcs_file;
+function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file;
     outprefix="final",
     batchsize=nothing,
     call_threshold=0.9,

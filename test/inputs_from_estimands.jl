@@ -13,7 +13,7 @@ using StableRNGs
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "testutils.jl"))
 
 #####################################################################
 ###############               UNIT TESTS              ###############
@@ -115,7 +115,7 @@ end
 ###############           END-TO-END TESTS            ###############
 #####################################################################
 
-@testset "Test tl_inputs from-param-file" begin
+@testset "Test inputs_from_estimands" begin
     # Genotypes encoded as strings
     # No batching of parameter files
     # No positivity constraint
@@ -185,8 +185,6 @@ end
     shuffled_memcost, _ = TMLE.evaluate_proxy_costs(shuffled_estimands, η_counts)
     @test memcost < shuffled_memcost
 
-    cleanup()
-
     # Increase positivity constraint
     copy!(ARGS, [
         "estimation-inputs",
@@ -205,8 +203,6 @@ end
     outestimands = deserialize(joinpath(tmpdir, "final.estimands.jls")).estimands
     @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, JointEstimand} for Ψ in outestimands)
     @test size(outestimands, 1) == 16
-
-    cleanup()
 
     # No Remaining Estimand Error
     copy!(ARGS, [
@@ -262,8 +258,6 @@ end
     for index in 1:3
         @test length(output_estimands[index]) == 2
     end
-
-    cleanup()
 end
 
 

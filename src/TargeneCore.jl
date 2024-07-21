@@ -27,8 +27,8 @@ include("confounders.jl")
 include("dataset.jl")
 include("plots.jl")
 include(joinpath("tl_inputs", "tl_inputs.jl"))
-include(joinpath("tl_inputs", "from_param_files.jl"))
-include(joinpath("tl_inputs", "allele_independent_estimands.jl"))
+include("inputs_from_estimands.jl")
+include("inputs_from_config.jl")
 include("estimation_inputs.jl")
 include("cli.jl")
 
@@ -36,11 +36,9 @@ include("cli.jl")
 ###                               EXPORTS                                  ###
 ###############################################################################
 
-export tl_inputs
-export tl_inputs_from_param_files
-
-export generate_dataset
-export generate_summary_plots
+export estimation_inputs
+export make_dataset
+export summary_plots
 export filter_chromosome, merge_beds, adapt_flashpca
 
 end

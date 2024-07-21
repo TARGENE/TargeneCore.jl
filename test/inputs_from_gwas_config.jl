@@ -11,7 +11,7 @@ using CSV
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "testutils.jl"))
 
 function get_summary_stats(estimands)
     outcomes = [only(TargeneCore.outcome_variables(Ψ)) for Ψ in estimands]
@@ -33,7 +33,7 @@ function check_estimands_levels_order(estimands)
         end
    end
 end
-@testset "Test loco-gwas from flat list: no positivity constraint" begin
+@testset "Test inputs_from_config gwas: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
@@ -69,7 +69,7 @@ end
     check_estimands_levels_order(estimands)
 end
 
-@testset "Test loco-gwas from flat list: positivity constraint" begin
+@testset "Test inputs_from_config gwas: positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",

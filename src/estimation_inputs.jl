@@ -1,12 +1,12 @@
 function infer_method_from_config(config_file)
     if endswith(config_file, "jls")
-        return tl_inputs_from_param_files
+        return inputs_from_estimands
     elseif endswith(config_file, "yaml")
         config = YAML.load_file(config_file)
         if config["type"] == "Configuration" || config["type"] == "TMLE.Configuration"
-            return tl_inputs_from_param_files
+            return inputs_from_estimands
         else
-            return allele_independent_estimands
+            return inputs_from_config
         end
     else
         throw(ArgumentError("Unsupported file extension."))

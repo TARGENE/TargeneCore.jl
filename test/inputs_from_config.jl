@@ -9,7 +9,7 @@ using TMLE
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-include(joinpath(TESTDIR, "tl_inputs", "test_utils.jl"))
+include(joinpath(TESTDIR, "testutils.jl"))
 
 function summary_stats_df(estimands)
     estimands = DataFrame(ESTIMAND=estimands)

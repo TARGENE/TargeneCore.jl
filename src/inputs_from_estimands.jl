@@ -251,7 +251,7 @@ function adjusted_estimands(estimands, variables, data; positivity_constraint=0.
 end
 
 
-function tl_inputs_from_param_files(config_file, genotypes_prefix, traits_file, pcs_file;
+function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_file;
     outprefix="final",
     batchsize=nothing,
     call_threshold=0.9,
