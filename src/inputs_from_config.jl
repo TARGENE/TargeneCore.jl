@@ -6,16 +6,6 @@ confounders_from_pcs(pcs, extraW) = Symbol.(unique(vcat(pcnames(pcs), extraW)))
 retrieve_variants_list(config::Dict) = vcat((retrieve_variants_list(x) for x in values(config))...)
 retrieve_variants_list(variants::AbstractVector) = variants
 
-save_estimands(outprefix, estimands, batchsize::Nothing) = 
-    serialize(batch_name(outprefix, 1), Configuration(estimands=estimands))
-
-function save_estimands(outprefix, estimands, batchsize)
-    for (batch_id, batch) ∈ enumerate(Iterators.partition(estimands, batchsize))
-        batchfilename = batch_name(outprefix, batch_id)
-        serialize(batchfilename, Configuration(estimands=batch))
-    end
-end
-
 """
     treatment_tuples_from_groups(treatments_lists, orders)
 
@@ -241,7 +231,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."
 
-    save_estimands(outprefix, groups_ordering(estimands), batchsize)
+    write_estimation_inputs(outprefix, dataset, groups_ordering(estimands); batchsize=batchsize)
 
     verbosity > 0 && @info("Done.")
 
