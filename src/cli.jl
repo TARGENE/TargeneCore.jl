@@ -109,8 +109,8 @@ function cli_settings()
     end
 
     @add_arg_table s["summary-plots"] begin
-        "results-prefix"
-            help = "Prefix to result files."
+        "results-file"
+            help = "Path to the results file."
             required = true
 
         "--outprefix"
@@ -201,7 +201,7 @@ function julia_main()::Cint
         )
     elseif cmd == "summary-plots"
         summary_plots(
-            cmd_settings["results-prefix"],
+            cmd_settings["results-file"],
             outprefix=cmd_settings["outprefix"],
             verbosity=cmd_settings["verbosity"],
         )

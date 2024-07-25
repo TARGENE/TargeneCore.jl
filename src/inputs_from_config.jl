@@ -121,6 +121,11 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
+function treatments_from_variant(variant::Symbol, dataset)
+    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
+    return NamedTuple{(variant,)}([variant_levels])
+end
+
 function gwas_estimands(dataset, variants, outcomes, confounders; 
     outcome_extra_covariates=[],
     positivity_constraint=0.,
@@ -128,9 +133,8 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
     )
     estimands = []
     verbosity > 0 && @info(string("Generating GWAS estimands."))
-    for v in variants
-        variant_levels = sort(levels(dataset[!, v], skipmissing=true))
-        treatments = NamedTuple{(Symbol(v),)}([variant_levels])
+    for variant in Symbol.(variants)
+        treatments = treatments_from_variant(variant, dataset)
         try_append_new_estimands!(
             estimands, 
             dataset, 

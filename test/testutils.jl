@@ -109,35 +109,15 @@ end
 
 function save(estimates; prefix="tmle_output")
     outputs = TargetedEstimation.Outputs(
-        json=TargetedEstimation.JSONOutput(filename=prefix*".json"),
-        jls=TargetedEstimation.JLSOutput(filename=prefix*".jls"),
-        hdf5=TargetedEstimation.HDF5Output(filename=prefix*".hdf5")
+        json=prefix*".json",
+        jls=prefix*".jls",
+        hdf5=prefix*".hdf5"
     )
-    TargetedEstimation.initialize(outputs)
-    batches = collect(Iterators.partition(estimates, 2))
-    nbatches = length(batches)
-    for (batchid, batch) in enumerate(batches)
-        # Append JSON Output
-        TargetedEstimation.update_file(outputs.json, batch; finalize=nbatches==batchid)
-        # Append JLS Output
-        TargetedEstimation.update_file(outputs.jls, batch)
-        # Append HDF5 Output
-        TargetedEstimation.update_file(outputs.hdf5, batch)
-    end
+    TargetedEstimation.write(outputs, estimates)
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 
     save(estimates_generator(); prefix=prefix)
-
-function clean(;prefix="tmle_output")
-    dir_, prefix_ = splitdir(prefix)
-    dir = dir_ == "" ? "." : dir_
-    for filename in readdir(dir)
-        if startswith(filename, prefix_)
-            rm(joinpath(dir_, filename))
-        end
-    end
-end
 
 ### Fixtures for inputs_from_estimands
 
