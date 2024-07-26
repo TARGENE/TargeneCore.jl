@@ -1,4 +1,11 @@
-TMLE.pvalue(x) = pvalue(significance_test(x))
+function TMLE.pvalue(x)
+    return try
+        TMLE.pvalue(significance_test(x))
+    catch
+        NaN
+    end
+end
+
 TMLE.pvalue(x::TargetedEstimation.FailedEstimate) = missing
 
 log10_uniform_quantiles(n) = -log10.(collect(LinRange(0., 1., n + 1))[2:end])
