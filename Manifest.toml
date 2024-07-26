@@ -2379,8 +2379,8 @@ version = "1.10.0"
 
 [[deps.TargetedEstimation]]
 deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "HDF5", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "MultipleTesting", "Optim", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "9cf3987b177a22ca374b9b11ab7a89de5bdd56b3"
-repo-rev = "f4620ef1565f71019fa539e746ff109727e6671c"
+git-tree-sha1 = "282f10ca607b16b162fadd614bcec5a4c77e6465"
+repo-rev = "agnostic_composed"
 repo-url = "https://github.com/TARGENE/TargetedEstimation.jl"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
 version = "0.9.0"
