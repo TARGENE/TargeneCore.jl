@@ -33,7 +33,7 @@ function check_estimands_levels_order(estimands)
         end
    end
 end
-@testset "Test loco-gwas from flat list: no positivity constraint" begin
+@testset "Test loco-gwas serial: no positivity constraint" begin
     tmpdir = mktempdir()
     parsed_args = Dict(
         "verbosity" => 0,
@@ -45,7 +45,7 @@ end
 
         "allele-independent" => Dict{String, Any}(
             "call-threshold" => nothing,
-            "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
+            "config" => joinpath(TESTDIR, "data", "config_gwas_serial.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
             "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
             "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."), 
@@ -74,7 +74,7 @@ end
     check_estimands_levels_order(estimands)
 end
 
-@testset "Test loco-gwas from flat list: positivity constraint" begin
+@testset "Test loco-gwas serial: positivity constraint" begin
     tmpdir = mktempdir()
     parsed_args = Dict(
         "verbosity" => 0,
@@ -86,7 +86,88 @@ end
 
         "allele-independent" => Dict{String, Any}(
             "call-threshold" => nothing,
-            "config" => joinpath(TESTDIR, "data", "config_gwas.yaml"), 
+            "config" => joinpath(TESTDIR, "data", "config_gwas_serial.yaml"), 
+            "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1")
+        ),
+    )
+    tl_inputs(parsed_args)
+    # Check dataset
+    trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
+    @test size(trait_data) == (1940, 886)
+    # Check estimands
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        if endswith(file, "jls")
+            append!(estimands, deserialize(file).estimands)
+        end
+    end
+    @test all(e isa JointEstimand for e in estimands)
+    summary_stats = get_summary_stats(estimands)
+    @test summary_stats == DataFrame(
+        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
+        nrow = repeat([777], 5)
+    )
+   
+    check_estimands_levels_order(estimands)
+
+end
+
+@testset "Test loco-gwas parallel: no positivity constraint" begin
+    tmpdir = mktempdir()
+    parsed_args = Dict(
+        "verbosity" => 0,
+        "out-prefix" => joinpath(tmpdir, "final"), 
+        "batch-size" => 5,
+        "positivity-constraint" => 0.0,
+
+        "%COMMAND%" => "allele-independent", 
+
+        "allele-independent" => Dict{String, Any}(
+            "call-threshold" => nothing,
+            "config" => joinpath(TESTDIR, "data", "config_gwas_parallel.yaml"), 
+            "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
+            "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
+            "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1."), 
+        ),
+    )
+    tl_inputs(parsed_args)
+    # Check dataset
+    trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
+    @test size(trait_data) == (1940, 886)
+    
+    # Check estimands
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        if endswith(file, "jls")
+            append!(estimands, deserialize(file).estimands)
+        end
+    end
+    @test all(e isa JointEstimand for e in estimands)
+
+    summary_stats = get_summary_stats(estimands)
+    @test summary_stats == DataFrame(
+        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
+        nrow = repeat([875], 5)
+    )
+
+    check_estimands_levels_order(estimands)
+end
+
+@testset "Test loco-gwas parallel: positivity constraint" begin
+    tmpdir = mktempdir()
+    parsed_args = Dict(
+        "verbosity" => 0,
+        "out-prefix" => joinpath(tmpdir, "final"), 
+        "batch-size" => 5,
+        "positivity-constraint" => 0.2,
+
+        "%COMMAND%" => "allele-independent", 
+
+        "allele-independent" => Dict{String, Any}(
+            "call-threshold" => nothing,
+            "config" => joinpath(TESTDIR, "data", "config_gwas_parallel.yaml"), 
             "traits" => joinpath(TESTDIR, "data", "ukbb_traits.csv"),
             "pcs" => joinpath(TESTDIR, "data", "ukbb_pcs.csv"),
             "genotype-prefix" => joinpath(TESTDIR, "data", "ukbb", "genotypes" ,"ukbb_1")

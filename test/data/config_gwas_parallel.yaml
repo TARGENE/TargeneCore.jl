@@ -1,4 +1,4 @@
-type: gwas
+type: gwas_parallel
 
 outcome_extra_covariates:
   - COV_1

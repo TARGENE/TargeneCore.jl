@@ -29,6 +29,16 @@ function treatment_tuples_from_groups(treatments_lists, orders)
     return sort(treatment_combinations)
 end
 
+"""
+    treatment_from_variant(variant, dataset)
+
+    Generate a key-value pair (dicitionary) for treatment structs.
+"""
+function treatment_from_variant(variant::String, dataset::DataFrame)
+    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
+    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+end
+
 function try_append_new_estimands!(
     estimands,
     dataset, 
@@ -59,36 +69,40 @@ function try_append_new_estimands!(
     end
 end
 
-function try_index_new_estimands!(
-    estimands, 
-    index,
+
+function try_estimands(
+    treatments,
     dataset, 
     estimand_constructor, 
-    treatments, 
     outcomes, 
     confounders;
     outcome_extra_covariates=[],
     positivity_constraint=0.,
     verbosity=1
     )
-    local Ψ
-    try
-        Ψ = factorialEstimands(
-        estimand_constructor, treatments, outcomes; 
-        confounders=confounders, 
-        dataset=dataset,
-        outcome_extra_covariates=outcome_extra_covariates,
-        positivity_constraint=positivity_constraint, 
-        verbosity=verbosity-1
-    )
-    catch e
-        if !(e == ArgumentError("No component passed the positivity constraint."))
-            throw(e)
+    estimands = []
+    for t in treatments
+        local Ψ
+        try
+            Ψ = factorialEstimands(
+            estimand_constructor, t, outcomes; 
+            confounders=confounders, 
+            dataset=dataset,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint, 
+            verbosity=verbosity-1)
+
+        catch e
+            if !(e == ArgumentError("No component passed the positivity constraint."))
+                throw(e)
+            end
+        else
+            append!(estimands, Ψ)
         end
-    else
-        estimands[index] = Ψ
     end
+    return estimands
 end
+
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
@@ -156,22 +170,35 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
-function gwas_estimands(dataset, variants, outcomes, confounders; 
+# For significant speedup (NOT a fix) add @nospecialize to try...estimands()
+function gwas_estimands_chunks(dataset, treatments, outcomes, confounders; 
+    outcome_extra_covariates = [],
+    positivity_constraint=0.,
+    verbosity=0
+    )
+    chunks = Iterators.partition(treatments, Int(ceil(length(treatments)/Threads.nthreads())))
+    tasks = map(chunks) do chunk
+        Threads.@spawn try_estimands(chunk, dataset, ATE, outcomes, confounders;
+        outcome_extra_covariates=outcome_extra_covariates,
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity)
+    end
+    chunk_estimands = fetch.(tasks)
+    return vcat(chunk_estimands...)
+end
+
+function gwas_estimands_serial(dataset, treatments, outcomes, confounders; 
     outcome_extra_covariates=[],
     positivity_constraint=0.,
     verbosity=0,
     )
-    estimands = Vector{Union{Any, Missing}}(undef, length(variants))
-    fill!(estimands, missing)
-    Threads.@threads for (index, v) ∈ collect(enumerate(variants))
-        variant_levels = sort(levels(dataset[!, v], skipmissing=true))
-        treatments = NamedTuple{(Symbol(v),)}([variant_levels])
-        try_index_new_estimands!(
-            estimands, 
-            index,
+    estimands = []
+    for t ∈ treatments
+        try_append_new_estimands!(
+            estimands,
             dataset, 
             ATE, 
-            treatments, 
+            t, 
             outcomes, 
             confounders;
             outcome_extra_covariates=outcome_extra_covariates,
@@ -179,8 +206,7 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
             verbosity=verbosity
         )
     end
-    estimands = vcat(estimands...)
-    filter!(x -> x !== missing, estimands)
+    return estimands
 end
 
 get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
@@ -206,7 +232,7 @@ function get_genotypes_from_beds(bedprefix)
 end
 
 function make_genotypes(genotype_prefix, config, call_threshold)
-    genotypes = if config["type"] == "gwas"
+    genotypes = if config["type"] == "gwas_parallel" || config["type"] == "gwas_serial" || config["type"] == "gwas"
         get_genotypes_from_beds(genotype_prefix)
     else
         variants_set = Set(retrieve_variants_list(config["variants"]))
@@ -251,29 +277,45 @@ function allele_independent_estimands(parsed_args)
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity)
+
     elseif config_type == "groups"
         estimands_from_groups(config["estimands"], dataset, config["variants"], outcomes, confounders; 
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
-    elseif config_type == "gwas"
+            verbosity=verbosity)
+
+    elseif config_type == "gwas_parallel"
         verbosity > 0 && @info("Generating estimands.")
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        gwas_estimands(dataset, variants, outcomes, confounders;
+        treatments = Vector{Dict{Symbol, Vector{UInt8}}}()
+        for v in variants
+            push!(treatments, treatment_from_variant(v, dataset))
+        end
+        gwas_estimands_chunks(dataset, treatments, outcomes, confounders;
+            outcome_extra_covariates=outcome_extra_covariates, 
+            positivity_constraint=positivity_constraint, 
+            verbosity=verbosity)
+
+    elseif config_type == "gwas_serial"
+        verbosity > 0 && @info("Generating estimands.")
+        variants = filter(!=("SAMPLE_ID"), names(genotypes))
+        treatments = Vector{Dict{Symbol, Vector{UInt8}}}()
+        for v in variants
+            push!(treatments, treatment_from_variant(v, dataset))
+        end
+        gwas_estimands_serial(dataset, treatments, outcomes, confounders; 
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
+            verbosity=verbosity)
     else
         throw(ArgumentError(string("Unknown extraction type: ", config_type, ", use any of: (flat, groups, gwas)")))
     end
 
     @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."
 
-    save_estimands(outprefix, groups_ordering(estimands), batchsize)
-
+    verbosity > 0 && @info("Saving estimands.")
+    save_estimands(outprefix, estimands, batchsize)
     verbosity > 0 && @info("Done.")
 
     return 0
