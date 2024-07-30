@@ -212,3 +212,21 @@ function get_outcome_extra_covariates(Ψ::JointEstimand)
     check_variables_are_consistent(Ψ, outcome_extra_covariates, get_outcome_extra_covariates)
     return outcome_extra_covariates
 end
+
+###############################################################################
+###                    P-VALUES WITH ERROR MANAGEMENT                       ###
+###############################################################################
+
+default_null(Ψ̂::TMLE.JointEstimate) = zeros(length(Ψ̂.estimates))
+
+default_null(Ψ̂::TMLE.EICEstimate) = 0.
+
+function pvalue_or_nan(Ψ̂, Ψ₀=default_null(Ψ̂))
+    return try
+        pvalue(significance_test(Ψ̂, Ψ₀))
+    catch
+        NaN
+    end
+end
+
+pvalue_or_nan(Ψ̂::TargetedEstimation.FailedEstimate, Ψ₀=nothing) = NaN

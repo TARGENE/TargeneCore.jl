@@ -160,6 +160,19 @@ end
     @test_throws TargeneCore.NotAllVariantsFoundError(variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
 end
 
+@testset "Test pvalue_or_nan" begin
+    estimates = make_estimates()
+    @test TargeneCore.default_null(estimates[1].TMLE) == 0.
+    @test TargeneCore.default_null(estimates[3].TMLE) == [0., 0.]
+
+    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[5].TMLE) === NaN
+
+    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[1].TMLE, -1)
+    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[1].TMLE, [-1., -1.])
+end
+
 end
 
 true

@@ -17,6 +17,7 @@ using Statistics
 using JLD2
 using CairoMakie
 using TargetedEstimation
+using HypothesisTests
 
 ###############################################################################
 ###                               INCLUDES                                  ###
@@ -41,5 +42,6 @@ export summary_plots
 export filter_chromosome, merge_beds, adapt_flashpca
 
 export get_outcome, get_treatments, get_outcome_extra_covariates, get_confounders, get_all_confounders
+export pvalue_or_nan
 
 end
