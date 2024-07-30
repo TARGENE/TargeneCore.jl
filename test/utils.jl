@@ -170,7 +170,7 @@ end
     @test TargeneCore.pvalue_or_nan(estimates[5].TMLE) === NaN
 
     @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[1].TMLE, -1)
-    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[1].TMLE, [-1., -1.])
+    @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[3].TMLE, [-1., -1.])
 end
 
 end
