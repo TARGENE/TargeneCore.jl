@@ -2345,7 +2345,7 @@ version = "7.2.1+1"
 
 [[deps.TMLE]]
 deps = ["AbstractDifferentiation", "CategoricalArrays", "Combinatorics", "DataFrames", "Dictionaries", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "PrecompileTools", "Random", "SplitApplyCombine", "Statistics", "TableOperations", "Tables", "Zygote"]
-git-tree-sha1 = "e547cc7fd91ca21cadce6b2ef71c22a7407ff42d"
+git-tree-sha1 = "c4fd98696d6db5e59544c15b6a64fed04d1cc8e2"
 repo-rev = "frequency_table"
 repo-url = "https://github.com/TARGENE/TMLE.jl"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
