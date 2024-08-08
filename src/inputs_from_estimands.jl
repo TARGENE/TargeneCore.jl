@@ -82,7 +82,7 @@ Furthermore if the estimands file's allele is simply not present in the
 genotypes, an error in thrown.
 """
 function adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
-    treatment_variables = keys(Ψ.treatment_values)
+    treatment_variables = sort(collect(keys(Ψ.treatment_values)))
     treatment_values = []
     treatment_confounders = []
     for treatment in treatment_variables
@@ -96,11 +96,11 @@ function adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Esti
         else
             push!(treatment_values, treatment_setting)
         end
-        # Update treatment's confoudner's values with PCs
+        # Update treatment's confounder's values with PCs
         push!(treatment_confounders, vcat(Ψ.treatment_confounders[treatment]..., pcs...))
     end
-    treatments = NamedTuple{treatment_variables}(treatment_values)
-    confounders = NamedTuple{treatment_variables}(treatment_confounders)
+    treatments = Dict(zip(treatment_variables, treatment_values))
+    confounders = Dict(zip(treatment_variables, treatment_confounders))
 
     return T(outcome=Ψ.outcome, treatment_values=treatments, treatment_confounders=confounders, outcome_extra_covariates=Ψ.outcome_extra_covariates)
 end

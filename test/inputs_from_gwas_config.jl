@@ -23,13 +23,13 @@ function check_estimands_levels_order(estimands)
     for Ψ in estimands
         # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
         if length(Ψ.args) == 2
-            @test Ψ.args[1].treatment_values[1] == (case = 0x01, control = 0x00)
-            @test Ψ.args[2].treatment_values[1] == (case = 0x02, control = 0x01)
+            @test Ψ.args[1].treatment_values[collect(keys(Ψ.args[1].treatment_values))[1]] == (control = 0x00, case = 0x01)
+            @test Ψ.args[2].treatment_values[collect(keys(Ψ.args[2].treatment_values))[1]] == (control = 0x01, case = 0x02)
         else
             # Otherwise we check they are one or the other
             arg = only(Ψ.args)
-            @test arg.treatment_values[1]==(case = 0x01, control = 0x00) ||
-            arg.treatment_values[1]==(case = 0x02, control = 0x01)
+            @test arg.treatment_values[collect(keys(arg.treatment_values))[1]]==(control = 0x00, case = 0x01) ||
+            arg.treatment_values[collect(keys(arg.treatment_values))[1]]==( control = 0x01, case = 0x02)
         end
    end
 end

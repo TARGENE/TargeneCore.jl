@@ -18,20 +18,20 @@ include(joinpath(TESTDIR, "testutils.jl"))
     ## Simple Estimand
     Ψ = estimands[1]
     @test get_outcome(Ψ) == :ALL
-    @test get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test get_treatments(Ψ) == sort(collect(keys(Ψ.treatment_values)))
     @test get_all_confounders(Ψ) == ()
     @test get_outcome_extra_covariates(Ψ) == ()
     ## Simple Estimand with Confounders
     Ψ = estimands[2]
     @test get_outcome(Ψ) == :ALL
-    @test get_treatments(Ψ) == keys(Ψ.treatment_values)
+    @test get_treatments(Ψ) == sort(collect(keys(Ψ.treatment_values)))
     @test get_all_confounders(Ψ) == (Symbol("22001"),)
     @test get_confounders(Ψ, :RSID_2) == (Symbol("22001"),)
     @test get_outcome_extra_covariates(Ψ) == (Symbol("21003"), :COV_1)
     ## JointEstimand
     Ψ = estimands[5]
     @test get_outcome(Ψ) == :ALL
-    @test get_treatments(Ψ) == keys(Ψ.args[1].treatment_values)
+    @test get_treatments(Ψ) == sort(collect(keys(Ψ.args[1].treatment_values)))
     @test get_all_confounders(Ψ) == (:PC1, :PC2)
     @test get_confounders(Ψ, :RSID_198) == (:PC2,)
     @test get_confounders(Ψ, :RSID_2) == (:PC1, )

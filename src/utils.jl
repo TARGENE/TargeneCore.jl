@@ -181,7 +181,8 @@ function get_outcome(Ψ::JointEstimand)
     return outcome
 end
 
-get_treatments(Ψ) = keys(Ψ.treatment_values)
+# Updated for OrderedDict
+get_treatments(Ψ) = sort(collect(keys(Ψ.treatment_values)))
 
 function get_treatments(Ψ::JointEstimand)
     treatments = get_treatments(first(Ψ.args))
@@ -195,7 +196,8 @@ function get_all_confounders(Ψ::JointEstimand)
     return all_confounders
 end
 
-get_all_confounders(Ψ) = Tuple(sort(collect(Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders)))))
+# Updated for OrderedDict
+get_all_confounders(Ψ) = Tuple(sort(collect(Iterators.flatten(( value for (key, value) ∈ pairs(Ψ.treatment_confounders))))))
 
 get_confounders(Ψ, treatment) = Ψ.treatment_confounders[treatment]
 

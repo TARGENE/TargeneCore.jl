@@ -54,6 +54,40 @@ function try_append_new_estimands!(
     end
 end
 
+function try_estimands(
+    variants,
+    dataset, 
+    estimand_constructor, 
+    outcomes, 
+    confounders;
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=1
+    )
+    estimands = []
+    for variant in variants
+        treatments = treatments_from_variant(variant, dataset)
+        local Ψ
+        try
+            Ψ = factorialEstimands(
+            estimand_constructor, treatments, outcomes; 
+            confounders=confounders, 
+            dataset=dataset,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint, 
+            verbosity=verbosity-1)
+
+        catch e
+            if !(e == ArgumentError("No component passed the positivity constraint."))
+                throw(e)
+            end
+        else
+            append!(estimands, Ψ)
+        end
+    end
+    return estimands
+end
+
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
     extra_treatments=[],
     outcome_extra_covariates=[],
@@ -125,15 +159,24 @@ function treatments_from_variant(variant::Symbol, dataset)
     variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
     return NamedTuple{(variant,)}([variant_levels])
 end
+"""
+    treatment_from_variant(variant, dataset)
 
-function gwas_estimands(dataset, variants, outcomes, confounders; 
+    Generate a key-value pair (dicitionary) for treatment structs.
+"""
+function treatments_from_variant(variant::String, dataset::DataFrame)
+    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
+    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+end
+
+function gwas_estimands_serial(dataset, variants, outcomes, confounders; 
     outcome_extra_covariates=[],
     positivity_constraint=0.,
     verbosity=0,
     )
     estimands = []
     verbosity > 0 && @info(string("Generating GWAS estimands."))
-    for variant in Symbol.(variants)
+    for variant in variants
         treatments = treatments_from_variant(variant, dataset)
         try_append_new_estimands!(
             estimands, 
@@ -149,6 +192,23 @@ function gwas_estimands(dataset, variants, outcomes, confounders;
     end
     return estimands
 end
+
+function gwas_estimands_chunks(dataset, variants, outcomes, confounders; 
+    outcome_extra_covariates = [],
+    positivity_constraint=0.,
+    verbosity=0
+    )
+    chunks = Iterators.partition(variants, Int(ceil(length(variants)/Threads.nthreads())))
+    tasks = map(chunks) do chunk
+        Threads.@spawn try_estimands(chunk, dataset, ATE, outcomes, confounders;
+        outcome_extra_covariates=outcome_extra_covariates,
+        positivity_constraint=positivity_constraint,
+        verbosity=verbosity)
+    end
+    chunk_estimands = fetch.(tasks)
+    return vcat(chunk_estimands...)
+end
+
 
 get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
 
@@ -224,7 +284,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
         )
     elseif config_type == "gwas"
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        gwas_estimands(dataset, variants, outcomes, confounders;
+        gwas_estimands_chunks(dataset, variants, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity

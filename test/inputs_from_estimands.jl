@@ -29,28 +29,35 @@ include(joinpath(TESTDIR, "testutils.jl"))
     variants_alleles = Dict(:RSID_198 => Set(genotypes.RSID_198))
     # AG is not in the genotypes but GA is
     Ψ = make_estimands_configuration().estimands[4]
-    @test Ψ.treatment_values.RSID_198 == (case="AG", control="AA")
-    new_Ψ = TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs)
+    @test Ψ.treatment_values[:RSID_198] == (control="AA", case="AG")
+    new_Ψ = TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs) # error here
     @test new_Ψ.outcome == Ψ.outcome
     @test new_Ψ.outcome_extra_covariates == Ψ.outcome_extra_covariates
-    @test new_Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
-    @test new_Ψ.treatment_values == (
-        RSID_198 = (case = "GA", control = "AA"),
-        RSID_2 = (case = "AA", control = "GG")
+    @test new_Ψ.treatment_confounders == Dict(
+        :RSID_198 => (:PC1, :PC2), 
+        :RSID_2  => (:PC1, :PC2)
+    )
+    @test new_Ψ.treatment_values == Dict(
+        :RSID_198 => (control = "AA", case = "GA"),
+        :RSID_2 => (control = "GG", case = "AA")
     )
 
     # JointEstimand
-    Ψ = estimands[5]
-    @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
-    @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
+    Ψ = make_estimands_configuration().estimands[5]
+    @test Ψ.args[1].treatment_values == Dict(
+        :RSID_198 => "AG", 
+        :RSID_2 => "GG")
+    @test Ψ.args[2].treatment_values == Dict(
+        :RSID_198 => "AG", 
+        :RSID_2 => "AA")
     new_Ψ = TargeneCore.adjust_estimand_fields(Ψ, variants_alleles, pcs)
     for index in 1:length(Ψ.args)
         @test new_Ψ.args[index].outcome == Ψ.args[index].outcome
         @test new_Ψ.args[index].outcome_extra_covariates == (Symbol(22001),)
-        @test new_Ψ.args[index].treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2),)
+        @test new_Ψ.args[index].treatment_confounders == Dict(:RSID_198 => (:PC1, :PC2), :RSID_2 => (:PC1, :PC2),)
     end
-    @test new_Ψ.args[1].treatment_values == (RSID_198 = "GA", RSID_2 = "GG")
-    @test new_Ψ.args[2].treatment_values == (RSID_198 = "GA", RSID_2 = "AA")
+    @test new_Ψ.args[1].treatment_values == Dict(:RSID_198 => "GA", :RSID_2 => "GG")
+    @test new_Ψ.args[2].treatment_values == Dict(:RSID_198 => "GA", :RSID_2 => "AA")
     
     # If the allele is not present 
     variants_alleles = Dict(:RSID_198 => Set(["AA"]))
@@ -97,28 +104,28 @@ end
     for Ψ ∈ output_estimands
         # Input Estimand 1
         if Ψ isa TMLE.StatisticalIATE
-            @test Ψ.treatment_confounders == (RSID_2 = (:PC1, :PC2), TREAT_1 = (:PC1, :PC2))
+            @test Ψ.treatment_confounders == Dict(:RSID_2 => (:PC1, :PC2), :TREAT_1 => (:PC1, :PC2))
         
         # Input Estimand 2
-        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == (RSID_2 = (case = "AA", control = "GG"),)
-            @test Ψ.treatment_confounders == (RSID_2 = (Symbol("22001"), :PC1, :PC2),)
+        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == Dict(:RSID_2 => (control = "GG", case = "AA"),)
+            @test Ψ.treatment_confounders == Dict(:RSID_2 => (Symbol("22001"), :PC1, :PC2),)
             @test Ψ.outcome_extra_covariates == (Symbol("21003"), Symbol("COV_1"))
 
         # Input Estimand 3
-        elseif Ψ isa TMLE.StatisticalCM && Ψ.treatment_values == (RSID_2 = "AA", )
-            @test Ψ.treatment_confounders == (RSID_2 = (Symbol("22001"), :PC1, :PC2),)
+        elseif Ψ isa TMLE.StatisticalCM && Ψ.treatment_values == Dict(:RSID_2 => "AA", )
+            @test Ψ.treatment_confounders == Dict(:RSID_2 => (Symbol("22001"), :PC1, :PC2),)
             @test Ψ.outcome_extra_covariates == (Symbol("21003"), Symbol("COV_1"))
 
         # Input Estimand 4
-        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == (RSID_198 = (case = "AG", control = "AA"), RSID_2 = (case = "AA", control = "GG"))
-            @test Ψ.treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+        elseif Ψ isa TMLE.StatisticalATE && Ψ.treatment_values == Dict(:RSID_198 => (control = "AA", case = "AG"), :RSID_2 => (control = "GG", case = "AA"))
+            @test Ψ.treatment_confounders == Dict(:RSID_198 => (:PC1, :PC2), :RSID_2 => (:PC1, :PC2))
             @test Ψ.outcome_extra_covariates == (Symbol("22001"),)
         
         # Input Estimand 5: GA is corrected to AG to match the data
         elseif Ψ isa JointEstimand
-            @test Ψ.args[1].treatment_values == (RSID_198 = "AG", RSID_2 = "GG")
-            @test Ψ.args[2].treatment_values == (RSID_198 = "AG", RSID_2 = "AA")
-            @test Ψ.args[1].treatment_confounders == Ψ.args[2].treatment_confounders == (RSID_198 = (:PC1, :PC2), RSID_2 = (:PC1, :PC2))
+            @test Ψ.args[1].treatment_values == Dict(:RSID_198 => "AG", :RSID_2 => "GG")
+            @test Ψ.args[2].treatment_values == Dict(:RSID_198 => "AG", :RSID_2 => "AA")
+            @test Ψ.args[1].treatment_confounders == Ψ.args[2].treatment_confounders == Dict(:RSID_198 => (:PC1, :PC2), :RSID_2 => (:PC1, :PC2))
             @test Ψ.args[1].outcome_extra_covariates == Ψ.args[2].outcome_extra_covariates == (Symbol("22001"),)
         else
             throw(AssertionError(string("Which input did this output come from: ", Ψ)))
