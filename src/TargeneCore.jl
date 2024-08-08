@@ -1,10 +1,10 @@
 module TargeneCore
 
+using ArgParse
 using DataFrames
 using CSV
 using BGEN
 using SnpArrays
-using Mmap
 using YAML
 using Combinatorics
 using TMLE
@@ -12,13 +12,12 @@ using Arrow
 using Serialization
 using StableRNGs
 using Random
-using JSON
-using HTTP
+using Distributions
 using Statistics
 using JLD2
 using CairoMakie
 using TargetedEstimation
-using Distributions
+using HypothesisTests
 
 ###############################################################################
 ###                               INCLUDES                                  ###
@@ -28,25 +27,21 @@ include("utils.jl")
 include("confounders.jl")
 include("dataset.jl")
 include("plots.jl")
-include(joinpath("tl_inputs", "tl_inputs.jl"))
-include(joinpath("tl_inputs", "from_actors.jl"))
-include(joinpath("tl_inputs", "from_param_files.jl"))
-include(joinpath("tl_inputs", "allele_independent_estimands.jl"))
-include(joinpath("tl_inputs", "permutation_test.jl"))
-include("random_variants_test.jl")
+include("inputs_from_estimands.jl")
+include("inputs_from_config.jl")
+include("estimation_inputs.jl")
+include("cli.jl")
 
 ###############################################################################
 ###                               EXPORTS                                  ###
 ###############################################################################
 
-export tl_inputs
-export permutation_tests_tl_inputs
-export tl_inputs_from_actors
-export tl_inputs_from_param_files
-
-export generate_dataset
-export generate_random_variants_estimands
-export generate_summary_plots
+export estimation_inputs
+export make_dataset
+export summary_plots
 export filter_chromosome, merge_beds, adapt_flashpca
+
+export get_outcome, get_treatments, get_outcome_extra_covariates, get_confounders, get_all_confounders
+export pvalue_or_nan
 
 end

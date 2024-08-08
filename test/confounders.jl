@@ -8,12 +8,6 @@ using CSV
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-function clean(parsed_args)
-    for ext in [".bed", ".bim", ".fam"]
-        rm(parsed_args["output"]*ext)
-    end
-end
-
 @testset "Various functions" begin
     # Test issnp
     @test TargeneCore.issnp("A") == true
@@ -38,93 +32,89 @@ end
 end
 
 @testset "Test filter_chromosome" begin
+    tmpdir = mktempdir()
+    output = joinpath(tmpdir, "filtered-mouse")
     # All options provided
-    parsed_args = Dict(
-        "input"  => SnpArrays.datadir("mouse"),
-        "output" => joinpath(TESTDIR, "data", "filtered-mouse"),
-        "qcfile" => joinpath(TESTDIR, "data", "ukbb", "qcfile.txt"),
-        "ld-blocks" => joinpath(TESTDIR, "data", "LD_blocks.txt"),
-        "maf-threshold" => 0.31,
-        "traits" => joinpath(TESTDIR, "data", "sample_ids.txt")
-    )
-    filter_chromosome(parsed_args)
+    copy!(ARGS, [
+        "filter-chromosome",
+        SnpArrays.datadir("mouse"),
+        output,
+        joinpath(TESTDIR, "data", "sample_ids.txt"),
+        string("--qc-file=", joinpath(TESTDIR, "data", "ukbb", "qcfile.txt")),
+        string("--ld-blocks-file=", joinpath(TESTDIR, "data", "LD_blocks.txt")),
+        "--maf-threshold=0.31"
+    ])
+    TargeneCore.julia_main()
 
-    filtered = SnpData(parsed_args["output"])
+    filtered = SnpData(output)
 
     @test filtered.snp_info.snpid == ["rs13476318"]
     @test size(filtered.snparray) == (5, 1)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     
-    clean(parsed_args)
-
     # No QC file provided
-    parsed_args = Dict(
-        "input"  => SnpArrays.datadir("mouse"),
-        "output" => joinpath(TESTDIR, "data", "filtered-mouse"),
-        "qcfile" => nothing,
-        "ld-blocks" => joinpath(TESTDIR, "data", "LD_blocks.txt"),
-        "maf-threshold" => 0.495,
-        "traits" => joinpath(TESTDIR, "data", "sample_ids.txt")
-    )
-    filter_chromosome(parsed_args)
+    copy!(ARGS, [
+        "filter-chromosome",
+        SnpArrays.datadir("mouse"),
+        output,
+        joinpath(TESTDIR, "data", "sample_ids.txt"),
+        string("--ld-blocks-file=", joinpath(TESTDIR, "data", "LD_blocks.txt")),
+        "--maf-threshold=0.495"
+    ])
+    TargeneCore.julia_main()
 
-    filtered = SnpData(parsed_args["output"])
-
+    filtered = SnpData(output)
     @test size(filtered.snparray) == (5, 88)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     
-    clean(parsed_args)
-
     # No ld-block file provided
-    parsed_args = Dict(
-        "input"  => SnpArrays.datadir("mouse"),
-        "output" => joinpath(TESTDIR, "data", "filtered-mouse"),
-        "qcfile" => nothing,
-        "ld-blocks" => nothing,
-        "maf-threshold" => 0.495,
-        "traits" => joinpath(TESTDIR, "data", "sample_ids.txt")
-    )
-    filter_chromosome(parsed_args)
+    copy!(ARGS, [
+        "filter-chromosome",
+        SnpArrays.datadir("mouse"),
+        output,
+        joinpath(TESTDIR, "data", "sample_ids.txt"),
+        "--maf-threshold=0.495"
+    ])
+    TargeneCore.julia_main()
 
-    filtered = SnpData(parsed_args["output"])
-    # More variants than the previous settings
+    filtered = SnpData(output)
+    ## More variants than the previous settings
     @test size(filtered.snparray) == (5, 95)
     @test filtered.person_info.iid == 
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
-
-    clean(parsed_args)
-
 end
 
 @testset "Test merge_beds" begin
     # Only works with relative paths at the moment see https://github.com/OpenMendel/SnpArrays.jl/issues/135
     genotypes_dir = relpath(joinpath(TESTDIR, "data", "ukbb", "genotypes"))
     chr_prefix = joinpath(genotypes_dir, "ukbb")
+    tmpdir = mktempdir()
+    output = joinpath(tmpdir, "ukbb_merged")
+    copy!(ARGS, [
+        "merge-beds",
+        chr_prefix,
+        output
+    ])
+    TargeneCore.julia_main()
 
-    parsed_args = Dict(
-            "input"  => chr_prefix,
-            "output" => joinpath(genotypes_dir, "ukbb_merged")
-        )
-    merge_beds(parsed_args)
-    merged = SnpData(parsed_args["output"])
+    merged = SnpData(output)
 
     @test length(unique(merged.snp_info.chromosome)) == 3
-    # Clean
-    clean(parsed_args)
-
 end
 
-
 @testset "Test adapt_flashpca" begin
-    parsed_args = Dict(
-        "input" => joinpath(TESTDIR, "data", "flashpca_output.txt"),
-        "output" => "flashpca_after_adapt.csv",
-    )
-    adapt_flashpca(parsed_args)
+    tmpdir = mktempdir()
+    output_file = joinpath(tmpdir, "flashpca_after_adapt.csv")
+    copy!(ARGS, [
+        "adapt-flashpca",
+        joinpath(TESTDIR, "data", "flashpca_output.txt"),
+        output_file
+    ])
+    TargeneCore.julia_main()
 
-    output = CSV.File(parsed_args["output"]) |> DataFrame
+    output = CSV.File(output_file) |> DataFrame
 
     @test names(output) == ["SAMPLE_ID",
                             "PC1",
@@ -135,7 +125,7 @@ end
                             "PC6"]
     @test size(output) == (2, 7)
 
-    rm(parsed_args["output"])
+    rm(output_file)
 end
 
 

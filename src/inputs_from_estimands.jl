@@ -7,25 +7,7 @@ NotSNPAndWontFixError(variant, allele) =
 AbsentAlleleError(variant, allele) =
     ArgumentError(string("Variant ", variant, "'s allele ", allele, " cannot be found in the genotyping dataset."))
 
-MismatchedCaseControlEncodingError() = 
-    ArgumentError(
-                "All case/control values in the provided parameter 
-                files should respect the same encoding. They should either 
-                represent the number of minor alleles (i.e. 0, 1, 2) or use the genotypes string representation."
-                )
-
-NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No parameter passed the given positivity constraint: ", positivity_constraint))
-
-
-function check_genotypes_encoding(val::NamedTuple, type)
-    if !(typeof(val.case) <: type && typeof(val.control) <: type)
-        throw(MismatchedCaseControlEncodingError())
-    end
-end
-
-check_genotypes_encoding(val::T, type) where T = 
-    T <: type || throw(MismatchedCaseControlEncodingError())
-
+NoRemainingParamsError(positivity_constraint) = ArgumentError(string("No estimand passed the given positivity constraint: ", positivity_constraint))
 
 function get_variables(estimands, traits, pcs)
     genetic_variants = Set{Symbol}()
@@ -33,11 +15,12 @@ function get_variables(estimands, traits, pcs)
     pcs = Set{Symbol}(filter(x -> x != :SAMPLE_ID, propertynames(pcs)))
     alltraits = Set{Symbol}(filter(x -> x != :SAMPLE_ID, propertynames(traits)))
     for Ψ in estimands
-        treatments = keys(Ψ.treatment_values)
-        confounders = Iterators.flatten((Tconf for Tconf ∈ Ψ.treatment_confounders))
+        treatments = get_treatments(Ψ)
+        confounders = get_all_confounders(Ψ)
+        outcome_extra_covariates = get_outcome_extra_covariates(Ψ)
         push!(
             others, 
-            Ψ.outcome_extra_covariates..., 
+            outcome_extra_covariates..., 
             confounders..., 
             treatments...
         )
@@ -69,13 +52,12 @@ function adjust_treatment_encoding(treatment_setting, variants_alleles, variant)
     return treatment_setting
 end
 
-
 function adjust_treatment_encoding(treatment_setting::NamedTuple{names, }, variants_alleles, variant) where names
     variant_alleles = variants_alleles[variant]
     case_control_values = []
     for c in names
         # If there is a mismatch between a case/control value in the 
-        # proposed param file and the actual genotypes
+        # proposed estimands file and the actual genotypes
         if treatment_setting[c] ∉ variant_alleles
             new_setting = fix_mismatch(variant, treatment_setting[c], variant_alleles)
             push!(case_control_values, new_setting)
@@ -87,19 +69,19 @@ function adjust_treatment_encoding(treatment_setting::NamedTuple{names, }, varia
 end
 
 """
-    adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
+    adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
 
 This function adjusts the treatment field of a `TMLE.Estimand`. 
     
 Currently, there is one main issue to deal with. Since we are assuming 
 the genotypes are unphased, if a variant's allele is represented 
-as "AG" in the parameter file and as "GA" in the genotypes, there will be a mismatch 
+as "AG" in the estimands file and as "GA" in the genotypes, there will be a mismatch 
 between those representations that we want to resolve.
 
-Furthermore if the parameter file's allele is simply not present in the 
+Furthermore if the estimands file's allele is simply not present in the 
 genotypes, an error in thrown.
 """
-function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
+function adjust_estimand_fields(Ψ::T, variants_alleles, pcs) where T<:TMLE.Estimand
     treatment_variables = keys(Ψ.treatment_values)
     treatment_values = []
     treatment_confounders = []
@@ -123,7 +105,55 @@ function adjust_parameter_sections(Ψ::T, variants_alleles, pcs) where T<:TMLE.E
     return T(outcome=Ψ.outcome, treatment_values=treatments, treatment_confounders=confounders, outcome_extra_covariates=Ψ.outcome_extra_covariates)
 end
 
-    
+adjust_estimand_fields(Ψ::JointEstimand, variants_alleles, pcs) = 
+    JointEstimand((adjust_estimand_fields(arg, variants_alleles, pcs) for arg in Ψ.args)...)
+
+function estimand_satisfying_positivity(Ψ, frequency_table; positivity_constraint=0.01)
+    if TMLE.satisfies_positivity(Ψ, frequency_table;positivity_constraint=positivity_constraint)
+        return Ψ
+    else
+        return nothing
+    end
+end
+
+function estimand_satisfying_positivity(Ψ::JointEstimand, frequency_table; positivity_constraint=0.01)
+    new_args = Tuple((arg for arg in Ψ.args if TMLE.satisfies_positivity(arg, frequency_table;positivity_constraint=positivity_constraint)))
+    if isempty(new_args)
+        return nothing
+    else
+        return JointEstimand(new_args...)
+    end
+end
+
+estimand_with_new_outcome(Ψ::T, outcome) where T = T(
+    outcome=outcome, 
+    treatment_values=Ψ.treatment_values, 
+    treatment_confounders=Ψ.treatment_confounders, 
+    outcome_extra_covariates=Ψ.outcome_extra_covariates
+)
+
+function update_estimands_from_outcomes!(estimands, Ψ::T, outcomes) where T
+    for outcome in outcomes
+        push!(
+            estimands, 
+            T(
+                outcome=outcome, 
+                treatment_values=Ψ.treatment_values, 
+                treatment_confounders=Ψ.treatment_confounders, 
+                outcome_extra_covariates=Ψ.outcome_extra_covariates)
+        )
+    end
+end
+
+function update_estimands_from_outcomes!(estimands, Ψ::JointEstimand, outcomes)
+    for outcome in outcomes
+        push!(
+            estimands,
+            JointEstimand((estimand_with_new_outcome(arg, outcome) for arg in Ψ.args)...)
+        )
+    end
+end
+
 function append_from_valid_estimands!(
     estimands::Vector{<:TMLE.Estimand},
     frequency_tables::Dict,
@@ -134,21 +164,22 @@ function append_from_valid_estimands!(
     positivity_constraint=0.
     ) where T
     # Update treatment's and confounders's sections of Ψ
-    Ψ = adjust_parameter_sections(Ψ, variants_alleles, variables.pcs)
+    Ψ = adjust_estimand_fields(Ψ, variants_alleles, variables.pcs)
     # Update frequency tables with current treatments
-    treatments = sorted_treatment_names(Ψ)
+    treatments = get_treatments(Ψ)
     if !haskey(frequency_tables, treatments)
-        frequency_tables[treatments] = TargeneCore.frequency_table(data, collect(treatments))
+        frequency_tables[treatments] = TMLE.get_frequency_table(data, treatments)
     end
-    # Check if parameter satisfies positivity
-    satisfies_positivity(Ψ, frequency_tables[treatments]; 
-        positivity_constraint=positivity_constraint) || return
-    # Expand wildcard to all outcomes
-    if Ψ.outcome === :ALL
-        update_estimands_from_outcomes!(estimands, Ψ, variables.outcomes)
-    else
-        # Ψ.target || MissingVariableError(variable)
-        push!(estimands, Ψ)
+    # Check estimand or filter joint estimand to satisfy positivity
+    Ψ = estimand_satisfying_positivity(Ψ, frequency_tables[treatments]; positivity_constraint=positivity_constraint)
+    if !(Ψ === nothing)
+        # Expand wildcard to all outcomes
+        if get_outcome(Ψ) === :ALL
+            update_estimands_from_outcomes!(estimands, Ψ, variables.outcomes)
+        else
+            # Ψ.target || MissingVariableError(variable)
+            push!(estimands, Ψ)
+        end
     end
 end
 
@@ -168,40 +199,35 @@ function adjusted_estimands(estimands, variables, data; positivity_constraint=0.
 end
 
 
-function tl_inputs_from_param_files(parsed_args)
-    # Read parsed_args
-    batch_size = parsed_args["batch-size"]
-    outprefix = parsed_args["out-prefix"]
-    positivity_constraint = parsed_args["positivity-constraint"]
-    verbosity = parsed_args["verbosity"]
+function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_file;
+    outprefix="final",
+    batchsize=nothing,
+    call_threshold=0.9,
+    positivity_constraint=0.01,
+    verbosity=0)
 
-    estimands_config = parsed_args["from-param-file"]
-    estimands_config_file = estimands_config["paramfile"]
-    call_threshold = estimands_config["call-threshold"]
-    bgen_prefix = estimands_config["bgen-prefix"]
-    traits = TargeneCore.read_csv_file(estimands_config["traits"])
-    pcs = TargeneCore.read_csv_file(estimands_config["pcs"])
-
-    # Load initial Parameter files
-    estimands = TMLE.read_yaml(estimands_config_file).estimands
+    # Load initial Parameter files and data
+    estimands = TMLE.read_yaml(config_file).estimands
+    traits = TargeneCore.read_csv_file(traits_file)
+    pcs = TargeneCore.read_csv_file(pcs_file)
 
     # Genotypes and full data
     verbosity > 0 && @info("Creating dataset.")
     variables = TargeneCore.get_variables(estimands, traits, pcs)
     genotypes = TargeneCore.call_genotypes(
-        bgen_prefix, 
+        genotypes_prefix, 
         Set(string.(variables.genetic_variants)), 
         call_threshold
     )
     data = TargeneCore.merge(traits, pcs, genotypes)
 
-    # Parameter files
+    # Adjusted Estimands
     verbosity > 0 && @info("Validating estimands.")
     estimands = TargeneCore.adjusted_estimands(
         estimands, variables, data; 
         positivity_constraint=positivity_constraint
     )
 
-    # write data and parameter files
-    write_tl_inputs(outprefix, data, estimands, batch_size=batch_size)
+    # write data and estimands files
+    write_estimation_inputs(outprefix, data, estimands, batchsize=batchsize)
 end
