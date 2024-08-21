@@ -1,5 +1,5 @@
 using TMLE
-using TargetedEstimation
+using TmleCLI
 
 function make_dataset(;n=100, rng=StableRNG(123))
     return DataFrame(
@@ -13,7 +13,7 @@ function make_dataset(;n=100, rng=StableRNG(123))
 end
 
 function make_estimands()
-    IATE₁ = IATE(
+    AIE₁ = AIE(
         outcome = "High light scatter reticulocyte percentage",
         treatment_values = (
             rs10043934 = (case="GA", control="GG"), 
@@ -25,7 +25,7 @@ function make_estimands()
         ),
         outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
     )
-    IATE₂ = IATE(
+    AIE₂ = AIE(
         outcome = "High light scatter reticulocyte percentage",
         treatment_values = (
             rs10043934 = (case="GA", control="GG"), 
@@ -49,30 +49,30 @@ function make_estimands()
         ),
         outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
     )
-    jointIATE = JointEstimand(IATE₁, IATE₂)
-    return (IATE₁, IATE₂, jointIATE, ATE₁)
+    jointAIE = JointEstimand(AIE₁, AIE₂)
+    return (AIE₁, AIE₂, jointAIE, ATE₁)
 end
 
 function make_estimates()
-    IATE₁, IATE₂, jointIATE, ATE₁ = make_estimands()
-    IATE₁ = TMLE.TMLEstimate(
-        estimand = IATE₁,
+    AIE₁, AIE₂, jointAIE, ATE₁ = make_estimands()
+    AIE₁ = TMLE.TMLEstimate(
+        estimand = AIE₁,
         estimate = -1.,
         std = 0.003,
         n = 10,
         IC = []
     )
-    IATE₂ = TMLE.TMLEstimate(
-        estimand = IATE₂,
+    AIE₂ = TMLE.TMLEstimate(
+        estimand = AIE₂,
         estimate = -0.003,
         std = 0.003,
         n = 10,
         IC = []
     )
 
-    jointIATE = TMLE.JointEstimate(
-        estimand = jointIATE,
-        estimates = (IATE₁, IATE₂),
+    jointAIE = TMLE.JointEstimate(
+        estimand = jointAIE,
+        estimates = (AIE₁, AIE₂),
         cov = [
         0.003 0.
         0. 0.003
@@ -88,7 +88,7 @@ function make_estimates()
         IC = []
     )
 
-    failed_estimate = TargetedEstimation.FailedEstimate(
+    failed_estimate = TmleCLI.FailedEstimate(
         ATE(
             outcome = "L50-L54 Urticaria and erythema",
             treatment_values = (
@@ -104,16 +104,16 @@ function make_estimates()
         "Could not fluctuate"
     )
 
-    return [(TMLE=IATE₁,), (TMLE=IATE₂,), (TMLE=jointIATE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
+    return [(TMLE=AIE₁,), (TMLE=AIE₂,), (TMLE=jointAIE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
 end
 
 function save(estimates; prefix="tmle_output")
-    outputs = TargetedEstimation.Outputs(
+    outputs = TmleCLI.Outputs(
         json=prefix*".json",
         jls=prefix*".jls",
         hdf5=prefix*".hdf5"
     )
-    TargetedEstimation.write(outputs, estimates)
+    TmleCLI.write(outputs, estimates)
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 
@@ -123,7 +123,7 @@ make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") =
 
 function make_estimands_configuration()
     estimands = [
-        IATE(
+        AIE(
             outcome = "ALL",
             treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
             treatment_confounders = (RSID_2 = [], TREAT_1 = [])
@@ -166,7 +166,7 @@ end
 
 function make_estimands_configuration_no_wildcard()
     estimands = [
-    IATE(
+    AIE(
         outcome = "BINARY_1",
         treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
         treatment_confounders = (RSID_2 = [], TREAT_1 = [])

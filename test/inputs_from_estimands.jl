@@ -103,7 +103,7 @@ end
     # In all cases the PCs are appended to the confounders.
     for Ψ ∈ output_estimands
         # Input Estimand 1
-        if Ψ isa TMLE.StatisticalIATE
+        if Ψ isa TMLE.StatisticalAIE
             @test Ψ.treatment_confounders == Dict(:RSID_2 => (:PC1, :PC2), :TREAT_1 => (:PC1, :PC2))
         
         # Input Estimand 2
@@ -152,7 +152,7 @@ end
     ])
     TargeneCore.julia_main()
 
-    # The IATES are the most sensitives
+    # The AIES are the most sensitives
     outestimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
     @test all(Ψ isa Union{TMLE.StatisticalCM, TMLE.StatisticalATE, JointEstimand} for Ψ in outestimands)
     @test size(outestimands, 1) == 16

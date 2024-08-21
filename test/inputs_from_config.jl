@@ -56,7 +56,7 @@ end
 
 @testset "Test misc" begin
     @test TargeneCore.default_order(ATE) == TargeneCore.default_order(CM) == [1]
-    @test TargeneCore.default_order(IATE) == [2]
+    @test TargeneCore.default_order(AIE) == [2]
 
     treatment_tuples = TargeneCore.treatment_tuples_from_single_list([:T_1, :T_2], [1])
     @test treatment_tuples == [[:T_1], [:T_2]]
@@ -94,7 +94,7 @@ end
     estimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
-        ESTIMAND_TYPE = ["TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
+        ESTIMAND_TYPE = ["TMLE.StatisticalAIE", "TMLE.StatisticalCM", "TMLE.StatisticalAIE"],
         ORDER = [2, 2, 3],
         nrow = [40, 40, 16]
     )
@@ -140,7 +140,7 @@ end
 
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
-        ESTIMAND_TYPE=["TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
+        ESTIMAND_TYPE=[ "TMLE.StatisticalAIE", "TMLE.StatisticalCM", "TMLE.StatisticalAIE"],
         ORDER = [2, 2, 3],
         nrow=[40, 40, 8]
     )
@@ -179,7 +179,7 @@ end
     @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
-        ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
+        ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalAIE", "TMLE.StatisticalAIE"],
         ORDER=[1, 1, 2, 3],
         nrow=[16, 16, 24, 16]
     )
@@ -211,7 +211,7 @@ end
     @test all(e isa JointEstimand for e in estimands)
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
-        ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalIATE", "TMLE.StatisticalIATE"],
+        ESTIMAND_TYPE=["TMLE.StatisticalATE", "TMLE.StatisticalCM", "TMLE.StatisticalAIE", "TMLE.StatisticalAIE"],
         ORDER=[1, 1, 2, 3],
         nrow=[16, 16, 24, 4]
         )

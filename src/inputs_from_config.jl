@@ -121,7 +121,7 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
 end
 
 default_order(::Union{typeof(ATE), typeof(CM)}) = [1]
-default_order(::typeof(IATE)) = [2]
+default_order(::typeof(AIE)) = [2]
 
 treatment_tuples_from_single_list(treatment_variables, orders) =
     reduce(vcat, collect(Combinatorics.combinations(treatment_variables, order)) for order in orders)
