@@ -54,7 +54,7 @@ function try_append_new_estimands!(
     end
 end
 
-function try_estimands(
+function estimands_from_variants(
     variants,
     dataset, 
     estimand_constructor, 
@@ -159,6 +159,7 @@ function treatments_from_variant(variant::Symbol, dataset)
     variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
     return NamedTuple{(variant,)}([variant_levels])
 end
+
 """
     treatment_from_variant(variant, dataset)
 
@@ -169,44 +170,21 @@ function treatments_from_variant(variant::String, dataset::DataFrame)
     return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
 end
 
-function gwas_estimands_serial(dataset, variants, outcomes, confounders; 
-    outcome_extra_covariates=[],
+function estimands_from_gwas(dataset, variants, outcomes, confounders; 
+    outcome_extra_covariates = [],
     positivity_constraint=0.,
-    verbosity=0,
+    verbosity=0
     )
-    estimands = []
-    verbosity > 0 && @info(string("Generating GWAS estimands."))
-    for variant in variants
-        treatments = treatments_from_variant(variant, dataset)
-        try_append_new_estimands!(
-            estimands, 
-            dataset, 
-            ATE, 
-            treatments, 
-            outcomes, 
-            confounders;
+    variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
+    estimands_tasks = map(variants_groups) do variants
+        Threads.@spawn estimands_from_variants(variants, dataset, ATE, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity
         )
     end
-    return estimands
-end
-
-function gwas_estimands_chunks(dataset, variants, outcomes, confounders; 
-    outcome_extra_covariates = [],
-    positivity_constraint=0.,
-    verbosity=0
-    )
-    chunks = Iterators.partition(variants, Int(ceil(length(variants)/Threads.nthreads())))
-    tasks = map(chunks) do chunk
-        Threads.@spawn try_estimands(chunk, dataset, ATE, outcomes, confounders;
-        outcome_extra_covariates=outcome_extra_covariates,
-        positivity_constraint=positivity_constraint,
-        verbosity=verbosity)
-    end
-    chunk_estimands = fetch.(tasks)
-    return vcat(chunk_estimands...)
+    estimands_partitions = fetch.(estimands_tasks)
+    return vcat(estimands_partitions...)
 end
 
 
@@ -284,7 +262,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
         )
     elseif config_type == "gwas"
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        gwas_estimands_chunks(dataset, variants, outcomes, confounders;
+        estimands_from_gwas(dataset, variants, outcomes, confounders;
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity
