@@ -22,14 +22,15 @@ end
 function check_estimands_levels_order(estimands)
     for Ψ in estimands
         # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
+        variant = only(keys(Ψ.args[1].treatment_values))
         if length(Ψ.args) == 2
-            @test Ψ.args[1].treatment_values[collect(keys(Ψ.args[1].treatment_values))[1]] == (control = 0x00, case = 0x01)
-            @test Ψ.args[2].treatment_values[collect(keys(Ψ.args[2].treatment_values))[1]] == (control = 0x01, case = 0x02)
+            @test Ψ.args[1].treatment_values[variant] == (control = 0x00, case = 0x01)
+            @test Ψ.args[2].treatment_values[variant] == (control = 0x01, case = 0x02)
         else
             # Otherwise we check they are one or the other
             arg = only(Ψ.args)
-            @test arg.treatment_values[collect(keys(arg.treatment_values))[1]]==(control = 0x00, case = 0x01) ||
-            arg.treatment_values[collect(keys(arg.treatment_values))[1]]==( control = 0x01, case = 0x02)
+            @test arg.treatment_values[variant]==(control = 0x00, case = 0x01) ||
+            arg.treatment_values[variant]==( control = 0x01, case = 0x02)
         end
    end
 end
@@ -48,9 +49,9 @@ end
     ])
     TargeneCore.julia_main()
     # Check dataset
-    trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test size(trait_data) == (1940, 886)
-    
+    dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
+    @test size(dataset) == (1940, 886)
+
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)
@@ -60,6 +61,7 @@ end
     end
     @test all(e isa JointEstimand for e in estimands)
 
+    # There are 875 variants in the dataset
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
@@ -84,8 +86,8 @@ end
     ])
     TargeneCore.julia_main()
     # Check dataset
-    trait_data = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test size(trait_data) == (1940, 886)
+    dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
+    @test size(dataset) == (1940, 886)
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)
@@ -93,6 +95,7 @@ end
             append!(estimands, deserialize(file).estimands)
         end
     end
+    # The positivity constraint reduces the number of variants
     @test all(e isa JointEstimand for e in estimands)
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
