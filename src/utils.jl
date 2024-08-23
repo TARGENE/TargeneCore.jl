@@ -188,7 +188,7 @@ function get_outcome(Ψ::JointEstimand)
 end
 
 # Updated for OrderedDict
-get_treatments(Ψ) = sort(collect(keys(Ψ.treatment_values)))
+get_treatments(Ψ) = Tuple(keys(Ψ.treatment_values))
 
 function get_treatments(Ψ::JointEstimand)
     treatments = get_treatments(first(Ψ.args))
