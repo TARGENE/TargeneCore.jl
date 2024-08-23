@@ -11,7 +11,7 @@ include(joinpath(TESTDIR, "testutils.jl"))
 
 @testset "Test Estimands Accessors" begin
     traits = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "traits_1.csv"))
-    pcs = TargeneCore.read_csv_file(joinpath(TESTDIR, "data", "pcs.csv"))
+    pcs = TargeneCore.load_flash_pca_results(joinpath(TESTDIR, "data", "pcs.csv"))
     # extraW, extraT, extraC are parsed from all estimands_files
     estimands = make_estimands_configuration().estimands
     # get_treatments, get_outcome, ...

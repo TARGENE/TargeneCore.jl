@@ -208,22 +208,22 @@ function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_f
 
     # Load initial Parameter files and data
     estimands = TMLE.read_yaml(config_file).estimands
-    traits = TargeneCore.read_csv_file(traits_file)
-    pcs = TargeneCore.read_csv_file(pcs_file)
+    traits = read_csv_file(traits_file)
+    pcs = load_flash_pca_results(pcs_file)
 
     # Genotypes and full data
     verbosity > 0 && @info("Creating dataset.")
-    variables = TargeneCore.get_variables(estimands, traits, pcs)
-    genotypes = TargeneCore.call_genotypes(
+    variables = get_variables(estimands, traits, pcs)
+    genotypes = call_genotypes(
         genotypes_prefix, 
         Set(string.(variables.genetic_variants)), 
         call_threshold
     )
-    data = TargeneCore.merge(traits, pcs, genotypes)
+    data = merge(traits, pcs, genotypes)
 
     # Adjusted Estimands
     verbosity > 0 && @info("Validating estimands.")
-    estimands = TargeneCore.adjusted_estimands(
+    estimands = adjusted_estimands(
         estimands, variables, data; 
         positivity_constraint=positivity_constraint
     )

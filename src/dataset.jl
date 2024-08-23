@@ -14,7 +14,7 @@ function make_dataset(genotypes_prefix,
 
     # Read Confounders
     verbosity > 0 && @info "Reading Confounders."
-    pcs = read_csv_file(pcs_file)
+    pcs = load_flash_pca_results(pcs_file)
 
     # Extract genotypes matching variants
     verbosity > 0 && @info "Reading Genotypes."

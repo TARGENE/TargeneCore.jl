@@ -227,7 +227,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
     verbosity=0)
 
     traits = read_csv_file(traits_file)
-    pcs = read_csv_file(pcs_file)
+    pcs = load_flash_pca_results(pcs_file)
     config = YAML.load_file(config_file)
 
     # Variables

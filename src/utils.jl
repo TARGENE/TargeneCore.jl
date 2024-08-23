@@ -9,6 +9,12 @@ The SAMPLE_ID column should be read as a String.
 """
 read_csv_file(filepath) = CSV.read(filepath, DataFrame, types=Dict(:SAMPLE_ID => String))
 
+function load_flash_pca_results(file)
+    pcs = CSV.read(file, DataFrame, drop=["FID"], types=Dict(:IID => String)) 
+    rename!(pcs, :IID => :SAMPLE_ID)
+    return pcs
+end
+
 function files_matching_prefix(prefix)
     directory, _prefix = splitdir(prefix)
     _directory = directory == "" ? "." : directory
