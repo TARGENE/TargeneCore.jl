@@ -1,5 +1,5 @@
 using TMLE
-using TmleCLI
+using TMLECLI
 
 function make_dataset(;n=100, rng=StableRNG(123))
     return DataFrame(
@@ -88,7 +88,7 @@ function make_estimates()
         IC = []
     )
 
-    failed_estimate = TmleCLI.FailedEstimate(
+    failed_estimate = TMLECLI.FailedEstimate(
         ATE(
             outcome = "L50-L54 Urticaria and erythema",
             treatment_values = (
@@ -108,12 +108,12 @@ function make_estimates()
 end
 
 function save(estimates; prefix="tmle_output")
-    outputs = TmleCLI.Outputs(
+    outputs = TMLECLI.Outputs(
         json=prefix*".json",
         jls=prefix*".jls",
         hdf5=prefix*".hdf5"
     )
-    TmleCLI.write(outputs, estimates)
+    TMLECLI.write(outputs, estimates)
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 

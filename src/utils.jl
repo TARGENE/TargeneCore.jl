@@ -237,4 +237,4 @@ function pvalue_or_nan(Ψ̂, Ψ₀=default_null(Ψ̂))
     end
 end
 
-pvalue_or_nan(Ψ̂::TmleCLI.FailedEstimate, Ψ₀=nothing) = NaN
+pvalue_or_nan(Ψ̂::TMLECLI.FailedEstimate, Ψ₀=nothing) = NaN

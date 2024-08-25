@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "ef0152dff671a062e2d1ad72313663e010e9689a"
+project_hash = "2632154bc034aca935f954e227025ed26a9620a6"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -2286,6 +2286,14 @@ weakdeps = ["JSON", "YAML"]
     JSONExt = "JSON"
     YAMLExt = "YAML"
 
+[[deps.TMLECLI]]
+deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
+git-tree-sha1 = "a1c0da8a3b98ff41b666c1e7bbd0b7d6bba398ae"
+repo-rev = "main"
+repo-url = "https://github.com/TARGENE/TMLECLI.jl"
+uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
+version = "0.9.0"
+
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
@@ -2356,14 +2364,6 @@ weakdeps = ["RecipesBase"]
 
     [deps.TimeZones.extensions]
     TimeZonesRecipesBaseExt = "RecipesBase"
-
-[[deps.TmleCLI]]
-deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "2399b3ab4cf580f94db95f108b49bb4b10ab95ba"
-repo-rev = "main"
-repo-url = "https://github.com/TARGENE/TmleCLI.jl.git"
-uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
-version = "0.9.0"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]

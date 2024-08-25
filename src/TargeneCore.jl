@@ -16,7 +16,7 @@ using Distributions
 using Statistics
 using JLD2
 using CairoMakie
-using TmleCLI
+using TMLECLI
 using HypothesisTests
 
 ###############################################################################
