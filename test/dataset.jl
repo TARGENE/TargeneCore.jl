@@ -7,19 +7,20 @@ using DataFrames
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
-@testset "Test generate_dataset(parsed_args)" begin
+@testset "Test make_dataset" begin
     tmpdir = mktempdir()
     out = joinpath(tmpdir, "dataset.arrow")
-    parsed_args = Dict(
-        "verbosity" => 0,
-        "traits" => joinpath(TESTDIR, "data", "traits_1.csv"),
-        "confounders" => joinpath(TESTDIR, "data", "pcs.csv"),
-        "bgen-prefix" => joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb"),
-        "variants" => joinpath(TESTDIR, "data", "variants_list.txt"),
-        "call-threshold" => 0.8,
-        "out" => out
-    )
-    generate_dataset(parsed_args)
+    copy!(ARGS, [
+        "make-dataset",
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--variants-file=", joinpath(TESTDIR, "data", "variants_list.txt")),
+        string("--out=", out),
+        "--call-threshold=0.8",
+    ])
+    TargeneCore.julia_main()
+
     dataset = Arrow.Table(out) |> DataFrame
     @test names(dataset) == [
         "SAMPLE_ID",

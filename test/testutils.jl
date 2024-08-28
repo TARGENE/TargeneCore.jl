@@ -1,5 +1,5 @@
 using TMLE
-using TargetedEstimation
+using TMLECLI
 
 function make_dataset(;n=100, rng=StableRNG(123))
     return DataFrame(
@@ -13,7 +13,7 @@ function make_dataset(;n=100, rng=StableRNG(123))
 end
 
 function make_estimands()
-    IATE₁ = IATE(
+    AIE₁ = AIE(
         outcome = "High light scatter reticulocyte percentage",
         treatment_values = (
             rs10043934 = (case="GA", control="GG"), 
@@ -25,7 +25,7 @@ function make_estimands()
         ),
         outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
     )
-    IATE₂ = IATE(
+    AIE₂ = AIE(
         outcome = "High light scatter reticulocyte percentage",
         treatment_values = (
             rs10043934 = (case="GA", control="GG"), 
@@ -49,31 +49,30 @@ function make_estimands()
         ),
         outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
     )
-    jointIATE = ComposedEstimand(TMLE.joint_estimand, (IATE₁, IATE₂))
-    return (IATE₁, IATE₂, jointIATE, ATE₁)
+    jointAIE = JointEstimand(AIE₁, AIE₂)
+    return (AIE₁, AIE₂, jointAIE, ATE₁)
 end
 
 function make_estimates()
-    IATE₁, IATE₂, jointIATE, ATE₁ = make_estimands()
-    IATE₁ = TMLE.TMLEstimate(
-        estimand = IATE₁,
+    AIE₁, AIE₂, jointAIE, ATE₁ = make_estimands()
+    AIE₁ = TMLE.TMLEstimate(
+        estimand = AIE₁,
         estimate = -1.,
         std = 0.003,
         n = 10,
         IC = []
     )
-    IATE₂ = TMLE.TMLEstimate(
-        estimand = IATE₂,
+    AIE₂ = TMLE.TMLEstimate(
+        estimand = AIE₂,
         estimate = -0.003,
         std = 0.003,
         n = 10,
         IC = []
     )
 
-    jointIATE = TMLE.ComposedEstimate(
-        estimand = jointIATE,
-        estimates = (IATE₁, IATE₂),
-        estimate = [-1., -0.003],
+    jointAIE = TMLE.JointEstimate(
+        estimand = jointAIE,
+        estimates = (AIE₁, AIE₂),
         cov = [
         0.003 0.
         0. 0.003
@@ -89,7 +88,7 @@ function make_estimates()
         IC = []
     )
 
-    failed_estimate = TargetedEstimation.FailedEstimate(
+    failed_estimate = TMLECLI.FailedEstimate(
         ATE(
             outcome = "L50-L54 Urticaria and erythema",
             treatment_values = (
@@ -105,37 +104,93 @@ function make_estimates()
         "Could not fluctuate"
     )
 
-    return [(TMLE=IATE₁,), (TMLE=IATE₂,), (TMLE=jointIATE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
+    return [(TMLE=AIE₁,), (TMLE=AIE₂,), (TMLE=jointAIE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
 end
 
 function save(estimates; prefix="tmle_output")
-    outputs = TargetedEstimation.Outputs(
-        json=TargetedEstimation.JSONOutput(filename=prefix*".json"),
-        jls=TargetedEstimation.JLSOutput(filename=prefix*".jls"),
-        hdf5=TargetedEstimation.HDF5Output(filename=prefix*".hdf5")
+    outputs = TMLECLI.Outputs(
+        json=prefix*".json",
+        jls=prefix*".jls",
+        hdf5=prefix*".hdf5"
     )
-    TargetedEstimation.initialize(outputs)
-    batches = collect(Iterators.partition(estimates, 2))
-    nbatches = length(batches)
-    for (batchid, batch) in enumerate(batches)
-        # Append JSON Output
-        TargetedEstimation.update_file(outputs.json, batch; finalize=nbatches==batchid)
-        # Append JLS Output
-        TargetedEstimation.update_file(outputs.jls, batch)
-        # Append HDF5 Output
-        TargetedEstimation.update_file(outputs.hdf5, batch)
-    end
+    TMLECLI.write(outputs, estimates)
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 
     save(estimates_generator(); prefix=prefix)
 
-function clean(;prefix="tmle_output")
-    dir_, prefix_ = splitdir(prefix)
-    dir = dir_ == "" ? "." : dir_
-    for filename in readdir(dir)
-        if startswith(filename, prefix_)
-            rm(joinpath(dir_, filename))
-        end
-    end
+### Fixtures for inputs_from_estimands
+
+function make_estimands_configuration()
+    estimands = [
+        AIE(
+            outcome = "ALL",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
+            treatment_confounders = (RSID_2 = [], TREAT_1 = [])
+        ),
+        ATE(
+            outcome = "ALL",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
+            treatment_confounders = (RSID_2 = [22001], ),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        CM(
+            outcome = "ALL",
+            treatment_values = (RSID_2 = "AA", ),
+            treatment_confounders = (RSID_2 = [22001],),
+            outcome_extra_covariates = ["COV_1", 21003]
+        ),
+        ATE(
+            outcome = "ALL",
+            treatment_values = (RSID_2 = (case = "AA", control = "GG"), RSID_198 = (case = "AG", control = "AA")),
+            treatment_confounders = (RSID_2 = [], RSID_198 = []),
+            outcome_extra_covariates = [22001]
+        ),
+        JointEstimand(
+            CM(
+                outcome = "ALL",
+                treatment_values = (RSID_2 = "GG", RSID_198 = "AG"),
+                treatment_confounders = (RSID_2 = [:PC1], RSID_198 = [:PC2]),
+                outcome_extra_covariates = [22001]
+            ),
+            CM(
+                outcome = "ALL",
+                treatment_values = (RSID_2 = "AA", RSID_198 = "AG"),
+                treatment_confounders = (RSID_2 = [:PC1], RSID_198 = [:PC2]),
+                outcome_extra_covariates = [22001]
+            )
+        )
+    ]
+    return Configuration(estimands=estimands)
+end
+
+function make_estimands_configuration_no_wildcard()
+    estimands = [
+    AIE(
+        outcome = "BINARY_1",
+        treatment_values = (RSID_2 = (case = "AA", control = "GG"), TREAT_1 = (case = 1, control = 0)),
+        treatment_confounders = (RSID_2 = [], TREAT_1 = [])
+    ),
+    ATE(
+        outcome =  "CONTINUOUS_2",
+        treatment_values = (RSID_2 = (case = "AA", control = "GG"),),
+        treatment_confounders = (RSID_2 = [22001], ),
+        outcome_extra_covariates = ["COV_1", 21003]
+    ),
+    CM(
+        outcome =  "ALL",
+        treatment_values = (RSID_2 = "AA", ),
+        treatment_confounders = (RSID_2 = [22001],),
+        outcome_extra_covariates = ["COV_1", 21003]
+    )
+    ]
+    return Configuration(estimands=estimands)
+end
+
+function make_estimands_configuration_file(config_generator=make_estimands_configuration)
+    dir = mktempdir()
+    config = config_generator()
+    filename = joinpath(dir, "configuration.yaml")
+    TMLE.write_yaml(filename, config)
+    return filename
 end

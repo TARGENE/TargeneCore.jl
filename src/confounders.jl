@@ -2,9 +2,7 @@
 #####################################################################
 
 
-function merge_beds(parsed_args)
-    merge_plink(parsed_args["input"]; des = parsed_args["output"])
-end
+merge_beds(input_prefix, output) = merge_plink(input_prefix; des = output)
 
 issnp(x::String) = length(x) == 1
 
@@ -54,7 +52,10 @@ end
 
 
 """
-    filter_chromosome(parsed_args)
+    filter_chromosome(input, output, traits_file; 
+    maf_threshold=0.01, 
+    ld_block_file=nothing, 
+    qc_file=nothing)
 
 The purpose of this method is to filter SNPS and Individuals before applying a 
 dimensionality reduction technique such as PCA that is later used
@@ -62,20 +63,24 @@ to extract population stratification compomemts.
 We filter SNPs using quality control metrics from the following resource:
     - https://biobank.ndph.ox.ac.uk/showcase/refer.cgi?id=1955
 """
-function filter_chromosome(parsed_args)
-    snp_data = SnpData(parsed_args["input"])
+function filter_chromosome(input, output, traits_file; 
+    maf_threshold=0.01, 
+    ld_block_file=nothing, 
+    qc_file=nothing
+    )
+    snp_data = SnpData(input)
 
     # Remove SNP's with MAF < maf-threshold
-    maf_threshold = parsed_args["maf-threshold"]
+    maf_threshold = maf_threshold
     snp_data.snp_info[!, "MAF"] = SnpArrays.maf(snp_data.snparray)
     mafpassed = filter(:MAF => >=(maf_threshold), snp_data.snp_info)
     
     # Remove LD regions specified by ld_blocks
-    ld_pruned = ld_blocks_filter(mafpassed, parsed_args["ld-blocks"])
+    ld_pruned = ld_blocks_filter(mafpassed, ld_block_file)
 
     # The QC file contains information on fully genotyped SNPS
     # We only keep those
-    qced = ukb_qc_filter(ld_pruned, parsed_args["qcfile"])
+    qced = ukb_qc_filter(ld_pruned, qc_file)
 
     # If an RSID appears multiple times, it is because it has 
     # more than 2 possible alleles: we remove them 
@@ -91,19 +96,19 @@ function filter_chromosome(parsed_args)
     final = filter(row -> all_batches_ok(row, batch_cols), actual_snps)
     
     rsids = Set(final.snpid)
-    sample_ids = Set(CSV.read(parsed_args["traits"], DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
+    sample_ids = Set(CSV.read(traits_file, DataFrame, select=["SAMPLE_ID"], types=String)[!, 1])
     SnpArrays.filter(
-        parsed_args["input"]; 
-        des=parsed_args["output"], 
+        input; 
+        des=output, 
         f_person = x -> x[:iid] ∈ sample_ids, 
         f_snp = x -> x[:snpid] ∈ rsids
     )
 end
 
 
-function adapt_flashpca(parsed_args)
+function adapt_flashpca(input, output)
     # I think FID and IID are just duplicates
-    pcs = CSV.File(parsed_args["input"], drop=["FID"]) |> DataFrame
+    pcs = CSV.File(input, drop=["FID"]) |> DataFrame
     rename!(pcs, :IID => :SAMPLE_ID)
-    CSV.write(parsed_args["output"], pcs)
+    CSV.write(output, pcs)
 end

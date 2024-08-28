@@ -1,26 +1,33 @@
-function generate_dataset(parsed_args)
-    verbosity = parsed_args["verbosity"]
+set_from_txt_file(filepath::AbstractString) = Set(open(readlines, filepath))
+
+function make_dataset(genotypes_prefix,
+    traits_file,
+    pcs_file,
+    variants_file;
+    out="dataset.arrow",
+    call_threshold=0.9,
+    verbosity=0)
 
     # Read Traits
     verbosity > 0 && @info "Reading Traits."
-    traits = read_csv_file(parsed_args["traits"])
+    traits = read_csv_file(traits_file)
 
     # Read Confounders
     verbosity > 0 && @info "Reading Confounders."
-    pcs = read_csv_file(parsed_args["confounders"])
+    pcs = load_flash_pca_results(pcs_file)
 
     # Extract genotypes matching variants
     verbosity > 0 && @info "Reading Genotypes."
     genotypes = call_genotypes(
-        parsed_args["bgen-prefix"], 
-        set_from_txt_file(parsed_args["variants"]), 
-        parsed_args["call-threshold"]
+        genotypes_prefix, 
+        set_from_txt_file(variants_file), 
+        call_threshold
     )
 
     # Merge and write
     verbosity > 0 && @info "Merging and writing dataset."
     dataset = merge(traits, pcs, genotypes)
-    Arrow.write(parsed_args["out"], dataset)
+    Arrow.write(out, dataset)
 
     verbosity > 0 && @info "Done."
 end
