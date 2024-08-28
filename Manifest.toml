@@ -2288,11 +2288,9 @@ weakdeps = ["JSON", "YAML"]
 
 [[deps.TMLECLI]]
 deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MKL", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "Mmap", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "a1c0da8a3b98ff41b666c1e7bbd0b7d6bba398ae"
-repo-rev = "main"
-repo-url = "https://github.com/TARGENE/TMLECLI.jl"
+git-tree-sha1 = "eb8a7aa2a17c0dd2fb165dd79a860c1aea0df55a"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
-version = "0.9.0"
+version = "0.9.1"
 
 [[deps.TOML]]
 deps = ["Dates"]
