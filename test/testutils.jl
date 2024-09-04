@@ -103,17 +103,26 @@ function make_estimates()
         ),
         "Could not fluctuate"
     )
-
-    return [(TMLE=AIE₁,), (TMLE=AIE₂,), (TMLE=jointAIE,), (TMLE=ATE₁,), (TMLE=failed_estimate,)]
+    return [
+        (TMLE=AIE₁, OSE=AIE₁), 
+        (TMLE=AIE₂, OSE=AIE₂), 
+        (TMLE=jointAIE, OSE=jointAIE), 
+        (TMLE=ATE₁, OSE=ATE₁), 
+        (TMLE=failed_estimate, OSE=failed_estimate)
+    ]
 end
 
 function save(estimates; prefix="tmle_output")
-    outputs = TMLECLI.Outputs(
-        json=prefix*".json",
-        jls=prefix*".jls",
-        hdf5=prefix*".hdf5"
-    )
-    TMLECLI.write(outputs, estimates)
+    # Batch 1
+    outputs = TMLECLI.Outputs(hdf5=prefix*"_1.hdf5")
+    TMLECLI.initialize(outputs)
+    TMLECLI.update(outputs, estimates[1:3])
+    TMLECLI.finalize(outputs)
+    # Batch 2
+    outputs = TMLECLI.Outputs(hdf5=prefix*"_2.hdf5")
+    TMLECLI.initialize(outputs)
+    TMLECLI.update(outputs, estimates[4:end])
+    TMLECLI.finalize(outputs)
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 

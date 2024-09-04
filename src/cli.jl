@@ -10,7 +10,7 @@ function cli_settings()
             action = :command
             help = "Generate a dataset."
 
-        "summary-plots"
+        "make-outputs"
             action = :command
             help = "Generate summary plots."
         
@@ -108,12 +108,12 @@ function cli_settings()
             default = 0
     end
 
-    @add_arg_table s["summary-plots"] begin
-        "results-file"
-            help = "Path to the results file."
+    @add_arg_table s["make-outputs"] begin
+        "input-prefix"
+            help = "Input prefix to the results file."
             required = true
 
-        "--outprefix"
+        "--output-prefix"
             help = "Prefix to output plots."
             default = "."
 
@@ -199,10 +199,10 @@ function julia_main()::Cint
             call_threshold=cmd_settings["call-threshold"],
             verbosity=cmd_settings["verbosity"]
         )
-    elseif cmd == "summary-plots"
-        summary_plots(
-            cmd_settings["results-file"],
-            outprefix=cmd_settings["outprefix"],
+    elseif cmd == "make-outputs"
+        make_outputs(
+            cmd_settings["input-prefix"];
+            output_prefix=cmd_settings["output-prefix"],
             verbosity=cmd_settings["verbosity"],
         )
     elseif cmd == "filter-chromosome"
