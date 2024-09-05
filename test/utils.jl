@@ -162,8 +162,6 @@ end
 
 @testset "Test pvalue_or_nan" begin
     estimates = make_estimates()
-    @test TargeneCore.default_null(estimates[1].TMLE) == 0.
-    @test TargeneCore.default_null(estimates[3].TMLE) == [0., 0.]
 
     @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) isa Float64
     @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) isa Float64

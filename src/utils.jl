@@ -225,13 +225,9 @@ end
 ###                    P-VALUES WITH ERROR MANAGEMENT                       ###
 ###############################################################################
 
-default_null(Ψ̂::TMLE.JointEstimate) = zeros(length(Ψ̂.estimates))
-
-default_null(Ψ̂::TMLE.EICEstimate) = 0.
-
-function pvalue_or_nan(Ψ̂, Ψ₀=default_null(Ψ̂))
+function pvalue_or_nan(Ψ̂)
     return try
-        pvalue(significance_test(Ψ̂, Ψ₀))
+        pvalue(significance_test(Ψ̂))
     catch
         NaN
     end

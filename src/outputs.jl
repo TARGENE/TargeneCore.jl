@@ -67,8 +67,12 @@ function save_summary_yaml(output, results)
 end
 
 function load_results_as_df(input_prefix)
+    # Load from all files
     input_files = files_matching_prefix(input_prefix)
     results = DataFrame(TMLECLI.read_results_from_files(input_files))
+    # Drop potential SAMPLE_IDS columns
+    hasproperty(results, :SAMPLE_IDS) && select!(results, Not(:SAMPLE_IDS))
+    # Add p-values columns for each estimator
     add_pvalue_columns!(results)
     return results
 end
