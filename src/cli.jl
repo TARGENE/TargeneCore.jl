@@ -258,6 +258,15 @@ function julia_main()::Cint
         adapt_flashpca(
             cmd_settings["input"], cmd_settings["output"]
         )
+    elseif cmd =="svp"
+        sieve_variance_plateau(cmd_settings["input-prefix"];
+            out=cmd_settings["out"],
+            grm_prefix=cmd_settings["grm-prefix"],
+            verbosity=cmd_settings["verbosity"], 
+            n_estimators=cmd_settings["n-estimators"], 
+            max_tau=cmd_settings["max-tau"],
+            estimator_key=cmd_settings["estimator-key"]
+        )
     else
         throw(ArgumentError(string("No function matching command:", cmd)))
     end
