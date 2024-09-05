@@ -371,13 +371,14 @@ end
 
     # Using the main command
     output = joinpath(tmpdir, "svp.hdf5")
-    main([
+    copy!(ARGS,[
         "svp", 
         joinpath(tmpdir, "tmle_output"),
         "--out", output,
         "--grm-prefix", joinpath(TESTDIR, "data", "grm", "test.grm"), 
         "--max-tau", "0.75"
     ])
+    TargeneCore.julia_main()
 
     io = jldopen(output)
     # Check τs
@@ -419,7 +420,7 @@ end
 
     # Using the main command
     output = joinpath(tmpdir, "svp.hdf5")
-    main([
+    copy!(ARGS,[
         "svp", 
         joinpath(tmpdir, "tmle_output"),
         "--out", output,
@@ -427,6 +428,7 @@ end
         "--max-tau", "0.75",
         "--estimator-key", "OSE_GLM_GLM"
     ])
+    TargeneCore.julia_main()
 
     # The JointEstimate std is not updated but each component is.
     svp_results = jldopen(io -> io["results"], output)
