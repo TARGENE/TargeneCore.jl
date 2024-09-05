@@ -1,5 +1,10 @@
 module TargeneCore
 
+
+if occursin("Intel", Sys.cpu_info()[1].model)
+    using MKL
+end
+
 using ArgParse
 using DataFrames
 using CSV
