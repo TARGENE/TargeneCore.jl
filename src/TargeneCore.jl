@@ -19,6 +19,7 @@ using CairoMakie
 using TMLECLI
 using HypothesisTests
 using OrderedCollections
+using Mmap
 
 ###############################################################################
 ###                               INCLUDES                                  ###
@@ -31,6 +32,7 @@ include("outputs.jl")
 include("inputs_from_estimands.jl")
 include("inputs_from_config.jl")
 include("estimation_inputs.jl")
+include("sieve_variance.jl")
 include("cli.jl")
 
 ###############################################################################

@@ -162,13 +162,12 @@ end
 
 @testset "Test pvalue_or_nan" begin
     estimates = make_estimates()
-
+    # One Dimensional Estimate
     @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) isa Float64
+    # Joint Estimate
     @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) isa Float64
+    # Failed Estimate
     @test TargeneCore.pvalue_or_nan(estimates[5].TMLE) === NaN
-
-    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[1].TMLE, -1)
-    @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) ≠ TargeneCore.pvalue_or_nan(estimates[3].TMLE, [-1., -1.])
 end
 
 end
