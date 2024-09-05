@@ -58,12 +58,17 @@ include(joinpath(TESTDIR, "testutils.jl"))
             "RSID_103" => "GA => AA"
         )
     ]
-    ose = joint_effect["OSE"]
-    @test ose["PVALUE"] ≈ 5.25721e-11 atol=1e-5
-    @test ose["EFFECT_SIZE"] == [-1.0, -0.003]
-    tmle = joint_effect["TMLE"]
-    @test tmle["PVALUE"] ≈ 5.25721e-11 atol=1e-5
-    @test tmle["EFFECT_SIZE"] == [-1.0, -0.003]
+    # These results are made up so TMLE and OSE are equal here
+    for estimator in ("OSE", "TMLE")
+        ose = joint_effect[estimator]
+        @test ose["PVALUE"] ≈ 5.25721e-11 atol=1e-5
+        effect_change_1 = ose["COMPONENTS"][1]
+        @test effect_change_1["EFFECT_SIZE"] == -1.0
+        @test effect_change_1["PVALUE"] ≈ 3.16919e-24 atol=1e-5
+        effect_change_2 = ose["COMPONENTS"][2]
+        @test effect_change_2["EFFECT_SIZE"] == -0.003
+        @test effect_change_2["PVALUE"] ≈ 0.011508 atol=1e-5
+    end
     ## Failed Effect
     failed_estimate = summary[5]
     @test failed_estimate["EFFECT_TYPE"] == "ATE"

@@ -44,6 +44,18 @@ function qqplot(output, results)
     return fig
 end
 
+summary_statistics(Ψ̂) = OrderedDict(
+        :PVALUE => pvalue_or_nan(Ψ̂),
+        :EFFECT_SIZE => TMLE.estimate(Ψ̂)
+)
+
+function summary_statistics(Ψ̂::TMLE.JointEstimate)
+    return OrderedDict(
+        :PVALUE => pvalue_or_nan(Ψ̂),
+        :COMPONENTS => [summary_statistics(Ψ̂ᵢ) for Ψ̂ᵢ ∈ Ψ̂.estimates]
+    )
+end
+
 function save_summary_yaml(output, results)
     estimator_names = Symbol.(filter(x -> !endswith(x, "PVALUE"), names(results)))
     estimator_1 = first(estimator_names)
@@ -56,10 +68,7 @@ function save_summary_yaml(output, results)
             :TREATMENTS => get_treatment_changes(Ψ),            
         )
         for estimator_name in estimator_names
-            estimand_results[estimator_name] = OrderedDict(
-                :PVALUE => row[Symbol(estimator_name, :_PVALUE)],
-                :EFFECT_SIZE => TMLE.estimate(row[estimator_name])
-            )
+            estimand_results[estimator_name] = summary_statistics(row[estimator_name])
         end
         push!(summary_dicts, estimand_results)
     end
