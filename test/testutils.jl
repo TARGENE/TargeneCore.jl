@@ -203,3 +203,29 @@ function make_estimands_configuration_file(config_generator=make_estimands_confi
     TMLE.write_yaml(filename, config)
     return filename
 end
+
+# Additional helper functions for testing GWAS treatment strings
+
+get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
+
+function files_matching_prefix(prefix)
+    directory, _prefix = splitdir(prefix)
+    _directory = directory == "" ? "." : directory
+
+    return map(
+        f -> joinpath(directory, f),
+        filter(
+            f -> startswith(f, _prefix), 
+            readdir(_directory)
+        )
+    )
+end
+
+function read_bed_chromosome(bedprefix)
+    bed_files = files_matching_prefix(bedprefix)
+    fam_file = get_only_file_with_suffix(bed_files, "fam")
+    bim_file = get_only_file_with_suffix(bed_files, "bim")
+    bed_file = get_only_file_with_suffix(bed_files, "bed")[1:end-4]
+    return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
+end
+

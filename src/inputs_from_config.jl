@@ -167,7 +167,7 @@ end
 """
 function treatments_from_variant(variant::String, dataset::DataFrame)
     variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
-    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+    return Dict{Symbol, Vector{String}}(Symbol(variant)=>variant_levels)
 end
 
 function estimands_from_gwas(dataset, variants, outcomes, confounders; 
@@ -198,14 +198,35 @@ function read_bed_chromosome(bedprefix)
     return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
 end
 
+function map_allele(value, allele1, allele2)
+    if value == 0x00
+        return "$allele1$allele1"
+    elseif value == 0x01
+        return missing
+    elseif value == 0x02
+        return "$allele1$allele2"
+    elseif value == 0x03
+        return "$allele2$allele2"
+    end
+end
+
+function convert_string(snpdata)
+    genotypes_data = []
+    for col in 1:snpdata.snps
+        allele_col = snpdata.snparray[:,col]
+        allele1 = snpdata.snp_info[col, "allele1"]
+        allele2 = snpdata.snp_info[col, "allele2"]
+        mapped_col = map(value -> map_allele(value, allele1, allele2), allele_col)
+        push!(genotypes_data, mapped_col)
+    end
+    return DataFrame(genotypes_data, snpdata.snp_info."snpid")
+end
+
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
-    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
-    for col in names(genotypes)
-        genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
-    end
+    genotypes = convert_string(snpdata)
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
+
     return genotypes
 end
 
