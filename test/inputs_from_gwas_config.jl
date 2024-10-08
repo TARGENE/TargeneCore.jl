@@ -57,7 +57,6 @@ end
         "--positivity-constraint=0"
     ])
     TargeneCore.julia_main()
-
     # Define SNP information to check string allele defintions
     snpdata = read_bed_chromosome(joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1."))
     snp_info = select(DataFrame(snpdata.snp_info), [:snpid, :allele1, :allele2])
@@ -98,6 +97,9 @@ end
         "--positivity-constraint=0.2"
     ])
     TargeneCore.julia_main()
+    # Define SNP information to check string allele defintions
+    snpdata = read_bed_chromosome(joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1."))
+    snp_info = select(DataFrame(snpdata.snp_info), [:snpid, :allele1, :allele2])
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
@@ -116,7 +118,7 @@ end
         nrow = repeat([777], 5)
     )
    
-    check_estimands_levels_order(estimands)
+    check_estimands_levels_order(estimands, snp_info)
 end
 
 end
