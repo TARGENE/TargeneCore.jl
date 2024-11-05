@@ -85,9 +85,9 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test tmle["EFFECT_SIZE"] == "Failed"
 
     # Check subsetted results & optional QQplot generation
-    sub_results = results[1,:]
-    qqplot(joinpath(tmpdir, "Non_existent_QQ.png"), sub_results)
-    @test !isfile(tmpdir, "Non_existent_QQ.png")
+    sub_results = results[1:1, :]
+    TargeneCore.qqplot(TargeneCore.make_filepath_from_prefix(tmpdir; filename = "Non_existent_QQ.png"), sub_results)
+    @test !isfile(joinpath(tmpdir, "Non_existent_QQ.png"))
 end
 
 end
