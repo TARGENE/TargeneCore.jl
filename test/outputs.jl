@@ -83,6 +83,11 @@ include(joinpath(TESTDIR, "testutils.jl"))
     tmle = failed_estimate["TMLE"]
     @test tmle["PVALUE"] === NaN
     @test tmle["EFFECT_SIZE"] == "Failed"
+
+    # Check subsetted results & optional QQplot generation
+    sub_results = results[1,:]
+    qqplot(joinpath(tmpdir, "Non_existent_QQ.png"), sub_results)
+    @test !isfile(tmpdir, "Non_existent_QQ.png")
 end
 
 end
