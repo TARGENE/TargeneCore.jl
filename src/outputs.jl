@@ -28,6 +28,10 @@ function qqplot(output, results)
     for pvalue_col ∈ pvalue_cols
         pvalues = -log10.(filter(x -> !isnan(x), results[!, pvalue_col]))
         n = length(pvalues)
+        # If only 1 non-NA p-value, exit function
+        if n <= 1 
+            return
+        end 
         unif_quantiles = log10_uniform_quantiles(n)
         qqplot!(ax, unif_quantiles, pvalues, qqline=:identity, label=replace(string(pvalue_col), "_PVALUE" => ""))
     end
