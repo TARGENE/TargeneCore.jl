@@ -84,10 +84,10 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test tmle["PVALUE"] === NaN
     @test tmle["EFFECT_SIZE"] == "Failed"
 
-    # Check subsetted results & optional QQplot generation
+    # When <= 1 NA p-value present in results, check that empty QQ plot can be generated and qqplot!() does not throw error
     sub_results = results[1:1, :]
-    TargeneCore.qqplot(TargeneCore.make_filepath_from_prefix(tmpdir; filename = "Non_existent_QQ.png"), sub_results)
-    @test !isfile(joinpath(tmpdir, "Non_existent_QQ.png"))
+    TargeneCore.qqplot(TargeneCore.make_filepath_from_prefix(tmpdir; filename = "Empty_QQ.png"), sub_results)
+    @test isfile(joinpath(tmpdir, "Empty_QQ.png"))
 end
 
 end

@@ -28,10 +28,8 @@ function qqplot(output, results)
     for pvalue_col ∈ pvalue_cols
         pvalues = -log10.(filter(x -> !isnan(x), results[!, pvalue_col]))
         n = length(pvalues)
-        # If only 1 non-NA p-value, exit function
-        if n <= 1 
-            return
-        end 
+        # If <= 1 non-NA p-value, qqplot! throws error
+        n > 1 || continue
         unif_quantiles = log10_uniform_quantiles(n)
         qqplot!(ax, unif_quantiles, pvalues, qqline=:identity, label=replace(string(pvalue_col), "_PVALUE" => ""))
     end
@@ -40,7 +38,7 @@ function qqplot(output, results)
     unif_quantiles = log10_uniform_quantiles(n)
     ub = log10_beta_quantiles(n, 0.025)
     lb = log10_beta_quantiles(n, 0.975)
-    band!(ax, unif_quantiles, lb, ub, color=(:grey, 0.6))
+    band!(ax, unif_quantiles, lb, ub, color=(:grey, 0.6), label = "Uncertainty") # label required for axislegend() to run on empty plot
     # Legend
     axislegend(position=:lt)
     # Save figure
