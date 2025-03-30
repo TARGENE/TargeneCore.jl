@@ -71,10 +71,26 @@ function genome_wide_estimands(
         if isempty(extra_treatments)
             treatments = treatments_from_variant(variant, dataset)
         else
-            treatments = Dict(
-                treatments_from_variant(variant, dataset)..., 
-                (pair for extra in extra_treatments for pair in treatments_from_variant(string(extra), dataset))...
-            )
+            for treatment in extra_treatments
+                treatments = Dict(treatments_from_variant(variant, dataset)..., treatments_from_variant(string(treatment), dataset)...)
+                local Ψ
+                try
+                    Ψ = factorialEstimands(
+                    estimand_constructor, treatments, outcomes; 
+                    confounders=confounders, 
+                    dataset=dataset,
+                    outcome_extra_covariates=outcome_extra_covariates,
+                    positivity_constraint=positivity_constraint, 
+                    verbosity=verbosity-1)
+
+                catch e
+                    if !(e == ArgumentError("No component passed the positivity constraint."))
+                        throw(e)
+                    end
+                else
+                    append!(estimands, Ψ)
+                end
+            end
         end
         
         local Ψ

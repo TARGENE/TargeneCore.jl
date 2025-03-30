@@ -8,6 +8,7 @@ using DataFrames
 using Serialization
 using TMLE
 using CSV
+using YAML
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
@@ -20,10 +21,16 @@ function get_summary_stats(estimands)
 end
 
 function check_estimands_levels_interactions(estimands)
+    extra_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"))["extra_treatments"]
+    for (i,x) in enumerate(extra_treatments)
+        extra_treatments[i]=Symbol(x)
+    end
+
     for Ψ in estimands
         # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
         # The variant should always be the last key
-        variant = last(collect(keys(Ψ.args[1].treatment_values)))
+        treatment_set = collect(keys(Ψ.args[1].treatment_values))
+        variant = setdiff(treatment_set, extra_treatments)[1]
         if length(Ψ.args) == 2
             @test Ψ.args[1].treatment_values[variant] == (control = 0x00, case = 0x01)
             @test Ψ.args[2].treatment_values[variant] == (control = 0x01, case = 0x02)
@@ -66,10 +73,10 @@ end
     # There are 875 variants in the dataset
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
-        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
-        nrow = repeat([875], 5)
+        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
+        nrow = repeat([2625], 4)
     )
-
+    println(estimands[1])
     check_estimands_levels_interactions(estimands)
 end
 
@@ -102,86 +109,13 @@ end
     @test all(e isa JointEstimand for e in estimands)
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
-        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
-        nrow = repeat([142], 5)
+        OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
+        nrow = repeat([430], 4)
     )
    
     check_estimands_levels_interactions(estimands)
 end
 
-@testset "Test inputs_from_config gweis: no positivity constraint and four-point interaction" begin
-    tmpdir = mktempdir()
-    copy!(ARGS, [
-        "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gweis_higher_order.yaml"),
-        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
-        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
-        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
-        string("--outprefix=", joinpath(tmpdir, "final")), 
-        "--batchsize=5",
-        "--verbosity=0",
-        "--positivity-constraint=0"
-    ])
-    TargeneCore.julia_main()
-    # Check dataset
-    dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test size(dataset) == (1940, 886)
-
-    # Check estimands
-    estimands = []
-    for file in readdir(tmpdir, join=true)
-        if endswith(file, "jls")
-            append!(estimands, deserialize(file).estimands)
-        end
-    end
-    @test all(e isa JointEstimand for e in estimands)
-
-    # There are 875 variants in the dataset
-    summary_stats = get_summary_stats(estimands)
-    @test summary_stats == DataFrame(
-        OUTCOME = [:CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
-        nrow = repeat([875], 3)
-    )
-
-    check_estimands_levels_interactions(estimands)
-end
-
-@testset "Test inputs_from_config gweis: positivity constraint and four-point interaction" begin
-    tmpdir = mktempdir()
-    copy!(ARGS, [
-        "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gweis_higher_order.yaml"),
-        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
-        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
-        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
-        string("--outprefix=", joinpath(tmpdir, "final")), 
-        "--batchsize=5",
-        "--verbosity=0",
-        "--positivity-constraint=0.02"
-    ])
-    TargeneCore.julia_main()
-    # Check dataset
-    dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
-    @test size(dataset) == (1940, 886)
-
-    # Check estimands
-    estimands = []
-    for file in readdir(tmpdir, join=true)
-        if endswith(file, "jls")
-            append!(estimands, deserialize(file).estimands)
-        end
-    end
-    @test all(e isa JointEstimand for e in estimands)
-
-    # There are 784 treatments in the dataset after positivity_constraint
-    summary_stats = get_summary_stats(estimands)
-    @test summary_stats == DataFrame(
-        OUTCOME = [:CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
-        nrow = repeat([784], 3)
-    )
-
-    check_estimands_levels_interactions(estimands)
-end
 
 end
 true

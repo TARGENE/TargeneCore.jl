@@ -1,6 +1,7 @@
 type: gweis
 
 extra_treatments:
+  - TREAT_1
   - 22001
 
 outcome_extra_covariates:
