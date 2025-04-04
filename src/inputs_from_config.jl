@@ -219,7 +219,7 @@ function convert_string(snpdata)
         mapped_col = map(value -> map_allele(value, allele1, allele2), allele_col)
         push!(genotypes_data, mapped_col)
     end
-    return DataFrame(genotypes_data, snpdata.snp_info."snpid")
+    return DataFrame(genotypes_data, snpdata.snp_info."snpid", makeunique=true)
 end
 
 function get_genotypes_from_beds(bedprefix)

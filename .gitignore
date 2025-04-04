@@ -31,6 +31,9 @@ dev/
 # My personal trash file
 sandbox.jl
 
+# MY (Joshua) personal trash file
+test/data/scratch/string_encodings.jl
+
 # Jupyter
 *checkpoints
 src/generate_results.jl
