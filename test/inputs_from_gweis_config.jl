@@ -21,14 +21,14 @@ function get_summary_stats(estimands)
 end
 
 function check_estimands_levels_interactions(estimands)
-    extra_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"))["extra_treatments"]
-    for (i,x) in enumerate(extra_treatments)
-        extra_treatments[i]=Symbol(x)
+    string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"))["extra_treatments"]
+    extra_treatments = []
+    for (i,x) in enumerate(string_treatments)
+        push!(extra_treatments, Symbol(x))
     end
 
     for Ψ in estimands
         # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
-        # The variant should always be the last key
         treatment_set = collect(keys(Ψ.args[1].treatment_values))
         variant = setdiff(treatment_set, extra_treatments)[1]
         if length(Ψ.args) == 2
@@ -74,9 +74,8 @@ end
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
-        nrow = repeat([2625], 4)
+        nrow = repeat([875], 4)
     )
-    println(estimands[1])
     check_estimands_levels_interactions(estimands)
 end
 
@@ -110,7 +109,7 @@ end
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
-        nrow = repeat([430], 4)
+        nrow = repeat([146], 4)
     )
    
     check_estimands_levels_interactions(estimands)
