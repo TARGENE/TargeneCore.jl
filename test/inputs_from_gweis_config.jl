@@ -60,7 +60,7 @@ end
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
-    @test isfile(joinpath(tmpdir, "final.final.mapping.txt"))
+    @test isfile(joinpath(tmpdir, "final.mapping.txt"))
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)
@@ -97,7 +97,7 @@ end
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
-    @test isfile(joinpath(tmpdir, "final.final.mapping.txt"))
+    @test isfile(joinpath(tmpdir, "final.mapping.txt"))
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)

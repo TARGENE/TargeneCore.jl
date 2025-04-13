@@ -112,17 +112,131 @@ function make_estimates()
     ]
 end
 
+function make_gwas_estimands()
+    AIE₁ = AIE(
+        outcome = "High light scatter reticulocyte percentage",
+        treatment_values = (
+            rs10043934 = (case=0x01, control=0x00), 
+            Townsend_Deprivation_Index = (case=0x01, control=0x00)
+        ),
+        treatment_confounders = (
+            rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+            Townsend_Deprivation_Index = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    AIE₂ = AIE(
+        outcome = "High light scatter reticulocyte percentage",
+        treatment_values = (
+            rs10043934 = (case=0x02, control=0x01), 
+            Townsend_Deprivation_Index = (case=0x01, control= 0x00)
+        ),
+        treatment_confounders = (
+            rs10043934 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6), 
+            Townsend_Deprivation_Index = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    ATE₁ = ATE(
+        outcome = "L50-L54 Urticaria and erythema",
+        treatment_values = (
+            rs117913124 = (case=0x01, control=0x00),
+        ),
+        treatment_confounders = (
+            rs117913124 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6)
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    ATE₂ = ATE(
+        outcome = "L50-L54 Urticaria and erythema",
+        treatment_values = (
+            rs117913124 = (case=0x02, control=0x01),
+        ),
+        treatment_confounders = (
+            rs117913124 = (:PC1, :PC2, :PC3, :PC4, :PC5, :PC6),
+        ),
+        outcome_extra_covariates = ("Age-Assessment", "Genetic-Sex")
+    )
+    jointAIE = JointEstimand(AIE₁, AIE₂)
+    jointATE = JointEstimand(ATE₁, ATE₂)
+    return (jointATE, jointAIE, AIE₁, AIE₂, ATE₁, ATE₂)
+end
+
+function make_gwas_estimates()
+    jointAIE, jointATE, AIE₁, AIE₂, ATE₁, ATE₂ = make_gwas_estimands()
+    AIE₁ = TMLE.TMLEstimate(
+        estimand = AIE₁,
+        estimate = -1.,
+        std = 0.003,
+        n = 10,
+        IC = []
+    )
+    AIE₂ = TMLE.TMLEstimate(
+        estimand = AIE₂,
+        estimate = -0.003,
+        std = 0.003,
+        n = 10,
+        IC = []
+    )
+    jointAIE = TMLE.JointEstimate(
+        estimand = jointAIE,
+        estimates = (AIE₁, AIE₂),
+        cov = [
+        0.003 0.
+        0. 0.003
+        ],
+        n = 10
+    )
+    
+    ATE₁ = TMLE.TMLEstimate(
+        estimand = ATE₁,
+        estimate = 0.003,
+        std = 0.003,
+        n = 20,
+        IC = []
+    )
+    ATE₂ = TMLE.TMLEstimate(
+        estimand = ATE₂,
+        estimate = 1.,
+        std = 0.003,
+        n = 20,
+        IC = []
+    )
+
+    jointATE = TMLE.JointEstimate(
+        estimand = jointATE,
+        estimates = (ATE₁, ATE₂),
+        cov = [
+        0.003 0.
+        0. 0.003
+        ],
+        n = 20
+    )
+    return [
+        (TMLE=jointAIE, OSE=jointAIE), 
+        (TMLE=jointATE, OSE=jointATE)
+    ]
+end
+
 function save(estimates; prefix="tmle_output")
-    # Batch 1
-    outputs = TMLECLI.Outputs(hdf5=prefix*"_1.hdf5")
-    TMLECLI.initialize(outputs)
-    TMLECLI.update(outputs, estimates[1:3])
-    TMLECLI.finalize(outputs)
-    # Batch 2
-    outputs = TMLECLI.Outputs(hdf5=prefix*"_2.hdf5")
-    TMLECLI.initialize(outputs)
-    TMLECLI.update(outputs, estimates[4:end])
-    TMLECLI.finalize(outputs)
+    # The first conditonal is to test GWAS outputs
+    if length(estimates) == 2
+        outputs = TMLECLI.Outputs(hdf5=prefix*".hdf5")
+        TMLECLI.initialize(outputs)
+        TMLECLI.update(outputs, estimates[1:2])
+        TMLECLI.finalize(outputs)
+    else
+        # Batch 1
+        outputs = TMLECLI.Outputs(hdf5=prefix*"_1.hdf5")
+        TMLECLI.initialize(outputs)
+        TMLECLI.update(outputs, estimates[1:3])
+        TMLECLI.finalize(outputs)
+        # Batch 2
+        outputs = TMLECLI.Outputs(hdf5=prefix*"_2.hdf5")
+        TMLECLI.initialize(outputs)
+        TMLECLI.update(outputs, estimates[4:end])
+        TMLECLI.finalize(outputs)
+    end
 end
 
 make_fake_outputs(estimates_generator=make_estimates; prefix="tmle_output") = 
