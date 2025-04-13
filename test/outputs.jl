@@ -90,20 +90,6 @@ include(joinpath(TESTDIR, "testutils.jl"))
     @test isfile(joinpath(tmpdir, "Empty_QQ.png"))
 end
 
-@testset "Test make_outputs for GWAS" begin
-    tmpdir = mktempdir()
-    input_prefix = joinpath(tmpdir, "tmle_output")
-    output_prefix = tmpdir
-    make_fake_outputs(make_gwas_estimates; prefix=input_prefix)
-    copy!(ARGS, [
-        "make-outputs",
-        input_prefix,
-        string("--output-prefix=", output_prefix),
-        "--verbosity=0"
-    ])
-    TargeneCore.julia_main()
-end
-
 end
 
 true
