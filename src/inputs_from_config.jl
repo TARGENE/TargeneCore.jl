@@ -239,8 +239,43 @@ function get_genotypes_from_beds(bedprefix, outprefix)
     for col in names(genotypes)
         genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
     end
+
+    vₘ, v₀, v₁, v₂ = [], [], [], []
+    
+    for col in names(genotypes)
+        var_counts = countmap(genotypes[!, col])
+        if haskey(var_counts, missing)
+            push!(vₘ, var_counts[missing])
+        else
+            push!(vₘ, 0)
+        end
+        if haskey(var_counts, 0x00)
+            push!(v₀, var_counts[0x00])
+        else
+            push!(v₀, 0)
+        end
+        if haskey(var_counts, 0x01)
+            push!(v₁, var_counts[0x01])
+        else
+            push!(v₁, 0)
+        end
+        if haskey(var_counts, 0x02)  
+            push!(v₂, var_counts[0x02])
+        else
+            push!(v₂, 0)
+        end
+    end
+
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    CSV.write(string(outprefix, ".mapping.txt"), select(snpdata.snp_info, "snpid", "allele1", "allele2"))
+    
+    result_df = hcat(select(snpdata.snp_info, "snpid", "allele1", "allele2"), DataFrame(
+        vₘ = vₘ,
+        v₀ = v₀,
+        v₁ = v₁,
+        v₂ = v₂
+    ))
+
+    CSV.write(string(outprefix, ".mapping.txt"), result_df)
     return genotypes
 end
 
