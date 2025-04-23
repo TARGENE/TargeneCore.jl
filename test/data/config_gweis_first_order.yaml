@@ -1,10 +1,14 @@
-type: gwis
+type: gwas
+
+estimands:
+  - type: AIE
 
 extra_treatments:
-  - 22001
+  - TREAT_1
 
 outcome_extra_covariates:
   - COV_1
 
 extra_confounders:
   - 21003
+  - 22001
