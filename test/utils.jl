@@ -164,10 +164,13 @@ end
     estimates = make_estimates()
     # One Dimensional Estimate
     @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE, -1) == 1.
     # Joint Estimate
     @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[3].TMLE, [-1.0, -0.003]) isa Float64
     # Failed Estimate
     @test TargeneCore.pvalue_or_nan(estimates[5].TMLE) === NaN
+    @test TargeneCore.pvalue_or_nan(estimates[5].TMLE, 0) === NaN
 end
 
 end
