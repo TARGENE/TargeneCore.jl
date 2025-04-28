@@ -16,7 +16,7 @@ variants:
   TF2:
     bQTLs:
       - RSID_17
-      - RSID_198
+      - RSID_191
     eQTLs:
       - RSID_2
 extra_treatments:

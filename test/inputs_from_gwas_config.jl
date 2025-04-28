@@ -34,6 +34,7 @@ function check_estimands_levels_order(estimands)
         end
    end
 end
+
 @testset "Test inputs_from_config gwas: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [

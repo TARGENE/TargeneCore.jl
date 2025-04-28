@@ -18,7 +18,7 @@ function make_dataset(genotypes_prefix,
 
     # Extract genotypes matching variants
     verbosity > 0 && @info "Reading Genotypes."
-    genotypes = call_genotypes(
+    genotypes, _ = call_genotypes(
         genotypes_prefix, 
         set_from_txt_file(variants_file), 
         call_threshold

@@ -45,6 +45,12 @@ function merge(traits, pcs, genotypes)
     )
 end
 
+function add_extra_treatments_levels!(treatments_levels, extra_treatments, dataset)
+    for treatment in extra_treatments
+        treatments_levels[treatment] = TMLE.get_treatment_values(dataset, treatment)
+    end
+end
+
 ###############################################################################
 ###                      ESTIMATION INPUTS WRITING                          ###
 ###############################################################################
@@ -135,6 +141,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
+    genotypes_levels = Dict()
     for filename in readdir(chr_dir)
         length(query_rsids) == 0 ? break : nothing
         if is_numbered_chromosome_file(filename, prefix_)
@@ -155,6 +162,8 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                     probabilities[isnan.(probabilities)] .= -Inf
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
                     chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
+                    variant_levels = major_allele(variant) == variant_genotypes[1] ? variant_genotypes : reverse(variant_genotypes)
+                    genotypes_levels[Symbol(query_rsid)] = variant_levels
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :
@@ -162,7 +171,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
         end
     end
     length(query_rsids) == 0 || throw(NotAllVariantsFoundError(query_rsids))
-    return genotypes
+    return genotypes, genotypes_levels
 end
 
 ###############################################################################
