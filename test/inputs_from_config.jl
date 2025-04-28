@@ -88,7 +88,7 @@ end
     @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"])
+        "RSID_17", "RSID_191", "RSID_99"])
     @test size(trait_data) == (490, 16)
     # Check estimands
     estimands = deserialize(joinpath(tmpdir, "final.estimands_1.jls")).estimands
@@ -118,17 +118,25 @@ end
 
 @testset "Test inputs_from_config from groups: with positivity constraint" begin
     tmpdir = mktempdir()
+    config_file = joinpath(TESTDIR, "data", "config_groups.yaml")
+    traits_file = joinpath(TESTDIR, "data", "traits_1.csv")
+    pcs_file = joinpath(TESTDIR, "data", "pcs.csv")
+    genotypes_prefix = joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")
+    call_threshold = 0.8
+    positivity_constraint = 0.01
+    batchsize = 10
+
     copy!(ARGS, [
         "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_groups.yaml"),
-        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
-        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
-        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        config_file,
+        string("--traits-file=", traits_file),
+        string("--pcs-file=", pcs_file),
+        string("--genotypes-prefix=", genotypes_prefix),
         string("--outprefix=", joinpath(tmpdir, "final")), 
-        "--batchsize=10",
-        "--call-threshold=0.8",  
+        "--batchsize=$batchsize",
+        "--call-threshold=$call_threshold",  
         "--verbosity=0",
-        "--positivity-constraint=0.01"
+        "--positivity-constraint=$positivity_constraint"
     ])
     TargeneCore.julia_main()
 
@@ -137,7 +145,7 @@ end
     @test sort(names(trait_data)) == sort([
         "SAMPLE_ID", "BINARY_1", "BINARY_2", "CONTINUOUS_1", "CONTINUOUS_2", 
         "COV_1", "21003", "22001", "TREAT_1", "PC1", "PC2", "RSID_2", "RSID_102", 
-        "RSID_17", "RSID_198", "RSID_99"])
+        "RSID_17", "RSID_191", "RSID_99"])
     @test size(trait_data) == (490, 16)
     # Check estimands
     estimands = []
@@ -147,6 +155,12 @@ end
         end
     end
     @test all(e isa JointEstimand for e in estimands)
+    # Check transitions are ordered by allele frequency on the last estimand
+    RSID_191_genotypes_frequencies = sort(combine(groupby(trait_data, :RSID_191), nrow), :nrow)
+    @test last(RSID_191_genotypes_frequencies.RSID_191) == "AG" # The most frequent genotype for this variant is the heterozygous genotype
+    RSID_191_estimand = estimands[end] # this estimand contains RSID_191 transitions 
+    observed_transitions = [component.treatment_values[:RSID_191] for component in RSID_191_estimand.args]
+    @test observed_transitions == [(control = "GG", case = "AG"), (control = "AG", case = "AA")]
 
     summary_stats = summary_stats_df(estimands)
     @test summary_stats == DataFrame(
