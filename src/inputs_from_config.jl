@@ -98,6 +98,8 @@ function estimands_from_variants(
     return estimands
 end
 
+get_non_treatment_covariates(covariates, treatments) = setdiff(covariates, collect(treatments))
+
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders, treatments_levels; 
     extra_treatments=[],
     outcome_extra_covariates=[],
@@ -113,6 +115,7 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
             treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
             isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
             for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
+                covariates = get_non_treatment_covariates(outcome_extra_covariates, treatments)
                 estimand_treatments_levels = Dict(T => treatments_levels[T] for T ∈ treatments)
                 try_append_new_estimands!(
                     estimands, 
@@ -121,7 +124,7 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
                     estimand_treatments_levels, 
                     outcomes, 
                     confounders;
-                    outcome_extra_covariates=outcome_extra_covariates,
+                    outcome_extra_covariates=covariates,
                     positivity_constraint=positivity_constraint,
                     verbosity=verbosity-1
                 )
