@@ -128,7 +128,7 @@ end
     bgen_dir = joinpath(TESTDIR, "data", "ukbb", "imputed" , "ukbb")
     variants = Set(["RSID_10", "RSID_100", "RSID_2"])
     expected_levels = Dict(
-        :RSID_10  => ["GG", "AG", "AA"],
+        :RSID_10  => ["GG", "AG"],
         :RSID_100 => ["GG", "AG", "AA"],
         :RSID_2   => ["GG", "AG", "AA"]
     )

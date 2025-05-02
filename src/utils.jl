@@ -163,7 +163,9 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
                     chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
                     variant_levels = major_allele(variant) == variant_genotypes[1] ? variant_genotypes : reverse(variant_genotypes)
-                    genotypes_levels[Symbol(query_rsid)] = variant_levels
+                    genotypes_in_dataset = unique(skipmissing(chr_genotypes[!, query_rsid]))
+                    variant_levels_in_dataset = filter(x -> x ∈ genotypes_in_dataset, variant_levels)
+                    genotypes_levels[Symbol(query_rsid)] = variant_levels_in_dataset
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :

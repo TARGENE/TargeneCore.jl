@@ -57,7 +57,7 @@ end
 """
     treatment_from_variant(variant, dataset)
 
-    Generate a key-value pair (dicitionary) for treatment structs.
+    Generate a key-value pair (dictionary) for treatment structs.
 """
 function treatments_from_variant(variant::String, dataset::DataFrame)
     variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
