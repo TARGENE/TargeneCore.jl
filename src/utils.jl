@@ -51,6 +51,18 @@ function add_extra_treatments_levels!(treatments_levels, extra_treatments, datas
     end
 end
 
+function only_keep_variant_genotypes_in_dataset!(treatments_levels, dataset)
+    for (variant, potential_variant_genotypes) in treatments_levels
+        actual_variant_genotypes = unique(skipmissing(dataset[!, variant]))
+        treatments_levels[variant] = filter(x -> x ∈ actual_variant_genotypes, potential_variant_genotypes)
+    end
+end
+
+function finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
+    only_keep_variant_genotypes_in_dataset!(treatments_levels, dataset)
+    add_extra_treatments_levels!(treatments_levels, extra_treatments, dataset)
+end
+
 ###############################################################################
 ###                      ESTIMATION INPUTS WRITING                          ###
 ###############################################################################
@@ -165,10 +177,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                     chr_genotypes[!, query_rsid] = call_genotypes(probabilities, potential_genotypes, threshold)
                     # Order the potential genotypes levels as MM/Mm/mm
                     ordered_potential_genotypes = major_allele(variant) == potential_genotypes[1] ? potential_genotypes : reverse(potential_genotypes)
-                    # Only retain the genotypes that are in the dataset
-                    genotypes_in_dataset = unique(skipmissing(chr_genotypes[!, query_rsid]))
-                    ordered_genotypes_in_dataset = filter(x -> x ∈ genotypes_in_dataset, ordered_potential_genotypes)
-                    genotypes_levels[Symbol(query_rsid)] = ordered_genotypes_in_dataset
+                    genotypes_levels[Symbol(query_rsid)] = ordered_potential_genotypes
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :

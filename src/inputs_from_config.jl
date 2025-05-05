@@ -85,8 +85,8 @@ function estimands_from_variants(
             dataset=dataset,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint, 
-            verbosity=verbosity-1)
-
+            verbosity=verbosity-1
+            )
         catch e
             if !(e == ArgumentError("No component passed the positivity constraint."))
                 throw(e)
@@ -251,8 +251,8 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
     genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold)
-    add_extra_treatments_levels!(treatments_levels, extra_treatments, traits)
     dataset = merge(traits, pcs, genotypes)
+    finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
     # Estimands
