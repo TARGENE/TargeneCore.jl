@@ -98,6 +98,11 @@ function estimands_from_variants(
     return estimands
 end
 
+"""
+The configuration file specifies extra covariates globally. But some estimands may contain a covariate as a treatment. For example 
+sex can be used fro a two points interaction study and is considered a treatment in that case. But in other estimands it is used as a covariate.
+We make sure it is not both and the logical thing to do is to remove the treatment from the covariates set if it is contained in it.
+"""
 get_non_treatment_covariates(covariates, treatments) = setdiff(covariates, collect(treatments))
 
 function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders, treatments_levels; 
@@ -115,8 +120,11 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
             treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
             isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
             for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
+                # Remove the potentially duplicated treatments from covariates set
                 covariates = get_non_treatment_covariates(outcome_extra_covariates, treatments)
+                # Extract the treatment levels for the estimand that is goinf to be created
                 estimand_treatments_levels = Dict(T => treatments_levels[T] for T ∈ treatments)
+                # Create the estimand if it satisfies the desired marginal positivity constraint
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
@@ -153,7 +161,9 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
         verbosity > 0 && @info(string("Generating estimands: ", estimand_constructor))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
         for treatments ∈ treatment_tuples_from_single_list(treatment_variables, orders)
+            # Extract the treatment levels for the estimand that is goinf to be created
             estimand_treatments_levels = Dict(T => treatments_levels[T] for T ∈ treatments)
+            # Create the estimand if it satisfies the desired marginal positivity constraint
             try_append_new_estimands!(
                 estimands, 
                 dataset, 

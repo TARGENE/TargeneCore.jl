@@ -156,16 +156,19 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                         @warn("Skipping $query_rsid, not bi-allelic")
                         continue
                     end
+                    # Hardcall genotypes for each individual at the given threshold based on the probabilities
                     minor_allele_dosage!(bgenfile, variant)
-                    variant_genotypes = genotypes_encoding(variant)
+                    potential_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
                     probabilities[isnan.(probabilities)] .= -Inf
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
-                    chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
-                    variant_levels = major_allele(variant) == variant_genotypes[1] ? variant_genotypes : reverse(variant_genotypes)
+                    chr_genotypes[!, query_rsid] = call_genotypes(probabilities, potential_genotypes, threshold)
+                    # Order the potential genotypes levels as MM/Mm/mm
+                    ordered_potential_genotypes = major_allele(variant) == potential_genotypes[1] ? potential_genotypes : reverse(potential_genotypes)
+                    # Only retain the genotypes that are in the dataset
                     genotypes_in_dataset = unique(skipmissing(chr_genotypes[!, query_rsid]))
-                    variant_levels_in_dataset = filter(x -> x ∈ genotypes_in_dataset, variant_levels)
-                    genotypes_levels[Symbol(query_rsid)] = variant_levels_in_dataset
+                    ordered_genotypes_in_dataset = filter(x -> x ∈ genotypes_in_dataset, ordered_potential_genotypes)
+                    genotypes_levels[Symbol(query_rsid)] = ordered_genotypes_in_dataset
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :
