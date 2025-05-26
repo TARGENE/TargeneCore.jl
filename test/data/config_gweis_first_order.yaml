@@ -1,7 +1,10 @@
 type: gwas
 
-estimands: 
-  - type: ATE
+estimands:
+  - type: AIE
+
+extra_treatments:
+  - TREAT_1
 
 outcome_extra_covariates:
   - COV_1
