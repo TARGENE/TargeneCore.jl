@@ -233,49 +233,37 @@ function read_bed_chromosome(bedprefix)
 end
 
 function get_genotypes_from_beds(bedprefix, outprefix)
-    snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid", makeunique=true)
-    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
-    for col in names(genotypes)
-        genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
-    end
+    snpdata   = read_bed_chromosome(bedprefix)
+    code_map  = Union{UInt8,Missing}[0, missing, 1, 2]
+    geno_mat  = map(x -> code_map[x+1], snpdata.snparray)
+    genotypes = DataFrame(geno_mat, snpdata.snp_info.snpid; makeunique=true)
+    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info.iid)
+    counts    = countmap.(eachcol(select(genotypes, Not(:SAMPLE_ID))))
 
-    vₘ, v₀, v₁, v₂ = [], [], [], []
-    
-    for col in names(genotypes)
-        var_counts = countmap(genotypes[!, col])
-        if haskey(var_counts, missing)
-            push!(vₘ, var_counts[missing])
-        else
-            push!(vₘ, 0)
-        end
-        if haskey(var_counts, 0x00)
-            push!(v₀, var_counts[0x00])
-        else
-            push!(v₀, 0)
-        end
-        if haskey(var_counts, 0x01)
-            push!(v₁, var_counts[0x01])
-        else
-            push!(v₁, 0)
-        end
-        if haskey(var_counts, 0x02)  
-            push!(v₂, var_counts[0x02])
-        else
-            push!(v₂, 0)
+    mapping_df = DataFrame(
+      snpid   = snpdata.snp_info.snpid,
+      allele1 = snpdata.snp_info.allele1,
+      allele2 = snpdata.snp_info.allele2,
+      vₘ      = get.(counts, missing,  0),
+      v₀      = get.(counts, UInt8(0), 0),
+      v₁      = get.(counts, UInt8(1), 0),
+      v₂      = get.(counts, UInt8(2), 0),
+    )
+    mapping_df.n    = mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂
+
+    # if v₀ < v₂, swap all 0↔2 so that 0 always marks the major homozygote
+    for (i, snpid) in enumerate(mapping_df.snpid)
+        if mapping_df.v₀[i] < mapping_df.v₂[i]
+            col = Symbol(snpid)
+            genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2)  : x === UInt8(2)  ? UInt8(0)  : x, genotypes[!, col])
+            x = mapping_df.v₀[i]
+            mapping_df.v₀[i] = mapping_df.v₂[i]
+            mapping_df.v₂[i] = x
         end
     end
+    mapping_df.MAF = (mapping_df.v₁ .+ (2 .* mapping_df.v₂)) ./ (2 .* (mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂))
+    CSV.write("$(outprefix).mapping.txt", mapping_df)
 
-    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    
-    result_df = hcat(select(snpdata.snp_info, "snpid", "allele1", "allele2"), DataFrame(
-        vₘ = vₘ,
-        v₀ = v₀,
-        v₁ = v₁,
-        v₂ = v₂
-    ))
-
-    CSV.write(string(outprefix, ".mapping.txt"), result_df)
     return genotypes
 end
 
