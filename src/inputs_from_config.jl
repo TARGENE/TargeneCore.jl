@@ -256,9 +256,15 @@ function get_genotypes_from_beds(bedprefix, outprefix)
         if mapping_df.v₀[i] < mapping_df.v₂[i]
             col = Symbol(snpid)
             genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2)  : x === UInt8(2)  ? UInt8(0)  : x, genotypes[!, col])
-            x = mapping_df.v₀[i]
+            
+            # Swap alleles and counts respectively
+            allele2 = mapping_df.allele2[i]
+            mapping_df.allele2[i] = mapping_df.allele1[i]
+            mapping_df.allele1[i] = allele2
+
+            v₂ = mapping_df.v₀[i]
             mapping_df.v₀[i] = mapping_df.v₂[i]
-            mapping_df.v₂[i] = x
+            mapping_df.v₂[i] = v₂
         end
     end
     mapping_df.MAF = (mapping_df.v₁ .+ (2 .* mapping_df.v₂)) ./ (2 .* (mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂))
