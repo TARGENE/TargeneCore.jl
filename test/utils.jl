@@ -127,8 +127,14 @@ end
 @testset "Test call_genotypes for all SNPs" begin
     bgen_dir = joinpath(TESTDIR, "data", "ukbb", "imputed" , "ukbb")
     variants = Set(["RSID_10", "RSID_100", "RSID_2"])
+    expected_levels = Dict(
+        :RSID_10  => ["GG", "AG", "AA"],
+        :RSID_100 => ["GG", "AG", "AA"],
+        :RSID_2   => ["GG", "AG", "AA"]
+    )
     # With a threshold
-    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
+    genotypes, genotypes_levels = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
+    @test genotypes_levels == expected_levels
     # I only looked at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -142,7 +148,8 @@ end
     @test DataFrames.names(genotypes) == ["SAMPLE_ID", "RSID_10", "RSID_100", "RSID_2"]
 
     # With no threshold
-    genotypes = TargeneCore.call_genotypes(bgen_dir, variants, nothing)
+    genotypes, genotypes_levels = TargeneCore.call_genotypes(bgen_dir, variants, nothing)
+    @test genotypes_levels == expected_levels
     # I only looked at the first 10 rows
     # SAMPLE_ID    
     @test genotypes[1:9, "SAMPLE_ID"] == ["sample_00$i" for i in 1:9]
@@ -158,16 +165,50 @@ end
     # With missing variants -> throw ArgumentError
     variants = Set(["TOTO"])
     @test_throws TargeneCore.NotAllVariantsFoundError(variants) TargeneCore.call_genotypes(bgen_dir, variants, 0.95;)
+    # With most frequent heterozygous genotype, levels need to be order by major allele frequency
+    variants = Set(["RSID_191"])
+    genotypes, genotypes_levels = TargeneCore.call_genotypes(bgen_dir, variants, 0.95)
+    @test genotypes_levels == Dict(:RSID_191 => ["GG", "AG", "AA"])
 end
+
+@testset "Test only_keep_variant_genotypes_in_dataset!" begin
+    treatment_levels = Dict(
+        :RSID_1 => ["AA", "AG", "GG"],
+        :RSID_2 => ["CC", "CT", "TT"],
+        :RSID_3 => ["CC", "CT", "TT"],
+    )
+    dataset = DataFrame(
+        RSID_1 = ["AA", "AG", "GG"],
+        RSID_2 = ["CC", "CT", "CT"],
+        RSID_3 = ["CC", "CC", "CC"],
+    )
+    TargeneCore.only_keep_variant_genotypes_in_dataset!(treatment_levels, dataset)
+    @test treatment_levels == Dict(
+        :RSID_1 => ["AA", "AG", "GG"],
+        :RSID_2 => ["CC", "CT"],
+        :RSID_3 => ["CC"]
+    )
+    # The later case can cause problems if we try to estimate ATE/AIE because only one genotype is present bu CM would be ok. 
+    # This will error but is gracefully handled if the error message is:  No component passed the positivity constraint.
+    # which we now check
+    @test_throws ArgumentError("No component passed the positivity constraint.") factorialEstimand(ATE, Dict(:RSID_3 => ["CC"]), :Y, dataset=dataset, positivity_constraint=nothing)
+    # CM is fine
+    Ψ = factorialEstimand(CM, Dict(:RSID_3 => ["CC"]), :Y, dataset=dataset, positivity_constraint=nothing)
+    @test Ψ isa TMLE.JointEstimand
+end
+
 
 @testset "Test pvalue_or_nan" begin
     estimates = make_estimates()
     # One Dimensional Estimate
     @test TargeneCore.pvalue_or_nan(estimates[1].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[1].TMLE, -1) == 1.
     # Joint Estimate
     @test TargeneCore.pvalue_or_nan(estimates[3].TMLE) isa Float64
+    @test TargeneCore.pvalue_or_nan(estimates[3].TMLE, [-1.0, -0.003]) isa Float64
     # Failed Estimate
     @test TargeneCore.pvalue_or_nan(estimates[5].TMLE) === NaN
+    @test TargeneCore.pvalue_or_nan(estimates[5].TMLE, 0) === NaN
 end
 
 end
