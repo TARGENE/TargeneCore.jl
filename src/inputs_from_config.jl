@@ -283,7 +283,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."
 
-    write_estimation_inputs(outprefix, dataset, groups_ordering(estimands); batchsize=batchsize)
+    write_estimation_inputs(outprefix, dataset, TMLE.groups_ordering(estimands); batchsize=batchsize)
 
     verbosity > 0 && @info("Done.")
 
