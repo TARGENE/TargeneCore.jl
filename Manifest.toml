@@ -2,12 +2,12 @@
 
 julia_version = "1.11.5"
 manifest_format = "2.0"
-project_hash = "a002efaf9e7bb319051795ef385bf79ca8b51c29"
+project_hash = "5540450829ef506c895b4cfd5ef9811df24e8b42"
 
 [[deps.ADTypes]]
-git-tree-sha1 = "60665b326b75db6517939d0e1875850bc4a54368"
+git-tree-sha1 = "27cecae79e5cc9935255f90c53bb831cc3c870d7"
 uuid = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
-version = "1.17.0"
+version = "1.18.0"
 
     [deps.ADTypes.extensions]
     ADTypesChainRulesCoreExt = "ChainRulesCore"
@@ -323,6 +323,18 @@ git-tree-sha1 = "deddd8725e5e1cc49ee205a1964256043720a6c3"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 version = "0.10.15"
 
+[[deps.CUDA_Driver_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "e6a1d9f5518122c186fd27786b61d2053cfa1b0c"
+uuid = "4ee394cb-3365-5eb0-8335-949819d2adfc"
+version = "13.0.1+0"
+
+[[deps.CUDA_Runtime_jll]]
+deps = ["Artifacts", "CUDA_Driver_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "TOML"]
+git-tree-sha1 = "e24c6de116c0735c37e83b8bc05ed60d4d359693"
+uuid = "76a88914-d11a-5bdc-97e0-2f5a05c973a2"
+version = "0.19.1+0"
+
 [[deps.Cairo]]
 deps = ["Cairo_jll", "Colors", "Glib_jll", "Graphics", "Libdl", "Pango_jll"]
 git-tree-sha1 = "71aa551c5c33f1a4415867fe06b7844faadb0ae9"
@@ -604,9 +616,9 @@ version = "1.15.1"
 
 [[deps.DifferentiationInterface]]
 deps = ["ADTypes", "LinearAlgebra"]
-git-tree-sha1 = "16946a4d305607c3a4af54ff35d56f0e9444ed0e"
+git-tree-sha1 = "cee1700673af54db57bd1c7fb834ad4ff31309a0"
 uuid = "a0c0ee7d-e4b9-4e03-894e-1c5f64a51d63"
-version = "0.7.7"
+version = "0.7.8"
 
     [deps.DifferentiationInterface.extensions]
     DifferentiationInterfaceChainRulesCoreExt = "ChainRulesCore"
@@ -872,9 +884,9 @@ version = "1.3.7"
 
 [[deps.ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions"]
-git-tree-sha1 = "f0090eb9f8e9d151563dd2300fc3ca3f76b90fe8"
+git-tree-sha1 = "dc41303865a16274ecb8450c220021ce1e0cf05f"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "1.2.0"
+version = "1.2.1"
 weakdeps = ["StaticArrays"]
 
     [deps.ForwardDiff.extensions]
@@ -2342,9 +2354,9 @@ weakdeps = ["ChainRulesCore", "InverseFunctions"]
 
 [[deps.StatsModels]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsAPI", "StatsBase", "StatsFuns", "Tables"]
-git-tree-sha1 = "85a43f6fc30dd80c61342519ca2fc36dac912eae"
+git-tree-sha1 = "b117c1fe033a04126780c898e75c7980bf676df3"
 uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
-version = "0.7.6"
+version = "0.7.7"
 
 [[deps.StringEncodings]]
 deps = ["Libiconv_jll"]
@@ -2398,11 +2410,9 @@ version = "7.7.0+0"
 
 [[deps.TMLE]]
 deps = ["AutoHashEquals", "CategoricalArrays", "Combinatorics", "ComputationalResources", "DataFrames", "Distributions", "GLM", "Graphs", "HypothesisTests", "LogExpFunctions", "MLJBase", "MLJGLMInterface", "MLJModels", "MetaGraphsNext", "Missings", "OrderedCollections", "Printf", "Random", "StatisticalMeasures", "Statistics", "Tables"]
-git-tree-sha1 = "647bba45fe9b2902765770c94cba4da8b9d741ac"
-repo-rev = "89cdb9762d25a27890759587191d00253ac2fbfa"
-repo-url = "https://github.com/TARGENE/TMLE.jl"
+git-tree-sha1 = "c11c1f548b53496ad4d2b8b73c5f4048f4dea6af"
 uuid = "8afdd2fb-6e73-43df-8b62-b1650cd9c8cf"
-version = "0.20.2"
+version = "0.20.3"
 
     [deps.TMLE.extensions]
     CausalTablesExt = "CausalTables"
@@ -2417,9 +2427,9 @@ version = "0.20.2"
     YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [[deps.TMLECLI]]
-deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MLJ", "MLJBase", "MLJGLMInterface", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
-git-tree-sha1 = "121972276781e256b83ec91c38cf5895d0bd2b28"
-repo-rev = "8f497070d61ddf43b958e4100899058d2c845646"
+deps = ["ArgParse", "Arrow", "CSV", "CategoricalArrays", "Combinatorics", "Configurations", "DataFrames", "EvoTrees", "GLMNet", "JLD2", "JSON", "MLJ", "MLJBase", "MLJLinearModels", "MLJModelInterface", "MLJModels", "MLJXGBoostInterface", "PackageCompiler", "Random", "Serialization", "TMLE", "Tables", "YAML"]
+git-tree-sha1 = "070c57536c3b4dab2bac6b1f855dd158dc43c2de"
+repo-rev = "8bf96bba805f24a33390b194e963d366951cf406"
 repo-url = "https://github.com/TARGENE/TMLECLI.jl"
 uuid = "2573d147-4098-46ba-9db2-8608d210ccac"
 version = "0.10.3"
@@ -2497,10 +2507,10 @@ uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 version = "0.9.13"
 
 [[deps.Transducers]]
-deps = ["Accessors", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "ConstructionBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "Requires", "SplittablesBase", "Tables"]
-git-tree-sha1 = "7deeab4ff96b85c5f72c824cae53a1398da3d1cb"
+deps = ["Accessors", "ArgCheck", "BangBang", "Baselet", "CompositionsBase", "ConstructionBase", "DefineSingletons", "Distributed", "InitialValues", "Logging", "Markdown", "MicroCollections", "SplittablesBase", "Tables"]
+git-tree-sha1 = "4aa1fdf6c1da74661f6f5d3edfd96648321dade9"
 uuid = "28d57a85-8fef-5791-bfe6-a80928e7c999"
-version = "0.4.84"
+version = "0.4.85"
 
     [deps.Transducers.extensions]
     TransducersAdaptExt = "Adapt"
@@ -2608,10 +2618,10 @@ uuid = "76eceee3-57b5-4d4a-8e66-0e911cebbf60"
 version = "1.6.1"
 
 [[deps.XGBoost]]
-deps = ["AbstractTrees", "CEnum", "JSON3", "LinearAlgebra", "OrderedCollections", "SparseArrays", "SparseMatricesCSR", "Statistics", "Tables", "XGBoost_jll"]
-git-tree-sha1 = "bacb62e07d104630094c8dac2fd070f5d4b9b305"
+deps = ["AbstractTrees", "CEnum", "JSON3", "LinearAlgebra", "OrderedCollections", "SparseArrays", "SparseMatricesCSR", "Statistics", "Tables", "XGBoost_GPU_jll", "XGBoost_jll"]
+git-tree-sha1 = "a2038e00d6299ac2e303d894ca91b01f7e51a865"
 uuid = "009559a3-9522-5dbb-924b-0b6ed2b22bb9"
-version = "2.5.1"
+version = "2.5.2"
 
     [deps.XGBoost.extensions]
     XGBoostCUDAExt = "CUDA"
@@ -2621,11 +2631,17 @@ version = "2.5.1"
     CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
     Term = "22787eb5-b846-44ae-b979-8e399b8463ab"
 
+[[deps.XGBoost_GPU_jll]]
+deps = ["Artifacts", "CUDA_Runtime_jll", "CompilerSupportLibraries_jll", "JLLWrappers", "LLVMOpenMP_jll", "LazyArtifacts", "Libdl", "TOML"]
+git-tree-sha1 = "0cb649db2cec44a68560c72526f4b166b6378d82"
+uuid = "bf13095a-df47-5f5c-aa1a-d897479947cc"
+version = "2.1.5+0"
+
 [[deps.XGBoost_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LLVMOpenMP_jll", "Libdl"]
-git-tree-sha1 = "c1ae48e48677a09cc9a44e2cb802173ddb02c8c8"
+git-tree-sha1 = "f44f3bacdc99ca220ef9ead2b6cbce9a1b8957bc"
 uuid = "a5c6f535-4255-5ca2-a466-0e519f119c46"
-version = "2.1.4+0"
+version = "2.1.5+0"
 
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
