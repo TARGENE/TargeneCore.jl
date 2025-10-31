@@ -70,29 +70,57 @@ function estimands_from_variants(
     estimand_constructor, 
     outcomes, 
     confounders;
+    extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
     verbosity=1
     )
     estimands = []
     for variant in variants
-        treatments = treatments_from_variant(variant, dataset)
-        local Ψ
-        try
-            Ψ = factorialEstimands(
-            estimand_constructor, treatments, outcomes; 
-            confounders=confounders, 
-            dataset=dataset,
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint, 
-            verbosity=verbosity-1
-            )
-        catch e
-            if !(e == ArgumentError("No component passed the positivity constraint."))
-                throw(e)
+        if estimand_constructor == ATE
+            treatments = treatments_from_variant(variant, dataset)
+            local Ψ
+            try
+                Ψ = factorialEstimands(
+                estimand_constructor, treatments, outcomes; 
+                confounders=confounders, 
+                dataset=dataset,
+                outcome_extra_covariates=outcome_extra_covariates,
+                positivity_constraint=positivity_constraint, 
+                verbosity=verbosity-1
+                )
+            catch e
+                if !(e == ArgumentError("No component passed the positivity constraint."))
+                    throw(e)
+                end
+            else
+                append!(estimands, Ψ)
             end
+        elseif estimand_constructor == AIE && !isempty(extra_treatments)
+            for treatment in extra_treatments
+                treatments = Dict(treatments_from_variant(variant, dataset)..., treatments_from_variant(string(treatment), dataset)...)
+                local Ψ
+                try
+                    Ψ = factorialEstimands(
+                    estimand_constructor, treatments, outcomes; 
+                    confounders=confounders, 
+                    dataset=dataset,
+                    outcome_extra_covariates=outcome_extra_covariates,
+                    positivity_constraint=positivity_constraint, 
+                    verbosity=verbosity-1)
+
+                catch e
+                    if !(e == ArgumentError("No component passed the positivity constraint."))
+                        throw(e)
+                    end
+                else
+                    append!(estimands, Ψ)
+                end
+            end
+        elseif estimand_constructor == AIE && isempty(extra_treatments)
+            throw(ArgumentError("Extra treatments are necessary for AIE estimands in this configuration."))
         else
-            append!(estimands, Ψ)
+            throw(ArgumentError(string("Invalid estimand constructor only AIE and ATE are supported: ", estimand_constructor)))
         end
     end
     return estimands
@@ -180,21 +208,28 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
-function estimands_from_gwas(dataset, variants, outcomes, confounders; 
+function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, confounders; 
+    extra_treatments=extra_treatments,
     outcome_extra_covariates = [],
     positivity_constraint=0.,
     verbosity=0
     )
-    variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
-    estimands_tasks = map(variants_groups) do variants
-        Threads.@spawn estimands_from_variants(variants, dataset, ATE, outcomes, confounders;
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
+    estimands = []
+    for estimands_config in estimands_configs
+        estimand_constructor = eval(Symbol(estimands_config["type"]))
+        variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
+        estimands_tasks = map(variants_groups) do variants
+            Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
+                extra_treatments=extra_treatments,
+                outcome_extra_covariates=outcome_extra_covariates,
+                positivity_constraint=positivity_constraint,
+                verbosity=verbosity
+            )
+        end
+        estimands_partitions = fetch.(estimands_tasks)
+        push!(estimands, vcat(estimands_partitions...))
     end
-    estimands_partitions = fetch.(estimands_tasks)
-    return vcat(estimands_partitions...)
+    return vcat(estimands...)
 end
 
 get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
@@ -272,7 +307,8 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
         )
     elseif config_type == "gwas"
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        estimands_from_gwas(dataset, variants, outcomes, confounders;
+        estimands_from_gwas(config["estimands"], dataset, variants, outcomes, confounders;
+            extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity

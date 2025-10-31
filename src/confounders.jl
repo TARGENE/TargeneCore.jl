@@ -2,7 +2,33 @@
 #####################################################################
 
 
-merge_beds(input_prefix, output) = merge_plink(input_prefix; des = output)
+function merge_beds(input_prefix, output)
+    # Find all BED files matching the prefix pattern
+    dir, prefix = splitdir(input_prefix)
+    dir = dir == "" ? "." : dir
+    
+    bed_files = String[]
+    for file in readdir(dir)
+        if startswith(file, prefix * "_") && endswith(file, ".bed")
+            # Extract the base name without .bed extension
+            base_name = file[1:end-4]
+            push!(bed_files, joinpath(dir, base_name))
+        end
+    end
+    
+    if isempty(bed_files)
+        error("No BED files found matching pattern: $input_prefix")
+    end
+    
+    bed_data = Dict{AbstractString, SnpArrays.SnpData}()
+    for bed_file in bed_files
+        bed_name = basename(bed_file)
+        bed_data[bed_name] = SnpData(bed_file)
+    end
+    
+    merged_data = merge_plink(bed_data)
+    SnpArrays.write_plink(output, merged_data)
+end
 
 issnp(x::String) = length(x) == 1
 
