@@ -54,7 +54,17 @@ function try_append_new_estimands!(
     end
 end
 
-function genome_wide_estimands(
+"""
+    treatment_from_variant(variant, dataset)
+
+    Generate a key-value pair (dictionary) for treatment structs.
+"""
+function treatments_from_variant(variant::String, dataset::DataFrame)
+    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
+    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+end
+
+function estimands_from_variants(
     variants,
     dataset, 
     estimand_constructor, 
@@ -77,8 +87,8 @@ function genome_wide_estimands(
                 dataset=dataset,
                 outcome_extra_covariates=outcome_extra_covariates,
                 positivity_constraint=positivity_constraint, 
-                verbosity=verbosity-1)
-
+                verbosity=verbosity-1
+                )
             catch e
                 if !(e == ArgumentError("No component passed the positivity constraint."))
                     throw(e)
@@ -110,13 +120,20 @@ function genome_wide_estimands(
         elseif estimand_constructor == AIE && isempty(extra_treatments)
             throw(ArgumentError("Extra treatments are necessary for AIE estimands in this configuration."))
         else
-            throw(ArgumentError(string("Invalid estimand constructor: ", estimand_constructor)))
+            throw(ArgumentError(string("Invalid estimand constructor only AIE and ATE are supported: ", estimand_constructor)))
         end
     end
     return estimands
 end
 
-function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders; 
+"""
+The configuration file specifies extra covariates globally. But some estimands may contain a covariate as a treatment. For example 
+sex can be used fro a two points interaction study and is considered a treatment in that case. But in other estimands it is used as a covariate.
+We make sure it is not both and the logical thing to do is to remove the treatment from the covariates set if it is contained in it.
+"""
+get_non_treatment_covariates(covariates, treatments) = setdiff(covariates, collect(treatments))
+
+function estimands_from_groups(estimands_configs, dataset, variants_config, outcomes, confounders, treatments_levels; 
     extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
@@ -131,14 +148,19 @@ function estimands_from_groups(estimands_configs, dataset, variants_config, outc
             treatments_lists = [Symbol.(variant_list) for variant_list in values(variants_dict)]
             isempty(extra_treatments) || push!(treatments_lists, extra_treatments)
             for treatments ∈ treatment_tuples_from_groups(treatments_lists, orders)
+                # Remove the potentially duplicated treatments from covariates set
+                covariates = get_non_treatment_covariates(outcome_extra_covariates, treatments)
+                # Extract the treatment levels for the estimand that is goinf to be created
+                estimand_treatments_levels = Dict(T => treatments_levels[T] for T ∈ treatments)
+                # Create the estimand if it satisfies the desired marginal positivity constraint
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
                     estimand_constructor, 
-                    treatments, 
+                    estimand_treatments_levels, 
                     outcomes, 
                     confounders;
-                    outcome_extra_covariates=outcome_extra_covariates,
+                    outcome_extra_covariates=covariates,
                     positivity_constraint=positivity_constraint,
                     verbosity=verbosity-1
                 )
@@ -154,7 +176,7 @@ default_order(::typeof(AIE)) = [2]
 treatment_tuples_from_single_list(treatment_variables, orders) =
     reduce(vcat, collect(Combinatorics.combinations(treatment_variables, order)) for order in orders)
 
-function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes, confounders; 
+function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes, confounders, treatments_levels; 
     extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
@@ -167,11 +189,14 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
         verbosity > 0 && @info(string("Generating estimands: ", estimand_constructor))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
         for treatments ∈ treatment_tuples_from_single_list(treatment_variables, orders)
+            # Extract the treatment levels for the estimand that is goinf to be created
+            estimand_treatments_levels = Dict(T => treatments_levels[T] for T ∈ treatments)
+            # Create the estimand if it satisfies the desired marginal positivity constraint
             try_append_new_estimands!(
                 estimands, 
                 dataset, 
                 estimand_constructor, 
-                treatments, 
+                estimand_treatments_levels, 
                 outcomes, 
                 confounders;
                 outcome_extra_covariates=outcome_extra_covariates,
@@ -181,21 +206,6 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
         end
     end
     return estimands
-end
-
-function treatments_from_variant(variant::Symbol, dataset)
-    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
-    return NamedTuple{(variant,)}([variant_levels])
-end
-
-"""
-    treatment_from_variant(variant, dataset)
-
-    Generate a key-value pair (dictionary) for treatment structs.
-"""
-function treatments_from_variant(variant::String, dataset::DataFrame)
-    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
-    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
 end
 
 function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, confounders; 
@@ -209,7 +219,7 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
         estimand_constructor = eval(Symbol(estimands_config["type"]))
         variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
         estimands_tasks = map(variants_groups) do variants
-            Threads.@spawn genome_wide_estimands(variants, dataset, estimand_constructor, outcomes, confounders;
+            Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
                 extra_treatments=extra_treatments,
                 outcome_extra_covariates=outcome_extra_covariates,
                 positivity_constraint=positivity_constraint,
@@ -232,55 +242,25 @@ function read_bed_chromosome(bedprefix)
     return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
 end
 
-function get_genotypes_from_beds(bedprefix, outprefix)
-    snpdata   = read_bed_chromosome(bedprefix)
-    code_map  = Union{UInt8,Missing}[0, missing, 1, 2]
-    geno_mat  = map(x -> code_map[x+1], snpdata.snparray)
-    genotypes = DataFrame(geno_mat, snpdata.snp_info.snpid; makeunique=true)
-    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info.iid)
-    counts    = countmap.(eachcol(select(genotypes, Not(:SAMPLE_ID))))
-
-    mapping_df = DataFrame(
-      snpid   = snpdata.snp_info.snpid,
-      allele1 = snpdata.snp_info.allele1,
-      allele2 = snpdata.snp_info.allele2,
-      vₘ      = get.(counts, missing,  0),
-      v₀      = get.(counts, UInt8(0), 0),
-      v₁      = get.(counts, UInt8(1), 0),
-      v₂      = get.(counts, UInt8(2), 0),
-    )
-    mapping_df.n    = mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂
-
-    # if v₀ < v₂, swap all 0↔2 so that 0 always marks the major homozygote
-    for (i, snpid) in enumerate(mapping_df.snpid)
-        if mapping_df.v₀[i] < mapping_df.v₂[i]
-            col = Symbol(snpid)
-            genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2)  : x === UInt8(2)  ? UInt8(0)  : x, genotypes[!, col])
-            
-            # Swap alleles and counts respectively
-            allele2 = mapping_df.allele2[i]
-            mapping_df.allele2[i] = mapping_df.allele1[i]
-            mapping_df.allele1[i] = allele2
-
-            v₂ = mapping_df.v₀[i]
-            mapping_df.v₀[i] = mapping_df.v₂[i]
-            mapping_df.v₂[i] = v₂
-        end
+function get_genotypes_from_beds(bedprefix)
+    snpdata = read_bed_chromosome(bedprefix)
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
+    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
+    for col in names(genotypes)
+        genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
     end
-    mapping_df.MAF = (mapping_df.v₁ .+ (2 .* mapping_df.v₂)) ./ (2 .* (mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂))
-    CSV.write("$(outprefix).mapping.txt", mapping_df)
-
-    return genotypes
+    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
+    return genotypes, Dict()
 end
 
-function make_genotypes(genotype_prefix, config, call_threshold, outprefix)
-    genotypes = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix, outprefix)
+function make_genotypes(genotype_prefix, config, call_threshold)
+    genotypes, genotypes_levels = if config["type"] == "gwas"
+        get_genotypes_from_beds(genotype_prefix)
     else
         variants_set = Set(retrieve_variants_list(config["variants"]))
         call_genotypes(genotype_prefix, variants_set, call_threshold)
     end
-    return genotypes
+    return genotypes, genotypes_levels
 end
 
 function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file;
@@ -305,20 +285,21 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
-    genotypes = make_genotypes(genotypes_prefix, config, call_threshold, outprefix)
+    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold)
     dataset = merge(traits, pcs, genotypes)
+    finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
     # Estimands
     config_type = config["type"]
     estimands = if config_type == "flat"
-        estimands_from_flat_list(config["estimands"], dataset, config["variants"], outcomes, confounders;
+        estimands_from_flat_list(config["estimands"], dataset, config["variants"], outcomes, confounders, treatments_levels;
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity)
     elseif config_type == "groups"
-        estimands_from_groups(config["estimands"], dataset, config["variants"], outcomes, confounders; 
+        estimands_from_groups(config["estimands"], dataset, config["variants"], outcomes, confounders, treatments_levels;
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,

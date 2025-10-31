@@ -139,6 +139,7 @@ end
     @test memcost < shuffled_memcost
 
     # Increase positivity constraint
+    tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
         estimands_filename,
@@ -158,6 +159,7 @@ end
     @test size(outestimands, 1) == 16
 
     # No Remaining Estimand Error
+    tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
         estimands_filename,

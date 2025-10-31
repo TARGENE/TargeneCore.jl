@@ -54,6 +54,8 @@ end
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     
     # No QC file provided
+    tmpdir = mktempdir()
+    output = joinpath(tmpdir, "filtered-mouse")
     copy!(ARGS, [
         "filter-chromosome",
         SnpArrays.datadir("mouse"),
@@ -70,6 +72,8 @@ end
         ["A048005080", "A048006063", "A048006555", "A048007096", "A048010273"]
     
     # No ld-block file provided
+    tmpdir = mktempdir()
+    output = joinpath(tmpdir, "filtered-mouse")
     copy!(ARGS, [
         "filter-chromosome",
         SnpArrays.datadir("mouse"),

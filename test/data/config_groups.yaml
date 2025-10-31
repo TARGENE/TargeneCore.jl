@@ -16,13 +16,14 @@ variants:
   TF2:
     bQTLs:
       - RSID_17
-      - RSID_198
+      - RSID_191
     eQTLs:
       - RSID_2
 extra_treatments:
   - TREAT_1
 outcome_extra_covariates:
   - COV_1
+  - TREAT_1
 extra_confounders:
   - 21003
   - 22001

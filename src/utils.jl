@@ -45,6 +45,24 @@ function merge(traits, pcs, genotypes)
     )
 end
 
+function add_extra_treatments_levels!(treatments_levels, extra_treatments, dataset)
+    for treatment in extra_treatments
+        treatments_levels[treatment] = TMLE.get_treatment_values(dataset, treatment)
+    end
+end
+
+function only_keep_variant_genotypes_in_dataset!(treatments_levels, dataset)
+    for (variant, potential_variant_genotypes) in treatments_levels
+        actual_variant_genotypes = unique(skipmissing(dataset[!, variant]))
+        treatments_levels[variant] = filter(x -> x ∈ actual_variant_genotypes, potential_variant_genotypes)
+    end
+end
+
+function finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
+    only_keep_variant_genotypes_in_dataset!(treatments_levels, dataset)
+    add_extra_treatments_levels!(treatments_levels, extra_treatments, dataset)
+end
+
 ###############################################################################
 ###                      ESTIMATION INPUTS WRITING                          ###
 ###############################################################################
@@ -135,6 +153,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
     chr_dir_, prefix_ = splitdir(bgen_prefix)
     chr_dir = chr_dir_ == "" ? "." : chr_dir_
     genotypes = nothing
+    genotypes_levels = Dict()
     for filename in readdir(chr_dir)
         length(query_rsids) == 0 ? break : nothing
         if is_numbered_chromosome_file(filename, prefix_)
@@ -149,12 +168,16 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
                         @warn("Skipping $query_rsid, not bi-allelic")
                         continue
                     end
+                    # Hardcall genotypes for each individual at the given threshold based on the probabilities
                     minor_allele_dosage!(bgenfile, variant)
-                    variant_genotypes = genotypes_encoding(variant)
+                    potential_genotypes = genotypes_encoding(variant)
                     probabilities = probabilities!(bgenfile, variant)
                     probabilities[isnan.(probabilities)] .= -Inf
                     size(probabilities, 1) != 3 && throw(NotBiAllelicOrUnphasedVariantError(query_rsid))
-                    chr_genotypes[!, query_rsid] = call_genotypes(probabilities, variant_genotypes, threshold)
+                    chr_genotypes[!, query_rsid] = call_genotypes(probabilities, potential_genotypes, threshold)
+                    # Order the potential genotypes levels as MM/Mm/mm
+                    ordered_potential_genotypes = major_allele(variant) == potential_genotypes[1] ? potential_genotypes : reverse(potential_genotypes)
+                    genotypes_levels[Symbol(query_rsid)] = ordered_potential_genotypes
                 end
             end
             genotypes = genotypes isa Nothing ? chr_genotypes :
@@ -162,7 +185,7 @@ function call_genotypes(bgen_prefix::String, query_rsids::Set{<:AbstractString},
         end
     end
     length(query_rsids) == 0 || throw(NotAllVariantsFoundError(query_rsids))
-    return genotypes
+    return genotypes, genotypes_levels
 end
 
 ###############################################################################
@@ -228,6 +251,14 @@ end
 function pvalue_or_nan(Ψ̂)
     return try
         pvalue(significance_test(Ψ̂))
+    catch
+        NaN
+    end
+end
+
+function pvalue_or_nan(Ψ̂, Ψ₀)
+    return try
+        pvalue(significance_test(Ψ̂, Ψ₀))
     catch
         NaN
     end

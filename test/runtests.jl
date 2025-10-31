@@ -2,6 +2,7 @@ using TargeneCore
 using Test
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
+
 @testset "Test TargeneCore" begin
     @test include(joinpath(TESTDIR, "utils.jl"))
     @test include(joinpath(TESTDIR, "dataset.jl"))

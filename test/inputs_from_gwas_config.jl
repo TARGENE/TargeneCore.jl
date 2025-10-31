@@ -34,6 +34,7 @@ function check_estimands_levels_order(estimands)
         end
    end
 end
+
 @testset "Test inputs_from_config gwas: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
@@ -51,7 +52,6 @@ end
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
-    @test isfile(joinpath(tmpdir, "final.mapping.txt"))
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)
@@ -88,7 +88,6 @@ end
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
-    @test isfile(joinpath(tmpdir, "final.mapping.txt"))
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)

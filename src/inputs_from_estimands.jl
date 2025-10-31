@@ -214,7 +214,7 @@ function inputs_from_estimands(config_file, genotypes_prefix, traits_file, pcs_f
     # Genotypes and full data
     verbosity > 0 && @info("Creating dataset.")
     variables = get_variables(estimands, traits, pcs)
-    genotypes = call_genotypes(
+    genotypes, _ = call_genotypes(
         genotypes_prefix, 
         Set(string.(variables.genetic_variants)), 
         call_threshold
