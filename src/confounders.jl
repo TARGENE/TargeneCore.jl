@@ -9,7 +9,7 @@ function merge_beds(input_prefix, output)
     
     bed_files = String[]
     for file in readdir(dir)
-        if startswith(file, prefix * "_") && endswith(file, ".bed")
+        if startswith(file, prefix) && endswith(file, ".bed")
             # Extract the base name without .bed extension
             base_name = file[1:end-4]
             push!(bed_files, joinpath(dir, base_name))
