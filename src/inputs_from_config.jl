@@ -242,7 +242,7 @@ function read_bed_chromosome(bedprefix)
     return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
 end
 
-function get_genotypes_from_beds(bedprefix)
+function get_genotypes_from_beds(bedprefix, outprefix)
     snpdata = read_bed_chromosome(bedprefix)
     genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid"; makeunique=true)
     genotype_ids = names(genotypes)
@@ -261,7 +261,7 @@ function get_genotypes_from_beds(bedprefix)
       v₁      = get.(counts, UInt8(1), 0),
       v₂      = get.(counts, UInt8(2), 0),
     )
-    mapping_df.n    = mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂
+    mapping_df.n = mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂
 
     # if v₀ < v₂, swap all 0↔2 so that 0 always marks the major homozygote
     for (i, snpid) in enumerate(mapping_df.snpid)
@@ -284,9 +284,9 @@ function get_genotypes_from_beds(bedprefix)
     return genotypes, Dict()
 end
 
-function make_genotypes(genotype_prefix, config, call_threshold)
+function make_genotypes(genotype_prefix, config, call_threshold, outprefix)
     genotypes, genotypes_levels = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix)
+        get_genotypes_from_beds(genotype_prefix, outprefix)
     else
         variants_set = Set(retrieve_variants_list(config["variants"]))
         call_genotypes(genotype_prefix, variants_set, call_threshold)
@@ -316,7 +316,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
-    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold)
+    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold, outprefix)
     dataset = merge(traits, pcs, genotypes)
     finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
