@@ -292,7 +292,7 @@ function get_genotypes_from_beds(bedprefix, outprefix, traits, pcs, outcomes)
 
         # For each requested outcome, if binary, compute per-level genotype counts
         for outcome in outcome_syms
-            if !haskey(joined, outcome)
+            if !(outcome in names(joined))
                 @warn "Outcome $(outcome) not found in traits; skipping."
                 continue
             end
