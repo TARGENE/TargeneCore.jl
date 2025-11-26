@@ -242,7 +242,7 @@ function read_bed_chromosome(bedprefix)
     return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
 end
 
-function get_genotypes_from_beds(bedprefix, outprefix)
+function get_genotypes_from_beds(bedprefix, outprefix, traits, pcs, outcomes)
     snpdata = read_bed_chromosome(bedprefix)
     genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid"; makeunique=true)
     genotype_ids = names(genotypes)
@@ -251,7 +251,12 @@ function get_genotypes_from_beds(bedprefix, outprefix)
         genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
     end
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    counts = countmap.(eachcol(select(genotypes, Not(:SAMPLE_ID))))
+    
+    sample_ids = intersect(Set(traits.SAMPLE_ID), Set(pcs.SAMPLE_ID))
+    mask = in.(genotypes.SAMPLE_ID, Ref(sample_ids))
+    sample_genotypes = genotypes[mask, :]
+
+    counts = countmap.(eachcol(select(sample_genotypes, Not(:SAMPLE_ID))))
     mapping_df = DataFrame(
       snpid   = genotype_ids,
       allele1 = snpdata.snp_info.allele1,
@@ -279,14 +284,45 @@ function get_genotypes_from_beds(bedprefix, outprefix)
             mapping_df.v₂[i] = v₂
         end
     end
+
+    if !isempty(outcomes)
+        outcome_syms = Symbol.(outcomes)
+        traits_subset = select(traits, vcat(:SAMPLE_ID, outcome_syms)...)
+        joined = innerjoin(sample_genotypes, traits_subset, on = :SAMPLE_ID)
+
+        # For each requested outcome, if binary, compute per-level genotype counts
+        for outcome in outcome_syms
+            if !haskey(joined, outcome)
+                @warn "Outcome $(outcome) not found in traits; skipping."
+                continue
+            end
+            lvls = levels(traits[!, outcome], skipmissing=true)
+            if length(lvls) > 2
+                @info "Outcome $(outcome) has $(length(lvls)) levels (not binary); skipping per-level counts."
+                continue
+            end
+
+            # for each level compute counts across SNP columns
+            for lvl in lvls
+                rows = joined[joined[!, outcome] .== lvl, :]
+                lvl_counts = countmap.(eachcol(select(rows, Not(:SAMPLE_ID))))
+                # column name prefix: v0_<outcome>_<level> etc.
+                safe_lvl = replace(string(lvl), r"\s+" => "_")
+                mapping_df[!, Symbol("v0_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(0), 0)
+                mapping_df[!, Symbol("v1_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(1), 0)
+                mapping_df[!, Symbol("v2_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(2), 0)
+            end
+        end
+    end
+
     mapping_df.MAF = (mapping_df.v₁ .+ (2 .* mapping_df.v₂)) ./ (2 .* (mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂))
     CSV.write("$(outprefix).mapping.txt", mapping_df)
     return genotypes, Dict()
 end
 
-function make_genotypes(genotype_prefix, config, call_threshold, outprefix)
+function make_genotypes(genotype_prefix, config, call_threshold, outprefix, traits, pcs, outcomes)
     genotypes, genotypes_levels = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix, outprefix)
+        get_genotypes_from_beds(genotype_prefix, outprefix, traits, pcs, outcomes)
     else
         variants_set = Set(retrieve_variants_list(config["variants"]))
         call_genotypes(genotype_prefix, variants_set, call_threshold)
@@ -316,7 +352,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
-    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold, outprefix)
+    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold, outprefix, traits, pcs, outcomes)
     dataset = merge(traits, pcs, genotypes)
     finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
