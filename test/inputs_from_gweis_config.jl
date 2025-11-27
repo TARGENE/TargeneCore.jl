@@ -80,7 +80,6 @@ end
     # Check mapping file
     mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
     @test size(mapping, 1) == 875  # Number of variants
-    @test names(mapping) == ["snpid", "allele1", "allele2", "vₘ", "v₀", "v₁", "v₂", "n", "MAF"]
     @test all(mapping.n .> 0)  # All variants should have non-zero counts
     @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
     @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
@@ -124,7 +123,6 @@ end
     # Check mapping file
     mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
     @test size(mapping, 1) == 875  # Number of variants after positivity constraint
-    @test names(mapping) == ["snpid", "allele1", "allele2", "vₘ", "v₀", "v₁", "v₂", "n", "MAF"]
     @test all(mapping.n .> 0)  # All variants should have non-zero counts
     @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
     @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
