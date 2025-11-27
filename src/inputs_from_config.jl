@@ -272,45 +272,55 @@ function get_genotypes_from_beds(bedprefix, outprefix, traits, pcs, outcomes)
     for (i, snpid) in enumerate(mapping_df.snpid)
         if mapping_df.v₀[i] < mapping_df.v₂[i]
             col = Symbol(snpid)
-            genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2)  : x === UInt8(2)  ? UInt8(0)  : x, genotypes[!, col])
-            
-            # Swap alleles and counts respectively
+            # Flip genotype coding 0<->2 in both full and sample subsets so downstream per-level counts match mapping
+            genotypes_col = genotypes[!, col]
+            genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2) : x === UInt8(2) ? UInt8(0) : x, genotypes_col)
+            if size(sample_genotypes, 1) > 0
+                sample_genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2) : x === UInt8(2) ? UInt8(0) : x, sample_genotypes[!, col])
+            end
+
+            # Swap alleles and counts respectively so that v₀ >= v₂ reflects major allele homozygote
             allele2 = mapping_df.allele2[i]
             mapping_df.allele2[i] = mapping_df.allele1[i]
             mapping_df.allele1[i] = allele2
 
-            v₂ = mapping_df.v₀[i]
+            v₂_old = mapping_df.v₀[i]
             mapping_df.v₀[i] = mapping_df.v₂[i]
-            mapping_df.v₂[i] = v₂
+            mapping_df.v₂[i] = v₂_old
         end
     end
 
     if !isempty(outcomes)
         outcome_syms = Symbol.(outcomes)
-        traits_subset = select(traits, vcat(:SAMPLE_ID, outcome_syms)...)
-        joined = innerjoin(sample_genotypes, traits_subset, on = :SAMPLE_ID)
+        trait_names = names(traits)
+        # Keep only outcomes present in traits (either Symbol or String form)
+        present_outcomes = [o for o in outcome_syms if (o in trait_names) || (string(o) in trait_names)]
+        if isempty(present_outcomes)
+            @warn "None of the requested outcomes found in traits; skipping per-outcome genotype counts."
+        else
+            traits_subset = select(traits, vcat(:SAMPLE_ID, present_outcomes)...)
+            joined = innerjoin(sample_genotypes, traits_subset, on = :SAMPLE_ID)
+            joined_names = names(joined)
 
-        # For each requested outcome, if binary, compute per-level genotype counts
-        for outcome in outcome_syms
-            if !(outcome in names(joined))
-                @warn "Outcome $(outcome) not found in traits; skipping."
-                continue
-            end
-            lvls = levels(traits[!, outcome], skipmissing=true)
-            if length(lvls) > 2
-                @info "Outcome $(outcome) has $(length(lvls)) levels (not binary); skipping per-level counts."
-                continue
-            end
-
-            # for each level compute counts across SNP columns
-            for lvl in lvls
-                rows = joined[joined[!, outcome] .== lvl, :]
-                lvl_counts = countmap.(eachcol(select(rows, Not(:SAMPLE_ID))))
-                # column name prefix: v0_<outcome>_<level> etc.
-                safe_lvl = replace(string(lvl), r"\s+" => "_")
-                mapping_df[!, Symbol("v0_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(0), 0)
-                mapping_df[!, Symbol("v1_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(1), 0)
-                mapping_df[!, Symbol("v2_$(outcome)_$(safe_lvl)")] = get.(lvl_counts, UInt8(2), 0)
+            for outcome in present_outcomes
+                outcome_str = string(outcome)
+                outcome_col = (outcome in trait_names) ? outcome : outcome_str
+                outcome_joined_col = (outcome in joined_names) ? outcome : outcome_str
+                lvls = unique(skipmissing(traits[!, outcome_col]))
+                if length(lvls) != 2
+                    @info "Outcome $(outcome) has $(length(lvls)) levels (not binary); skipping per-level counts."
+                    continue
+                end
+                # Compute counts restricted to genotype columns for each level
+                for lvl in lvls
+                    rows = joined[joined[!, outcome_joined_col] .== lvl, :]
+                    lvl_counts = countmap.(eachcol(select(rows, genotype_ids)))
+                    safe_outcome = replace(outcome_str, r"\W+" => "_")
+                    safe_lvl = replace(string(lvl), r"\W+" => "_")
+                    mapping_df[!, "v0_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(0), 0)
+                    mapping_df[!, "v1_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(1), 0)
+                    mapping_df[!, "v2_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(2), 0)
+                end
             end
         end
     end
