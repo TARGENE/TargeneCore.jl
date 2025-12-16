@@ -1,0 +1,14 @@
+type: gwas
+
+estimands:
+  - type: CM
+
+extra_treatments:
+  - TREAT_1
+
+outcome_extra_covariates:
+  - COV_1
+
+extra_confounders:
+  - 21003
+  - 22001

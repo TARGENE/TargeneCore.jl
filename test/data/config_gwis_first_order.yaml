@@ -2,9 +2,12 @@ type: gwas
 
 estimands:
   - type: AIE
+    orders: [2,3]
+  - type: ATE
 
 extra_treatments:
   - TREAT_1
+  - rs3693265
 
 outcome_extra_covariates:
   - COV_1

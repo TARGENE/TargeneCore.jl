@@ -46,10 +46,14 @@ function try_append_new_estimands!(
         verbosity=verbosity-1
     )
     catch e
-        if !(e == ArgumentError("No component passed the positivity constraint."))
+        if e == ArgumentError("No component passed the positivity constraint.")
+            verbosity > 0 && @info "Skipped due to positivity constraint: treatments=$(keys(treatments)), outcomes=$outcomes"
+        else
+            verbosity > 0 && @warn "Unexpected error creating estimand: treatments=$(keys(treatments)), error=$e"
             throw(e)
         end
     else
+        verbosity > 1 && @info "Created $(length(Ψ)) estimands for treatments=$(keys(treatments))"
         append!(estimands, Ψ)
     end
 end
@@ -73,54 +77,61 @@ function estimands_from_variants(
     extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
-    verbosity=1
+    orders=[1],
+    verbosity=0
     )
-    estimands = []
-    for variant in variants
-        if estimand_constructor == ATE
-            treatments = treatments_from_variant(variant, dataset)
-            local Ψ
-            try
-                Ψ = factorialEstimands(
-                estimand_constructor, treatments, outcomes; 
-                confounders=confounders, 
-                dataset=dataset,
-                outcome_extra_covariates=outcome_extra_covariates,
-                positivity_constraint=positivity_constraint, 
-                verbosity=verbosity-1
-                )
-            catch e
-                if !(e == ArgumentError("No component passed the positivity constraint."))
-                    throw(e)
-                end
-            else
-                append!(estimands, Ψ)
-            end
-        elseif estimand_constructor == AIE && !isempty(extra_treatments)
-            for treatment in extra_treatments
-                treatments = Dict(treatments_from_variant(variant, dataset)..., treatments_from_variant(string(treatment), dataset)...)
-                local Ψ
-                try
-                    Ψ = factorialEstimands(
-                    estimand_constructor, treatments, outcomes; 
-                    confounders=confounders, 
-                    dataset=dataset,
-                    outcome_extra_covariates=outcome_extra_covariates,
-                    positivity_constraint=positivity_constraint, 
-                    verbosity=verbosity-1)
 
-                catch e
-                    if !(e == ArgumentError("No component passed the positivity constraint."))
-                        throw(e)
+    if estimand_constructor != AIE && estimand_constructor != ATE
+        throw(ArgumentError("Using GWAS with estimand type $(estimand_constructor) is not supported. Use ATE or AIE."))
+    end
+
+    estimands = []
+    for order in orders
+        if order == 1
+            for variant in variants
+                treatments = treatments_from_variant(variant, dataset)
+                try_append_new_estimands!(
+                    estimands, 
+                    dataset, 
+                    estimand_constructor, 
+                    treatments, 
+                    outcomes, 
+                    confounders;
+                    outcome_extra_covariates=outcome_extra_covariates,
+                    positivity_constraint=positivity_constraint,
+                    verbosity=verbosity
+                )
+            end
+        else
+            vars_needed = order - 1 # Since the variant is already a treatment variable 
+            if vars_needed > length(extra_treatments) && verbosity > 0
+                @warn("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided.")
+            end
+
+            for combo in Combinatorics.combinations(extra_treatments, vars_needed)
+                for variant in variants
+                    if Symbol(variant) in combo
+                        @info "Skipping self-interaction: $variant in $combo"
+                        continue
                     end
-                else
-                    append!(estimands, Ψ)
+                    treatments = treatments_from_variant(variant, dataset)
+                    # Add each extra treatment from the combination
+                    for t in combo
+                        merge!(treatments, treatments_from_variant(string(t), dataset))
+                    end
+                    try_append_new_estimands!(
+                        estimands, 
+                        dataset, 
+                        estimand_constructor, 
+                        treatments, 
+                        outcomes, 
+                        confounders;
+                        outcome_extra_covariates=outcome_extra_covariates,
+                        positivity_constraint=positivity_constraint,
+                        verbosity=verbosity
+                    )
                 end
             end
-        elseif estimand_constructor == AIE && isempty(extra_treatments)
-            throw(ArgumentError("Extra treatments are necessary for AIE estimands in this configuration."))
-        else
-            throw(ArgumentError(string("Invalid estimand constructor only AIE and ATE are supported: ", estimand_constructor)))
         end
     end
     return estimands
@@ -217,12 +228,14 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
     estimands = []
     for estimands_config in estimands_configs
         estimand_constructor = eval(Symbol(estimands_config["type"]))
+        orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
         variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
         estimands_tasks = map(variants_groups) do variants
             Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
                 extra_treatments=extra_treatments,
                 outcome_extra_covariates=outcome_extra_covariates,
                 positivity_constraint=positivity_constraint,
+                orders=orders,
                 verbosity=verbosity
             )
         end

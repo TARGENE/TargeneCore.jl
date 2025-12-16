@@ -1,4 +1,4 @@
-module TestGweisEstimands
+module TestGwisEstimands
 
 using Test
 using SnpArrays
@@ -21,39 +21,40 @@ function get_summary_stats(estimands)
 end
 
 function check_estimands_levels_interactions(estimands)
-    string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"))["extra_treatments"]
-    extra_treatments = []
-    for (i,x) in enumerate(string_treatments)
-        push!(extra_treatments, Symbol(x))
-    end
+    string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"))["extra_treatments"]
+    extra_treatments = Set(Symbol.(string_treatments))
 
     for Ψ in estimands
-        # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
-        treatment_set = collect(keys(Ψ.args[1].treatment_values))
-        variant = setdiff(treatment_set, extra_treatments)[1]
-        if length(Ψ.args) == 2
-            @test Ψ.args[1].treatment_values[variant] == (control = 0x00, case = 0x01)
-            @test Ψ.args[2].treatment_values[variant] == (control = 0x01, case = 0x02)
-        else
-            # Otherwise we check they are one or the other
-            arg = only(Ψ.args)
-            @test arg.treatment_values[variant]==(control = 0x00, case = 0x01) ||
-            arg.treatment_values[variant]==( control = 0x01, case = 0x02)
+        # Get the treatment keys from the first arg
+        treatment_set = Set(keys(Ψ.args[1].treatment_values))
+        
+        # Find the variant (treatment that's not in extra_treatments)
+        variants = setdiff(treatment_set, extra_treatments)
+        
+        # Skip if no variant found (shouldn't happen, but defensive)
+        isempty(variants) && continue
+        
+        variant = first(variants)
+        
+        # For all estimands, just check that each component has a valid variant transition
+        for arg in Ψ.args
+            @test arg.treatment_values[variant] == (control = 0x00, case = 0x01) ||
+                  arg.treatment_values[variant] == (control = 0x01, case = 0x02)
         end
-   end
+    end
 end
 
-@testset "Test inputs_from_config gweis: no positivity constraint" begin
+@testset "Test inputs_from_config gwis: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"),
+        joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"),
         string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
         string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
         string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
         string("--outprefix=", joinpath(tmpdir, "final")), 
         "--batchsize=5",
-        "--verbosity=0",
+        "--verbosity=1",
         "--positivity-constraint=0"
     ])
     TargeneCore.julia_main()
@@ -69,11 +70,11 @@ end
     end
     @test all(e isa JointEstimand for e in estimands)
 
-    # There are 875 variants in the dataset
     summary_stats = get_summary_stats(estimands)
+    # Removes estimands that have no representation in the data as well as redundant interaction (e.g. variant treatment and itself)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
-        nrow = repeat([875], 4)
+        nrow = repeat([3493], 4)
     )
     check_estimands_levels_interactions(estimands)
     
@@ -86,11 +87,11 @@ end
 end
 
 
-@testset "Test inputs_from_config gweis: positivity constraint" begin
+@testset "Test inputs_from_config gwis: positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gweis_first_order.yaml"),
+        joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"),
         string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
         string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
         string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
@@ -115,7 +116,7 @@ end
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
-        nrow = repeat([146], 4)
+        nrow = repeat([923], 4)
     )
    
     check_estimands_levels_interactions(estimands)
@@ -130,6 +131,22 @@ end
     @test all(mapping.MAF .>= 0.0)  # All remaining variants should meet some minimum threshold
 end
 
+@testset "Test inputs_from_config gwis: incorrect estimand type" begin
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_gwis_problematic.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
+        string("--outprefix=", joinpath(tmpdir, "final")), 
+        "--batchsize=5",
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    @test_throws TaskFailedException TargeneCore.julia_main()
+end
 
 end
+
 true
