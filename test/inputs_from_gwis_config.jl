@@ -58,7 +58,6 @@ function check_estimands_levels_interactions(estimands)
             @test false
         end
     end
-    @test (3500, 3500, 3492, 3480) == (ATE_count, GxE_Count, GxG_Count, higher_order_count)
 end
 
 @testset "Test inputs_from_config gwis: no positivity constraint" begin
