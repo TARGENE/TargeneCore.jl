@@ -2,7 +2,7 @@
 
 julia_version = "1.11.7"
 manifest_format = "2.0"
-project_hash = "66c8f372865386f2ac3e2f8e29fb2385f11da881"
+project_hash = "81a861f89ac9357b512d97125ab69c7b31afc13b"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "8b2b045b22740e4be20654175cc38291d48539db"
@@ -1015,24 +1015,6 @@ git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
 uuid = "42e2da0e-8278-4e71-bc24-59509adca0fe"
 version = "1.0.2"
 
-[[deps.HDF5]]
-deps = ["Compat", "HDF5_jll", "Libdl", "MPIPreferences", "Mmap", "Preferences", "Printf", "Random", "Requires", "UUIDs"]
-git-tree-sha1 = "e856eef26cf5bf2b0f95f8f4fc37553c72c8641c"
-uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-version = "0.17.2"
-
-    [deps.HDF5.extensions]
-    MPIExt = "MPI"
-
-    [deps.HDF5.weakdeps]
-    MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
-
-[[deps.HDF5_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "LibCURL_jll", "Libdl", "MPICH_jll", "MPIPreferences", "MPItrampoline_jll", "MicrosoftMPI_jll", "OpenMPI_jll", "OpenSSL_jll", "TOML", "Zlib_jll", "libaec_jll"]
-git-tree-sha1 = "e94f84da9af7ce9c6be049e9067e511e17ff89ec"
-uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
-version = "1.14.6+0"
-
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "ExceptionUnwrapping", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "PrecompileTools", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
 git-tree-sha1 = "5e6fe50ae7f23d171f44e311c2960294aaa0beb5"
@@ -1055,12 +1037,6 @@ deps = ["BitTwiddlingConvenienceFunctions", "IfElse", "Libdl", "Static"]
 git-tree-sha1 = "8e070b599339d622e9a081d17230d74a5c473293"
 uuid = "3e5b6fbb-0976-4d2c-9146-d79de83f2fb0"
 version = "0.1.17"
-
-[[deps.Hwloc_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "XML2_jll", "Xorg_libpciaccess_jll"]
-git-tree-sha1 = "3d468106a05408f9f7b6f161d9e7715159af247b"
-uuid = "e33a78d0-f292-5ffc-b300-72abe9b543c8"
-version = "2.12.2+0"
 
 [[deps.HypergeometricFunctions]]
 deps = ["LinearAlgebra", "OpenLibm_jll", "SpecialFunctions"]
@@ -1615,24 +1591,6 @@ git-tree-sha1 = "a772d8d1987433538a5c226f79393324b55f7846"
 uuid = "f1d291b0-491e-4a28-83b9-f70985020b54"
 version = "0.4.8"
 
-[[deps.MPICH_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML"]
-git-tree-sha1 = "9341048b9f723f2ae2a72a5269ac2f15f80534dc"
-uuid = "7cb0a576-ebde-5e09-9194-50597f1243b4"
-version = "4.3.2+0"
-
-[[deps.MPIPreferences]]
-deps = ["Libdl", "Preferences"]
-git-tree-sha1 = "c105fe467859e7f6e9a852cb15cb4301126fac07"
-uuid = "3da0fdf6-3ccc-4f1b-acd9-58baa6c99267"
-version = "0.1.11"
-
-[[deps.MPItrampoline_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML"]
-git-tree-sha1 = "e214f2a20bdd64c04cd3e4ff62d3c9be7e969a59"
-uuid = "f1f71cc9-e9ae-5b93-9b94-4fe0e1ad3748"
-version = "5.5.4+0"
-
 [[deps.MacroTools]]
 git-tree-sha1 = "1e0228a030642014fe5cfe68c2c0a818f9e3f522"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
@@ -1693,12 +1651,6 @@ deps = ["Accessors", "BangBang", "InitialValues"]
 git-tree-sha1 = "44d32db644e84c75dab479f1bc15ee76a1a3618f"
 uuid = "128add7d-3638-4c79-886c-908ea0c25c34"
 version = "0.2.0"
-
-[[deps.MicrosoftMPI_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "bc95bf4149bf535c09602e3acdf950d9b4376227"
-uuid = "9237b28f-5490-5468-be7b-bb81f5f5e6cf"
-version = "10.1.4+3"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -1841,12 +1793,6 @@ deps = ["ARFFFiles", "HTTP", "JSON", "Markdown", "Pkg", "Scratch"]
 git-tree-sha1 = "63603b2b367107e87dbceda4e33c67aed17e50e0"
 uuid = "8b6db2d4-7670-4922-a472-f9537c81ab66"
 version = "0.3.2"
-
-[[deps.OpenMPI_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Hwloc_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "MPIPreferences", "TOML", "Zlib_jll"]
-git-tree-sha1 = "ec764453819f802fc1e144bfe750c454181bd66d"
-uuid = "fe0851c0-eecd-5654-98d4-656369965a5c"
-version = "5.0.8+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "NetworkOptions", "OpenSSL_jll", "Sockets"]
@@ -2716,12 +2662,6 @@ git-tree-sha1 = "f44f3bacdc99ca220ef9ead2b6cbce9a1b8957bc"
 uuid = "a5c6f535-4255-5ca2-a466-0e519f119c46"
 version = "2.1.5+0"
 
-[[deps.XML2_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Zlib_jll"]
-git-tree-sha1 = "80d3930c6347cfce7ccf96bd3bafdf079d9c0390"
-uuid = "02c8fc9c-b97f-50b9-bbe4-9be30ff0a78a"
-version = "2.13.9+0"
-
 [[deps.XZ_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "fee71455b0aaa3440dfdd54a9a36ccef829be7d4"
@@ -2757,12 +2697,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libX11_jll"]
 git-tree-sha1 = "7ed9347888fac59a618302ee38216dd0379c480d"
 uuid = "ea2f1a96-1ddc-540d-b46f-429655e07cfa"
 version = "0.9.12+0"
-
-[[deps.Xorg_libpciaccess_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Zlib_jll"]
-git-tree-sha1 = "4909eb8f1cbf6bd4b1c30dd18b2ead9019ef2fad"
-uuid = "a65dc6b1-eb27-53a1-bb3e-dea574b5389e"
-version = "0.18.1+0"
 
 [[deps.Xorg_libxcb_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Xorg_libXau_jll", "Xorg_libXdmcp_jll"]
@@ -2804,12 +2738,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51b5eeb3f98367157a7a12a1fb0aa5328946c03c"
 uuid = "9a68df92-36a6-505f-a73e-abb412b6bfb4"
 version = "0.2.3+0"
-
-[[deps.libaec_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "1aa23f01927b2dac46db77a56b31088feee0a491"
-uuid = "477f73a3-ac25-53e9-8cc3-50b2fa2566f0"
-version = "1.1.4+0"
 
 [[deps.libaom_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]

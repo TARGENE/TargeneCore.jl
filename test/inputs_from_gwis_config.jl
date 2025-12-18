@@ -9,6 +9,7 @@ using Serialization
 using TMLE
 using CSV
 using YAML
+using StatsBase
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
@@ -21,34 +22,50 @@ function get_summary_stats(estimands)
 end
 
 function check_estimands_levels_interactions(estimands)
-    string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"))["extra_treatments"]
+    string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gwis.yaml"))["extra_treatments"]
     extra_treatments = Set(Symbol.(string_treatments))
+    ATE_count, GxE_Count, GxG_Count, higher_order_count = 0, 0, 0, 0
 
     for Ψ in estimands
-        # Get the treatment keys from the first arg
         treatment_set = Set(keys(Ψ.args[1].treatment_values))
-        
         # Find the variant (treatment that's not in extra_treatments)
         variants = setdiff(treatment_set, extra_treatments)
-        
-        # Skip if no variant found (shouldn't happen, but defensive)
-        isempty(variants) && continue
-        
-        variant = first(variants)
+        # Will crash if there are multiple variants in the set
+        # If the variant is used for interaction e.g length(variants) == 0 after the setdiff
+        # Account for this by just picking the first treatment in tests to ensure that single effect of said variant works correctly
+        if isempty(variants)
+            variant = first(treatment_set)
+        else
+            variant = only(variants)
+        end
         
         # For all estimands, just check that each component has a valid variant transition
         for arg in Ψ.args
             @test arg.treatment_values[variant] == (control = 0x00, case = 0x01) ||
                   arg.treatment_values[variant] == (control = 0x01, case = 0x02)
         end
+        
+        if Ψ.args[1] isa TMLE.StatisticalATE
+            @test length(Ψ.args[1].treatment_values) == 1
+            ATE_count += 1
+        elseif haskey(Ψ.args[1].treatment_values, :TREAT_1) && length(Ψ.args[1].treatment_values) == 2
+            GxE_Count += 1
+        elseif haskey(Ψ.args[1].treatment_values, :rs3693265) && length(Ψ.args[1].treatment_values) == 2
+            GxG_Count += 1
+        elseif haskey(Ψ.args[1].treatment_values, :rs3693265) && haskey(Ψ.args[1].treatment_values, :TREAT_1) && length(Ψ.args[1].treatment_values) == 3
+            higher_order_count += 1
+        else
+            @test false
+        end
     end
+    @test (3500, 3500, 3492, 3480) == (ATE_count, GxE_Count, GxG_Count, higher_order_count)
 end
 
 @testset "Test inputs_from_config gwis: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"),
+        joinpath(TESTDIR, "data", "config_gwis.yaml"),
         string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
         string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
         string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
@@ -77,13 +94,6 @@ end
         nrow = repeat([3493], 4)
     )
     check_estimands_levels_interactions(estimands)
-    
-    # Check mapping file
-    mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
-    @test size(mapping, 1) == 875  # Number of variants
-    @test all(mapping.n .> 0)  # All variants should have non-zero counts
-    @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
-    @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
 end
 
 
@@ -91,7 +101,7 @@ end
     tmpdir = mktempdir()
     copy!(ARGS, [
         "estimation-inputs",
-        joinpath(TESTDIR, "data", "config_gwis_first_order.yaml"),
+        joinpath(TESTDIR, "data", "config_gwis.yaml"),
         string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
         string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
         string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
@@ -120,15 +130,6 @@ end
     )
    
     check_estimands_levels_interactions(estimands)
-    
-    # Check mapping file
-    mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
-    @test size(mapping, 1) == 875  # Number of variants after positivity constraint
-    @test all(mapping.n .> 0)  # All variants should have non-zero counts
-    @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
-    @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
-    # With positivity constraint, variants with very low MAF should be filtered
-    @test all(mapping.MAF .>= 0.0)  # All remaining variants should meet some minimum threshold
 end
 
 @testset "Test inputs_from_config gwis: incorrect estimand type" begin

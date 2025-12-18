@@ -36,4 +36,3 @@ sandbox.jl
 src/generate_results.jl
 test_grid.csv
 test/tl_inputs/real_data.jl
-test/data/scratch/

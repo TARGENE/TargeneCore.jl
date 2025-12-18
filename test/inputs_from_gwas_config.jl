@@ -52,6 +52,7 @@ end
     # Check dataset
     dataset = DataFrame(Arrow.Table(joinpath(tmpdir, "final.data.arrow")))
     @test size(dataset) == (1940, 886)
+
     # Check estimands
     estimands = []
     for file in readdir(tmpdir, join=true)
@@ -69,44 +70,6 @@ end
     )
 
     check_estimands_levels_order(estimands)
-    
-    # Check mapping file
-    mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
-    @test size(mapping, 1) == 875  # Number of variants
-    begin
-        required = ["snpid", "allele1", "allele2", "vₘ", "v₀", "v₁", "v₂", "n", "MAF"]
-        @test all(col -> col in names(mapping), required)
-    end
-    @test all(mapping.n .> 0)  # All variants should have non-zero counts
-    @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
-    @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
-    # Per-outcome (binary) genotype counts test
-    traits = CSV.read(joinpath(TESTDIR, "data", "ukbb_traits.csv"), DataFrame)
-    for outcome in [:BINARY_1, :BINARY_2]
-        lvls = sort(unique(skipmissing(traits[!, outcome])))
-
-        safe0 = replace(string(lvls[1]), r"\s+" => "_")
-        safe1 = replace(string(lvls[2]), r"\s+" => "_")
-
-        col_v0_0 = "v0_$(outcome)_$(safe0)"
-        col_v0_1 = "v0_$(outcome)_$(safe1)"
-        col_v1_0 = "v1_$(outcome)_$(safe0)"
-        col_v1_1 = "v1_$(outcome)_$(safe1)"
-        col_v2_0 = "v2_$(outcome)_$(safe0)"
-        col_v2_1 = "v2_$(outcome)_$(safe1)"
-
-        @test col_v0_0 in names(mapping)
-        @test col_v0_1 in names(mapping)
-        @test col_v1_0 in names(mapping)
-        @test col_v1_1 in names(mapping)
-        @test col_v2_0 in names(mapping)
-        @test col_v2_1 in names(mapping)
-
-        # Per-SNP per-level counts should sum to overall counts
-        @test all(mapping[!, col_v0_0] .+ mapping[!, col_v0_1] .== mapping.v₀)
-        @test all(mapping[!, col_v1_0] .+ mapping[!, col_v1_1] .== mapping.v₁)
-        @test all(mapping[!, col_v2_0] .+ mapping[!, col_v2_1] .== mapping.v₂)
-    end
 end
 
 @testset "Test inputs_from_config gwas: positivity constraint" begin
@@ -142,46 +105,6 @@ end
     )
    
     check_estimands_levels_order(estimands)
-    
-    # Check mapping file
-    mapping = CSV.read(joinpath(tmpdir, "final.mapping.txt"), DataFrame)
-    @test size(mapping, 1) == 875  # Number of variants after positivity constraint
-    begin
-        required = ["snpid", "allele1", "allele2", "vₘ", "v₀", "v₁", "v₂", "n", "MAF"]
-        @test all(col -> col in names(mapping), required)
-    end
-    @test all(mapping.n .> 0)  # All variants should have non-zero counts
-    @test all(0 .<= mapping.MAF .<= 0.5)  # MAF should be between 0 and 0.5
-    @test all(mapping.v₀ .>= mapping.v₂)  # v₀ should be >= v₂ due to major/minor allele swapping
-    # With positivity constraint, variants with very low MAF should be filtered
-    @test all(mapping.MAF .>= 0.0)  # All remaining variants should meet some minimum threshold
-    # Per-outcome (binary) genotype counts test
-    traits = CSV.read(joinpath(TESTDIR, "data", "ukbb_traits.csv"), DataFrame)
-    for outcome in [:BINARY_1, :BINARY_2]
-        lvls = sort(unique(skipmissing(traits[!, outcome])))
-
-        safe0 = replace(string(lvls[1]), r"\s+" => "_")
-        safe1 = replace(string(lvls[2]), r"\s+" => "_")
-
-        col_v0_0 = "v0_$(outcome)_$(safe0)"
-        col_v0_1 = "v0_$(outcome)_$(safe1)"
-        col_v1_0 = "v1_$(outcome)_$(safe0)"
-        col_v1_1 = "v1_$(outcome)_$(safe1)"
-        col_v2_0 = "v2_$(outcome)_$(safe0)"
-        col_v2_1 = "v2_$(outcome)_$(safe1)"
-
-        @test col_v0_0 in names(mapping)
-        @test col_v0_1 in names(mapping)
-        @test col_v1_0 in names(mapping)
-        @test col_v1_1 in names(mapping)
-        @test col_v2_0 in names(mapping)
-        @test col_v2_1 in names(mapping)
-
-        # Per-SNP per-level counts should sum to overall counts
-        @test all(mapping[!, col_v0_0] .+ mapping[!, col_v0_1] .== mapping.v₀)
-        @test all(mapping[!, col_v1_0] .+ mapping[!, col_v1_1] .== mapping.v₁)
-        @test all(mapping[!, col_v2_0] .+ mapping[!, col_v2_1] .== mapping.v₂)
-    end
 end
 
 end

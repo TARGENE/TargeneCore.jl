@@ -46,26 +46,26 @@ function try_append_new_estimands!(
         verbosity=verbosity-1
     )
     catch e
-        if e == ArgumentError("No component passed the positivity constraint.")
-            verbosity > 0 && @info "Skipped due to positivity constraint: treatments=$(keys(treatments)), outcomes=$outcomes"
-        else
-            verbosity > 0 && @warn "Unexpected error creating estimand: treatments=$(keys(treatments)), error=$e"
+        if !(e == ArgumentError("No component passed the positivity constraint."))
             throw(e)
         end
     else
-        verbosity > 1 && @info "Created $(length(Ψ)) estimands for treatments=$(keys(treatments))"
         append!(estimands, Ψ)
     end
 end
 
 """
-    treatment_from_variant(variant, dataset)
+    get_treatment_levels(treatment, dataset)
 
     Generate a key-value pair (dictionary) for treatment structs.
 """
-function treatments_from_variant(variant::String, dataset::DataFrame)
-    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
-    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+function get_treatment_levels(treatment::String, dataset::DataFrame)
+    treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
+    if eltype(treatment_levels) <: Integer
+        return Dict{Symbol, Vector{UInt8}}(Symbol(treatment) => UInt8.(treatment_levels))
+    else
+        return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
+    end
 end
 
 function estimands_from_variants(
@@ -89,7 +89,7 @@ function estimands_from_variants(
     for order in orders
         if order == 1
             for variant in variants
-                treatments = treatments_from_variant(variant, dataset)
+                treatments = get_treatment_levels(variant, dataset)
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
@@ -104,20 +104,20 @@ function estimands_from_variants(
             end
         else
             vars_needed = order - 1 # Since the variant is already a treatment variable 
-            if vars_needed > length(extra_treatments) && verbosity > 0
-                @warn("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided.")
+            if vars_needed > length(extra_treatments)
+                throw(ArgumentError("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided."))
             end
 
             for combo in Combinatorics.combinations(extra_treatments, vars_needed)
                 for variant in variants
                     if Symbol(variant) in combo
-                        @info "Skipping self-interaction: $variant in $combo"
+                        # Skip combinations where the variant is also in the extra treatments
                         continue
                     end
-                    treatments = treatments_from_variant(variant, dataset)
+                    treatments = get_treatment_levels(variant, dataset)
                     # Add each extra treatment from the combination
                     for t in combo
-                        merge!(treatments, treatments_from_variant(string(t), dataset))
+                        merge!(treatments, get_treatment_levels(string(t), dataset))
                     end
                     try_append_new_estimands!(
                         estimands, 
@@ -255,97 +255,20 @@ function read_bed_chromosome(bedprefix)
     return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
 end
 
-function get_genotypes_from_beds(bedprefix, outprefix, traits, pcs, outcomes)
+function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid"; makeunique=true)
-    genotype_ids = names(genotypes)
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
     genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
-    for col in genotype_ids
+    for col in names(genotypes)
         genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
     end
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    
-    sample_ids = intersect(Set(traits.SAMPLE_ID), Set(pcs.SAMPLE_ID))
-    mask = in.(genotypes.SAMPLE_ID, Ref(sample_ids))
-    sample_genotypes = genotypes[mask, :]
-
-    counts = countmap.(eachcol(select(sample_genotypes, Not(:SAMPLE_ID))))
-    mapping_df = DataFrame(
-      snpid   = genotype_ids,
-      allele1 = snpdata.snp_info.allele1,
-      allele2 = snpdata.snp_info.allele2,
-      vₘ      = get.(counts, missing,  0),
-      v₀      = get.(counts, UInt8(0), 0),
-      v₁      = get.(counts, UInt8(1), 0),
-      v₂      = get.(counts, UInt8(2), 0),
-    )
-    mapping_df.n = mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂
-
-    # if v₀ < v₂, swap all 0↔2 so that 0 always marks the major homozygote
-    for (i, snpid) in enumerate(mapping_df.snpid)
-        if mapping_df.v₀[i] < mapping_df.v₂[i]
-            col = Symbol(snpid)
-            # Flip genotype coding 0<->2 in both full and sample subsets so downstream per-level counts match mapping
-            genotypes_col = genotypes[!, col]
-            genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2) : x === UInt8(2) ? UInt8(0) : x, genotypes_col)
-            if size(sample_genotypes, 1) > 0
-                sample_genotypes[!, col] = map(x -> x === UInt8(0) ? UInt8(2) : x === UInt8(2) ? UInt8(0) : x, sample_genotypes[!, col])
-            end
-
-            # Swap alleles and counts respectively so that v₀ >= v₂ reflects major allele homozygote
-            allele2 = mapping_df.allele2[i]
-            mapping_df.allele2[i] = mapping_df.allele1[i]
-            mapping_df.allele1[i] = allele2
-
-            v₂_old = mapping_df.v₀[i]
-            mapping_df.v₀[i] = mapping_df.v₂[i]
-            mapping_df.v₂[i] = v₂_old
-        end
-    end
-
-    if !isempty(outcomes)
-        outcome_syms = Symbol.(outcomes)
-        trait_names = names(traits)
-        # Keep only outcomes present in traits (either Symbol or String form)
-        present_outcomes = [o for o in outcome_syms if (o in trait_names) || (string(o) in trait_names)]
-        if isempty(present_outcomes)
-            @warn "None of the requested outcomes found in traits; skipping per-outcome genotype counts."
-        else
-            traits_subset = select(traits, vcat(:SAMPLE_ID, present_outcomes)...)
-            joined = innerjoin(sample_genotypes, traits_subset, on = :SAMPLE_ID)
-            joined_names = names(joined)
-
-            for outcome in present_outcomes
-                outcome_str = string(outcome)
-                outcome_col = (outcome in trait_names) ? outcome : outcome_str
-                outcome_joined_col = (outcome in joined_names) ? outcome : outcome_str
-                lvls = unique(skipmissing(traits[!, outcome_col]))
-                if length(lvls) != 2
-                    @info "Outcome $(outcome) has $(length(lvls)) levels (not binary); skipping per-level counts."
-                    continue
-                end
-                # Compute counts restricted to genotype columns for each level
-                for lvl in lvls
-                    rows = joined[joined[!, outcome_joined_col] .== lvl, :]
-                    lvl_counts = countmap.(eachcol(select(rows, genotype_ids)))
-                    safe_outcome = replace(outcome_str, r"\W+" => "_")
-                    safe_lvl = replace(string(lvl), r"\W+" => "_")
-                    mapping_df[!, "v0_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(0), 0)
-                    mapping_df[!, "v1_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(1), 0)
-                    mapping_df[!, "v2_$(safe_outcome)_$(safe_lvl)"] = get.(lvl_counts, UInt8(2), 0)
-                end
-            end
-        end
-    end
-
-    mapping_df.MAF = (mapping_df.v₁ .+ (2 .* mapping_df.v₂)) ./ (2 .* (mapping_df.v₀ .+ mapping_df.v₁ .+ mapping_df.v₂))
-    CSV.write("$(outprefix).mapping.txt", mapping_df)
     return genotypes, Dict()
 end
 
-function make_genotypes(genotype_prefix, config, call_threshold, outprefix, traits, pcs, outcomes)
+function make_genotypes(genotype_prefix, config, call_threshold)
     genotypes, genotypes_levels = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix, outprefix, traits, pcs, outcomes)
+        get_genotypes_from_beds(genotype_prefix)
     else
         variants_set = Set(retrieve_variants_list(config["variants"]))
         call_genotypes(genotype_prefix, variants_set, call_threshold)
@@ -375,7 +298,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
-    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold, outprefix, traits, pcs, outcomes)
+    genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold)
     dataset = merge(traits, pcs, genotypes)
     finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
