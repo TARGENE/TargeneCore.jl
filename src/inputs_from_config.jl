@@ -55,13 +55,17 @@ function try_append_new_estimands!(
 end
 
 """
-    treatment_from_variant(variant, dataset)
+    get_treatment_levels(treatment, dataset)
 
     Generate a key-value pair (dictionary) for treatment structs.
 """
-function treatments_from_variant(variant::String, dataset::DataFrame)
-    variant_levels = sort(levels(dataset[!, variant], skipmissing=true))
-    return Dict{Symbol, Vector{UInt8}}(Symbol(variant)=>variant_levels)
+function get_treatment_levels(treatment::String, dataset::DataFrame)
+    treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
+    if eltype(treatment_levels) <: Integer
+        return Dict{Symbol, Vector{UInt8}}(Symbol(treatment) => UInt8.(treatment_levels))
+    else
+        return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
+    end
 end
 
 function estimands_from_variants(
@@ -70,29 +74,64 @@ function estimands_from_variants(
     estimand_constructor, 
     outcomes, 
     confounders;
+    extra_treatments=[],
     outcome_extra_covariates=[],
     positivity_constraint=0.,
-    verbosity=1
+    orders=[1],
+    verbosity=0
     )
+
+    if estimand_constructor != AIE && estimand_constructor != ATE
+        throw(ArgumentError("Using GWAS with estimand type $(estimand_constructor) is not supported. Use ATE or AIE."))
+    end
+
     estimands = []
-    for variant in variants
-        treatments = treatments_from_variant(variant, dataset)
-        local Ψ
-        try
-            Ψ = factorialEstimands(
-            estimand_constructor, treatments, outcomes; 
-            confounders=confounders, 
-            dataset=dataset,
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint, 
-            verbosity=verbosity-1
-            )
-        catch e
-            if !(e == ArgumentError("No component passed the positivity constraint."))
-                throw(e)
+    for order in orders
+        if order == 1
+            for variant in variants
+                treatments = get_treatment_levels(variant, dataset)
+                try_append_new_estimands!(
+                    estimands, 
+                    dataset, 
+                    estimand_constructor, 
+                    treatments, 
+                    outcomes, 
+                    confounders;
+                    outcome_extra_covariates=outcome_extra_covariates,
+                    positivity_constraint=positivity_constraint,
+                    verbosity=verbosity
+                )
             end
         else
-            append!(estimands, Ψ)
+            vars_needed = order - 1 # Since the variant is already a treatment variable 
+            if vars_needed > length(extra_treatments)
+                throw(ArgumentError("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided."))
+            end
+
+            for combo in Combinatorics.combinations(extra_treatments, vars_needed)
+                for variant in variants
+                    if Symbol(variant) in combo
+                        # Skip combinations where the variant is also in the extra treatments
+                        continue
+                    end
+                    treatments = get_treatment_levels(variant, dataset)
+                    # Add each extra treatment from the combination
+                    for t in combo
+                        merge!(treatments, get_treatment_levels(string(t), dataset))
+                    end
+                    try_append_new_estimands!(
+                        estimands, 
+                        dataset, 
+                        estimand_constructor, 
+                        treatments, 
+                        outcomes, 
+                        confounders;
+                        outcome_extra_covariates=outcome_extra_covariates,
+                        positivity_constraint=positivity_constraint,
+                        verbosity=verbosity
+                    )
+                end
+            end
         end
     end
     return estimands
@@ -180,21 +219,30 @@ function estimands_from_flat_list(estimands_configs, dataset, variants, outcomes
     return estimands
 end
 
-function estimands_from_gwas(dataset, variants, outcomes, confounders; 
+function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, confounders; 
+    extra_treatments=extra_treatments,
     outcome_extra_covariates = [],
     positivity_constraint=0.,
     verbosity=0
     )
-    variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
-    estimands_tasks = map(variants_groups) do variants
-        Threads.@spawn estimands_from_variants(variants, dataset, ATE, outcomes, confounders;
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
+    estimands = []
+    for estimands_config in estimands_configs
+        estimand_constructor = eval(Symbol(estimands_config["type"]))
+        orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
+        variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
+        estimands_tasks = map(variants_groups) do variants
+            Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
+                extra_treatments=extra_treatments,
+                outcome_extra_covariates=outcome_extra_covariates,
+                positivity_constraint=positivity_constraint,
+                orders=orders,
+                verbosity=verbosity
+            )
+        end
+        estimands_partitions = fetch.(estimands_tasks)
+        push!(estimands, vcat(estimands_partitions...))
     end
-    estimands_partitions = fetch.(estimands_tasks)
-    return vcat(estimands_partitions...)
+    return vcat(estimands...)
 end
 
 get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
@@ -272,7 +320,12 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
         )
     elseif config_type == "gwas"
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        estimands_from_gwas(dataset, variants, outcomes, confounders;
+        # Set default gwas estimands config (ATE) if not specified
+        if !haskey(config, "estimands")
+            config["estimands"] = [Dict("type" => "ATE")]
+        end
+        estimands_from_gwas(config["estimands"], dataset, variants, outcomes, confounders;
+            extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity
@@ -283,7 +336,7 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
 
     @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."
 
-    write_estimation_inputs(outprefix, dataset, groups_ordering(estimands); batchsize=batchsize)
+    write_estimation_inputs(outprefix, dataset, TMLE.groups_ordering(estimands); batchsize=batchsize)
 
     verbosity > 0 && @info("Done.")
 

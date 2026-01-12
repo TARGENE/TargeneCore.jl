@@ -193,7 +193,7 @@ function adjusted_estimands(estimands, variables, data; positivity_constraint=0.
     end
 
     length(final_estimands) > 0 || throw(NoRemainingParamsError(positivity_constraint))
-    ordered_estimands = groups_ordering(final_estimands; brute_force=false, do_shuffle=false)
+    ordered_estimands = TMLE.groups_ordering(final_estimands; brute_force=false, do_shuffle=false)
     
     return ordered_estimands
 end
