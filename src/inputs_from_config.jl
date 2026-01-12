@@ -320,6 +320,10 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
         )
     elseif config_type == "gwas"
         variants = filter(!=("SAMPLE_ID"), names(genotypes))
+        # Set default gwas estimands config (ATE) if not specified
+        if !haskey(config, "estimands")
+            config["estimands"] = [Dict("type" => "ATE")]
+        end
         estimands_from_gwas(config["estimands"], dataset, variants, outcomes, confounders;
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
