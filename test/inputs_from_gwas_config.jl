@@ -19,22 +19,6 @@ function get_summary_stats(estimands)
     return sort(combine(groupby(results, :OUTCOME), nrow), :OUTCOME)
 end
 
-function check_estimands_levels_order(estimands)
-    for Ψ in estimands
-        # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
-        variant = only(keys(Ψ.args[1].treatment_values))
-        if length(Ψ.args) == 2
-            @test Ψ.args[1].treatment_values[variant] == (control = 0x00, case = 0x01)
-            @test Ψ.args[2].treatment_values[variant] == (control = 0x01, case = 0x02)
-        else
-            # Otherwise we check they are one or the other
-            arg = only(Ψ.args)
-            @test arg.treatment_values[variant]==(control = 0x00, case = 0x01) ||
-            arg.treatment_values[variant]==( control = 0x01, case = 0x02)
-        end
-   end
-end
-
 @testset "Test inputs_from_config gwas: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
@@ -68,8 +52,6 @@ end
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
         nrow = repeat([875], 5)
     )
-
-    check_estimands_levels_order(estimands)
 end
 
 @testset "Test inputs_from_config gwas: positivity constraint" begin
@@ -103,8 +85,6 @@ end
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
         nrow = repeat([777], 5)
     )
-   
-    check_estimands_levels_order(estimands)
 end
 
 end

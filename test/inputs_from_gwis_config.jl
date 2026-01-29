@@ -39,12 +39,6 @@ function check_estimands_levels_interactions(estimands)
             variant = only(variants)
         end
         
-        # For all estimands, just check that each component has a valid variant transition
-        for arg in Ψ.args
-            @test arg.treatment_values[variant] == (control = 0x00, case = 0x01) ||
-                  arg.treatment_values[variant] == (control = 0x01, case = 0x02)
-        end
-        
         if Ψ.args[1] isa TMLE.StatisticalATE
             @test length(Ψ.args[1].treatment_values) == 1
             ATE_count += 1

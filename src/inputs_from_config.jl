@@ -229,7 +229,8 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
     for estimands_config in estimands_configs
         estimand_constructor = eval(Symbol(estimands_config["type"]))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
-        variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
+        partition_size = max(1, cld(length(variants), Threads.nthreads()))
+        variants_groups = Iterators.partition(variants, partition_size)
         estimands_tasks = map(variants_groups) do variants
             Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
                 extra_treatments=extra_treatments,
@@ -258,9 +259,9 @@ end
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
     genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
-    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
-    for col in names(genotypes)
-        genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
+    for (i, col) in enumerate(names(genotypes))
+        genotype_map = Union{String, Missing}[snpdata.snp_info.allele1[i]*snpdata.snp_info.allele1[i], missing, snpdata.snp_info.allele1[i]*snpdata.snp_info.allele2[i], snpdata.snp_info.allele2[i]*snpdata.snp_info.allele2[i]]
+        genotypes[!, col] = PooledArray([genotype_map[x+1] for x in genotypes[!, col]])
     end
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
     return genotypes, Dict()
