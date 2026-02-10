@@ -54,17 +54,36 @@ function try_append_new_estimands!(
     end
 end
 
+function gwas_sort(treatment::String, dataset::DataFrame)
+    counts = combine(groupby(dataset, treatment, skipmissing=true), nrow)
+    genotypes = counts[!, treatment]
+    
+    # If the treatment is not biallelic default to the vanilla level sort
+    all(length.(genotypes) .== 2) || return get_treatment_levels(treatment, dataset; gwas=false)
+    
+    # Identify the heterozygote
+    het = only(filter(g->g[1] != g[2], counts[!, treatment]))
+    homo1 = string(het[1], het[1])
+    homo2 = string(het[2], het[2])
+    geno_counts = Dict(zip(genotypes, counts[!, :nrow]))
+    
+    major, minor = get(geno_counts, homo1, 0) >= get(geno_counts, homo2, 0) ? (homo1, homo2) : (homo2, homo1)
+    treatment_levels = filter(g->g in genotypes, [major, het, minor])
+
+    return Dict{Symbol, Vector{Any}}(Symbol(treatment)=>treatment_levels)
+
+end
 """
     get_treatment_levels(treatment, dataset)
 
     Generate a key-value pair (dictionary) for treatment structs.
 """
-function get_treatment_levels(treatment::String, dataset::DataFrame)
-    treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
-    if eltype(treatment_levels) <: Integer
-        return Dict{Symbol, Vector{UInt8}}(Symbol(treatment) => UInt8.(treatment_levels))
-    else
+function get_treatment_levels(treatment::String, dataset::DataFrame; gwas::Bool=false)
+    if !gwas
+        treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
         return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
+    else
+        gwas_sort(treatment, dataset)
     end
 end
 
@@ -89,7 +108,7 @@ function estimands_from_variants(
     for order in orders
         if order == 1
             for variant in variants
-                treatments = get_treatment_levels(variant, dataset)
+                treatments = get_treatment_levels(variant, dataset; gwas=true)
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
@@ -114,10 +133,14 @@ function estimands_from_variants(
                         # Skip combinations where the variant is also in the extra treatments
                         continue
                     end
-                    treatments = get_treatment_levels(variant, dataset)
+                    treatments = get_treatment_levels(variant, dataset; gwas=true)
                     # Add each extra treatment from the combination
                     for t in combo
-                        merge!(treatments, get_treatment_levels(string(t), dataset))
+                        if string(t) in variants
+                            merge!(treatments, get_treatment_levels(string(t), dataset; gwas=true))
+                        else
+                            merge!(treatments, get_treatment_levels(string(t), dataset))
+                        end
                     end
                     try_append_new_estimands!(
                         estimands, 
@@ -261,7 +284,7 @@ function get_genotypes_from_beds(bedprefix)
     genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
     for (i, col) in enumerate(names(genotypes))
         genotype_map = Union{String, Missing}[snpdata.snp_info.allele1[i]*snpdata.snp_info.allele1[i], missing, snpdata.snp_info.allele1[i]*snpdata.snp_info.allele2[i], snpdata.snp_info.allele2[i]*snpdata.snp_info.allele2[i]]
-        genotypes[!, col] = PooledArray([genotype_map[x+1] for x in genotypes[!, col]])
+        genotypes[!, col] = PooledArray([genotype_map[x+1] for x in genotypes[!, col]], compress=true)
     end
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
     return genotypes, Dict()

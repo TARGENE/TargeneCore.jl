@@ -203,3 +203,34 @@ function make_estimands_configuration_file(config_generator=make_estimands_confi
     TMLE.write_yaml(filename, config)
     return filename
 end
+
+function sort_genotypes(genotype_counts)
+    genotypes = genotype_counts[!, 1]
+    counts = genotype_counts[!, :nrow]
+    
+    if nrow(genotype_counts) == 3
+        # Find heterozygote
+        het_idx = findfirst(g -> g[1] != g[2], genotypes)
+        het = genotypes[het_idx]
+        
+        # Get homozygote counts
+        homo_idxs = findall(g -> g[1] == g[2], genotypes)
+        homo1, homo2 = genotypes[homo_idxs[1]], genotypes[homo_idxs[2]]
+        count1, count2 = counts[homo_idxs[1]], counts[homo_idxs[2]]
+        
+        major, minor = count1 >= count2 ? (homo1, homo2) : (homo2, homo1)
+        return (major, het, minor)
+        
+    elseif nrow(genotype_counts) == 2
+        het_idx = findfirst(g -> g[1] != g[2], genotypes)
+        homo_idx = findfirst(g -> g[1] == g[2], genotypes)
+        
+        if het_idx !== nothing && homo_idx !== nothing
+            return (genotypes[homo_idx], genotypes[het_idx], nothing)
+        else
+            return (genotypes[1], genotypes[2], nothing)
+        end
+    else
+        return (genotypes[1], nothing, nothing)
+    end
+end

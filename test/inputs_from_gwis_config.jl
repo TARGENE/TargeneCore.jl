@@ -9,7 +9,6 @@ using Serialization
 using TMLE
 using CSV
 using YAML
-using StatsBase
 
 TESTDIR = joinpath(pkgdir(TargeneCore), "test")
 
@@ -21,7 +20,7 @@ function get_summary_stats(estimands)
     return sort(combine(groupby(results, :OUTCOME), nrow), :OUTCOME)
 end
 
-function check_estimands_levels_interactions(estimands)
+function check_estimands_levels_interactions(estimands, dataset)
     string_treatments = YAML.load_file(joinpath(TESTDIR, "data", "config_gwis.yaml"))["extra_treatments"]
     extra_treatments = Set(Symbol.(string_treatments))
     ATE_count, GxE_Count, GxG_Count, higher_order_count = 0, 0, 0, 0
@@ -32,9 +31,9 @@ function check_estimands_levels_interactions(estimands)
         variants = setdiff(treatment_set, extra_treatments)
         # Will crash if there are multiple variants in the set
         # If the variant is used for interaction e.g length(variants) == 0 after the setdiff
-        # Account for this by just picking the first treatment in tests to ensure that single effect of said variant works correctly
+        # Account for this by explicitly picking the variant to ensure that single effect of said variant works correctly
         if isempty(variants)
-            variant = first(treatment_set)
+            variant = :rs3693265
         else
             variant = only(variants)
         end
@@ -51,6 +50,16 @@ function check_estimands_levels_interactions(estimands)
         else
             @test false
         end
+
+        # Test that the correct orientation occurs
+        variant_counts = variant_counts = combine(groupby(dataset, variant, skipmissing=true), nrow)
+        major, het, minor = sort_genotypes(variant_counts)
+
+        for arg in Ψ.args
+            @test arg.treatment_values[variant] == (control = major, case = het) ||
+                  arg.treatment_values[variant] == (control = het, case = minor)
+        end
+
     end
 end
 
@@ -64,7 +73,7 @@ end
         string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
         string("--outprefix=", joinpath(tmpdir, "final")), 
         "--batchsize=5",
-        "--verbosity=1",
+        "--verbosity=0",
         "--positivity-constraint=0"
     ])
     TargeneCore.julia_main()
@@ -86,7 +95,7 @@ end
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2], 
         nrow = repeat([3493], 4)
     )
-    check_estimands_levels_interactions(estimands)
+    check_estimands_levels_interactions(estimands, dataset)
 end
 
 
@@ -122,7 +131,7 @@ end
         nrow = repeat([923], 4)
     )
    
-    check_estimands_levels_interactions(estimands)
+    check_estimands_levels_interactions(estimands, dataset)
 end
 
 @testset "Test inputs_from_config gwis: incorrect estimand type" begin

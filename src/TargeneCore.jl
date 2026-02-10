@@ -25,7 +25,6 @@ using TMLECLI
 using HypothesisTests
 using OrderedCollections
 using Mmap
-using StatsBase
 using PooledArrays
 
 ###############################################################################
