@@ -269,36 +269,6 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
     return vcat(estimands...)
 end
 
-get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
-
-function read_bed_chromosome(bedprefix)
-    bed_files = files_matching_prefix(bedprefix)
-    fam_file = get_only_file_with_suffix(bed_files, "fam")
-    bim_file = get_only_file_with_suffix(bed_files, "bim")
-    bed_file = get_only_file_with_suffix(bed_files, "bed")[1:end-4]
-    return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
-end
-
-function get_genotypes_from_beds(bedprefix)
-    snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
-    for (i, col) in enumerate(names(genotypes))
-        genotype_map = Union{String, Missing}[snpdata.snp_info.allele1[i]*snpdata.snp_info.allele1[i], missing, snpdata.snp_info.allele1[i]*snpdata.snp_info.allele2[i], snpdata.snp_info.allele2[i]*snpdata.snp_info.allele2[i]]
-        genotypes[!, col] = PooledArray([genotype_map[x+1] for x in genotypes[!, col]], compress=true)
-    end
-    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    return genotypes, Dict()
-end
-
-function make_genotypes(genotype_prefix, config, call_threshold)
-    genotypes, genotypes_levels = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix)
-    else
-        variants_set = Set(retrieve_variants_list(config["variants"]))
-        call_genotypes(genotype_prefix, variants_set, call_threshold)
-    end
-    return genotypes, genotypes_levels
-end
 
 function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file;
     outprefix="final",
