@@ -89,7 +89,7 @@ end
         allele1 = ["A", "C", "T"],
         allele2 = ["G", "G", "A"]
     )
-    TargeneCore.update_genotypes_representation_to_strings!(genotypes, snpdata)
+    TargeneCore.update_genotypes_representation_to_strings!(genotypes, snpinfo)
     @test all(genotypes.SNP1 .=== ["AA", missing, "GG"])
     @test all(genotypes.SNP2 .=== [missing, "CG", "CG"])
     @test all(genotypes.SNP3 .=== [missing, "AA", missing])
@@ -216,10 +216,17 @@ end
     @test Ψ isa TMLE.JointEstimand
 end
 
-@testset "Test gwas_sort" begin
+@testset "Test get_variant_levels" begin
     dataset = DataFrame(
-        SNP1 = ["AC", "CC", "AA", "AA"],
+        SNP1 = ["AC", "AC", "CC", "AA", "AA", "AA"],
+        SNP2 = ["ACG", "AC", "AC", "G", "G", "G"], # non-SNP
+        SNP3 = ["TT", "TC", "TC", "TC", "CC", "CC"], # The most frequent genotype is the heterozygote
+        SNP4 = ["TT", "TC", "TC", "TC", "TT", "TT"] # Only two genotypes present
     )
+    @test TargeneCore.get_variant_levels("SNP1", dataset) == Dict(:SNP1 => ["AA", "AC", "CC"])
+    @test TargeneCore.get_variant_levels("SNP2", dataset) == Dict(:SNP2 => ["AC", "ACG", "G"])
+    @test TargeneCore.get_variant_levels("SNP3", dataset) == Dict(:SNP3 => ["CC", "TC", "TT"])
+    @test TargeneCore.get_variant_levels("SNP4", dataset) == Dict(:SNP4 => ["TT", "TC"])
 end
 
 @testset "Test pvalue_or_nan" begin

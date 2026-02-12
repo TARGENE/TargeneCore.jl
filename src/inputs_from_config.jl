@@ -54,15 +54,20 @@ function try_append_new_estimands!(
     end
 end
 
-function gwas_sort(treatment::String, dataset::DataFrame)
+"""
+This function sorts genotypes levels by allele frequency instead of genotype frequency, as is done by other gwas software.
+
+    get_variant_levels(treatment::String, dataset::DataFrame)
+"""
+function get_variant_levels(treatment::String, dataset::DataFrame)
     counts = combine(groupby(dataset, treatment, skipmissing=true), nrow)
     genotypes = counts[!, treatment]
     
-    # If the treatment is not biallelic default to the vanilla level sort
-    all(length.(genotypes) .== 2) || return get_treatment_levels(treatment, dataset; gwas=false)
+    # If the variant is not a SNP: default to the vanilla level sort
+    all(length.(genotypes) .== 2) || return get_treatment_levels(treatment, dataset)
     
     # Identify the heterozygote
-    het = only(filter(g->g[1] != g[2], counts[!, treatment]))
+    het = only(filter(g->g[1] != g[2], genotypes))
     homo1 = string(het[1], het[1])
     homo2 = string(het[2], het[2])
     geno_counts = Dict(zip(genotypes, counts[!, :nrow]))
@@ -71,20 +76,16 @@ function gwas_sort(treatment::String, dataset::DataFrame)
     treatment_levels = filter(g->g in genotypes, [major, het, minor])
 
     return Dict{Symbol, Vector{Any}}(Symbol(treatment)=>treatment_levels)
-
 end
+
 """
     get_treatment_levels(treatment, dataset)
 
     Generate a key-value pair (dictionary) for treatment structs.
 """
-function get_treatment_levels(treatment::String, dataset::DataFrame; gwas::Bool=false)
-    if !gwas
-        treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
-        return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
-    else
-        gwas_sort(treatment, dataset)
-    end
+function get_treatment_levels(treatment::String, dataset::DataFrame)
+    treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
+    return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
 end
 
 function estimands_from_variants(
@@ -108,7 +109,7 @@ function estimands_from_variants(
     for order in orders
         if order == 1
             for variant in variants
-                treatments = get_treatment_levels(variant, dataset; gwas=true)
+                treatments = get_variant_levels(variant, dataset)
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
@@ -127,19 +128,19 @@ function estimands_from_variants(
                 throw(ArgumentError("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided."))
             end
 
-            for combo in Combinatorics.combinations(extra_treatments, vars_needed)
-                for variant in variants
-                    if Symbol(variant) in combo
+            for combo in Combinatorics.combinations(string.(extra_treatments), vars_needed)
+                for variant in string.(variants)
+                    if variant in combo
                         # Skip combinations where the variant is also in the extra treatments
                         continue
                     end
-                    treatments = get_treatment_levels(variant, dataset; gwas=true)
+                    treatments = get_variant_levels(variant, dataset)
                     # Add each extra treatment from the combination
-                    for t in combo
-                        if string(t) in variants
-                            merge!(treatments, get_treatment_levels(string(t), dataset; gwas=true))
+                    for extra_treatment in combo
+                        if extra_treatment in variants
+                            merge!(treatments, get_variant_levels(extra_treatment, dataset))
                         else
-                            merge!(treatments, get_treatment_levels(string(t), dataset))
+                            merge!(treatments, get_treatment_levels(extra_treatment, dataset))
                         end
                     end
                     try_append_new_estimands!(
