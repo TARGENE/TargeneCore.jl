@@ -52,9 +52,13 @@ function check_estimands_levels_interactions(estimands, dataset)
         end
 
         # Test that the correct orientation occurs
-        variant_counts = variant_counts = combine(groupby(dataset, variant, skipmissing=true), nrow)
-        major, het, minor = sort_genotypes(variant_counts)
+        variant_dict = TargeneCore.get_variant_levels(string(variant), dataset)
+        minor_allele = setdiff(collect(variant_dict[variant][2]), collect(variant_dict[variant][1]))[1]
 
+        (major, het, minor) = length(variant_dict[variant]) == 3 ? 
+        (variant_dict[variant][1], variant_dict[variant][2], variant_dict[variant][3]) : 
+        (variant_dict[variant][1],  variant_dict[variant][2], minor_allele*minor_allele)
+        
         for arg in Ψ.args
             @test arg.treatment_values[variant] == (control = major, case = het) ||
                   arg.treatment_values[variant] == (control = het, case = minor)

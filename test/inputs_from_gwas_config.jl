@@ -21,20 +21,19 @@ end
 
 function check_estimands_levels_order(estimands, dataset)
     for Ψ in estimands
-        # Inspect dataset for the treatment and get counts to verify order and levels
-        variant = only(keys(Ψ.args[1].treatment_values))
-        variant_counts = combine(groupby(dataset, variant, skipmissing=true), nrow)
-        sort!(variant_counts, :nrow, rev=true)
-        major, het, minor = sort_genotypes(variant_counts)
+        variant = (only(keys(Ψ.args[1].treatment_values)))
+        variant_dict = TargeneCore.get_variant_levels(string(variant), dataset)
         # If the two components are present, the first is the most frequent -> next and the second is the next -> least frequent
         # While the test data here has cases in which the heterozygote is most frequent this typically does not happen 
         if length(Ψ.args) == 2
+            major, het, minor = variant_dict[variant]
             @test Ψ.args[1].treatment_values[variant] == (control = major, case = het)
             @test Ψ.args[2].treatment_values[variant] == (control = het, case = minor)
         else
+            major, het = variant_dict[variant]
             @test Ψ.args[1].treatment_values[variant]==(control = major, case = het)
         end
-   end
+    end
 end
 
 @testset "Test inputs_from_config gwas: no positivity constraint" begin
