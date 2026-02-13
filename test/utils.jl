@@ -76,6 +76,25 @@ end
     @test TargeneCore.genotypes_encoding(v) == ["AA", "AG", "GG"]
 end
 
+@testset "Test update_genotypes_representation_to_strings!" begin
+    bedprefix = joinpath(TESTDIR, "data", "ukbb", "genotypes", "ukbb_1")
+    genotypes = DataFrame(Matrix{UInt8}(
+        [
+            0 1 1
+            1 2 3
+            3 2 1
+        ]
+    ), ["SNP1", "SNP2", "SNP3"])
+    snpinfo = DataFrame(
+        allele1 = ["A", "C", "T"],
+        allele2 = ["G", "G", "A"]
+    )
+    TargeneCore.update_genotypes_representation_to_strings!(genotypes, snpinfo)
+    @test all(genotypes.SNP1 .=== ["AA", missing, "GG"])
+    @test all(genotypes.SNP2 .=== [missing, "CG", "CG"])
+    @test all(genotypes.SNP3 .=== [missing, "AA", missing])
+end
+
 @testset "Test call_genotypes for a single SNP" begin
     probabilities = [-Inf 0.3 0.2 0.9 -Inf;
                     -Inf 0.5 0.2 0.05 0.3;
@@ -197,6 +216,18 @@ end
     @test Ψ isa TMLE.JointEstimand
 end
 
+@testset "Test get_variant_levels" begin
+    dataset = DataFrame(
+        SNP1 = ["AC", "AC", "CC", "AA", "AA", "AA"],
+        SNP2 = ["ACG", "AC", "AC", "G", "G", "G"], # non-SNP
+        SNP3 = ["TT", "TC", "TC", "TC", "CC", "CC"], # The most frequent genotype is the heterozygote
+        SNP4 = ["TT", "TC", "TC", "TC", "TT", "TT"] # Only two genotypes present
+    )
+    @test TargeneCore.get_variant_levels("SNP1", dataset) == Dict(:SNP1 => ["AA", "AC", "CC"])
+    @test TargeneCore.get_variant_levels("SNP2", dataset) == Dict(:SNP2 => ["AC", "ACG", "G"])
+    @test TargeneCore.get_variant_levels("SNP3", dataset) == Dict(:SNP3 => ["CC", "TC", "TT"])
+    @test TargeneCore.get_variant_levels("SNP4", dataset) == Dict(:SNP4 => ["TT", "TC"])
+end
 
 @testset "Test pvalue_or_nan" begin
     estimates = make_estimates()

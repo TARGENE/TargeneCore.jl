@@ -19,20 +19,21 @@ function get_summary_stats(estimands)
     return sort(combine(groupby(results, :OUTCOME), nrow), :OUTCOME)
 end
 
-function check_estimands_levels_order(estimands)
+function check_estimands_levels_order(estimands, dataset)
     for Ψ in estimands
-        # If the two components are present, the first is the 0 -> 1 and the second is the 1 -> 2
-        variant = only(keys(Ψ.args[1].treatment_values))
+        variant = (only(keys(Ψ.args[1].treatment_values)))
+        variant_dict = TargeneCore.get_variant_levels(string(variant), dataset)
+        # If the two components are present, the first is the most frequent -> next and the second is the next -> least frequent
+        # While the test data here has cases in which the heterozygote is most frequent this typically does not happen 
         if length(Ψ.args) == 2
-            @test Ψ.args[1].treatment_values[variant] == (control = 0x00, case = 0x01)
-            @test Ψ.args[2].treatment_values[variant] == (control = 0x01, case = 0x02)
+            major, het, minor = variant_dict[variant]
+            @test Ψ.args[1].treatment_values[variant] == (control = major, case = het)
+            @test Ψ.args[2].treatment_values[variant] == (control = het, case = minor)
         else
-            # Otherwise we check they are one or the other
-            arg = only(Ψ.args)
-            @test arg.treatment_values[variant]==(control = 0x00, case = 0x01) ||
-            arg.treatment_values[variant]==( control = 0x01, case = 0x02)
+            major, het = variant_dict[variant]
+            @test Ψ.args[1].treatment_values[variant]==(control = major, case = het)
         end
-   end
+    end
 end
 
 @testset "Test inputs_from_config gwas: no positivity constraint" begin
@@ -61,15 +62,13 @@ end
         end
     end
     @test all(e isa JointEstimand for e in estimands)
-
+    check_estimands_levels_order(estimands, dataset)
     # There are 875 variants in the dataset
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
         nrow = repeat([875], 5)
     )
-
-    check_estimands_levels_order(estimands)
 end
 
 @testset "Test inputs_from_config gwas: positivity constraint" begin
@@ -98,13 +97,12 @@ end
     end
     # The positivity constraint reduces the number of variants
     @test all(e isa JointEstimand for e in estimands)
+    check_estimands_levels_order(estimands, dataset)
     summary_stats = get_summary_stats(estimands)
     @test summary_stats == DataFrame(
         OUTCOME = [:BINARY_1, :BINARY_2, :CONTINUOUS_1, :CONTINUOUS_2, :TREAT_1], 
         nrow = repeat([777], 5)
     )
-   
-    check_estimands_levels_order(estimands)
 end
 
 end

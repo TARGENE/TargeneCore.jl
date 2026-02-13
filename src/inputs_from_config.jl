@@ -55,17 +55,37 @@ function try_append_new_estimands!(
 end
 
 """
+This function sorts genotypes levels by allele frequency instead of genotype frequency, as is done by other gwas software.
+
+    get_variant_levels(treatment::String, dataset::DataFrame)
+"""
+function get_variant_levels(treatment::String, dataset::DataFrame)
+    counts = combine(groupby(dataset, treatment, skipmissing=true), nrow)
+    genotypes = counts[!, treatment]
+    
+    # If the variant is not a SNP: default to the vanilla level sort
+    all(length.(genotypes) .== 2) || return get_treatment_levels(treatment, dataset)
+    
+    # Identify the heterozygote
+    het = only(filter(g->g[1] != g[2], genotypes))
+    homo1 = string(het[1], het[1])
+    homo2 = string(het[2], het[2])
+    geno_counts = Dict(zip(genotypes, counts[!, :nrow]))
+    
+    major, minor = get(geno_counts, homo1, 0) >= get(geno_counts, homo2, 0) ? (homo1, homo2) : (homo2, homo1)
+    treatment_levels = filter(g->g in genotypes, [major, het, minor])
+
+    return Dict{Symbol, Vector{Any}}(Symbol(treatment)=>treatment_levels)
+end
+
+"""
     get_treatment_levels(treatment, dataset)
 
     Generate a key-value pair (dictionary) for treatment structs.
 """
 function get_treatment_levels(treatment::String, dataset::DataFrame)
     treatment_levels = sort(levels(dataset[!, treatment], skipmissing=true))
-    if eltype(treatment_levels) <: Integer
-        return Dict{Symbol, Vector{UInt8}}(Symbol(treatment) => UInt8.(treatment_levels))
-    else
-        return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
-    end
+    return Dict{Symbol, Vector{Any}}(Symbol(treatment) => treatment_levels)
 end
 
 function estimands_from_variants(
@@ -89,7 +109,7 @@ function estimands_from_variants(
     for order in orders
         if order == 1
             for variant in variants
-                treatments = get_treatment_levels(variant, dataset)
+                treatments = get_variant_levels(variant, dataset)
                 try_append_new_estimands!(
                     estimands, 
                     dataset, 
@@ -108,16 +128,20 @@ function estimands_from_variants(
                 throw(ArgumentError("Not enough extra treatments to build estimands of order $(order). Need $vars_needed but only $(length(extra_treatments)) provided."))
             end
 
-            for combo in Combinatorics.combinations(extra_treatments, vars_needed)
-                for variant in variants
-                    if Symbol(variant) in combo
+            for combo in Combinatorics.combinations(string.(extra_treatments), vars_needed)
+                for variant in string.(variants)
+                    if variant in combo
                         # Skip combinations where the variant is also in the extra treatments
                         continue
                     end
-                    treatments = get_treatment_levels(variant, dataset)
+                    treatments = get_variant_levels(variant, dataset)
                     # Add each extra treatment from the combination
-                    for t in combo
-                        merge!(treatments, get_treatment_levels(string(t), dataset))
+                    for extra_treatment in combo
+                        if extra_treatment in variants
+                            merge!(treatments, get_variant_levels(extra_treatment, dataset))
+                        else
+                            merge!(treatments, get_treatment_levels(extra_treatment, dataset))
+                        end
                     end
                     try_append_new_estimands!(
                         estimands, 
@@ -229,7 +253,8 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
     for estimands_config in estimands_configs
         estimand_constructor = eval(Symbol(estimands_config["type"]))
         orders = haskey(estimands_config, "orders") ? estimands_config["orders"] : default_order(estimand_constructor)
-        variants_groups = Iterators.partition(variants, length(variants) ÷ Threads.nthreads())
+        partition_size = max(1, cld(length(variants), Threads.nthreads()))
+        variants_groups = Iterators.partition(variants, partition_size)
         estimands_tasks = map(variants_groups) do variants
             Threads.@spawn estimands_from_variants(variants, dataset, estimand_constructor, outcomes, confounders;
                 extra_treatments=extra_treatments,
@@ -245,36 +270,6 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
     return vcat(estimands...)
 end
 
-get_only_file_with_suffix(files, suffix) = files[only(findall(x -> endswith(x, suffix), files))]
-
-function read_bed_chromosome(bedprefix)
-    bed_files = files_matching_prefix(bedprefix)
-    fam_file = get_only_file_with_suffix(bed_files, "fam")
-    bim_file = get_only_file_with_suffix(bed_files, "bim")
-    bed_file = get_only_file_with_suffix(bed_files, "bed")[1:end-4]
-    return SnpData(bed_file, famnm=fam_file, bimnm=bim_file)
-end
-
-function get_genotypes_from_beds(bedprefix)
-    snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
-    genotype_map = Union{UInt8, Missing}[0, missing, 1, 2]
-    for col in names(genotypes)
-        genotypes[!, col] = [genotype_map[x+1] for x in genotypes[!, col]]
-    end
-    insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
-    return genotypes, Dict()
-end
-
-function make_genotypes(genotype_prefix, config, call_threshold)
-    genotypes, genotypes_levels = if config["type"] == "gwas"
-        get_genotypes_from_beds(genotype_prefix)
-    else
-        variants_set = Set(retrieve_variants_list(config["variants"]))
-        call_genotypes(genotype_prefix, variants_set, call_threshold)
-    end
-    return genotypes, genotypes_levels
-end
 
 function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file;
     outprefix="final",
