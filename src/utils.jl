@@ -127,7 +127,7 @@ end
 
 function get_genotypes_from_beds(bedprefix)
     snpdata = read_bed_chromosome(bedprefix)
-    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid")
+    genotypes = DataFrame(convert(Matrix{UInt8}, snpdata.snparray), snpdata.snp_info."snpid", makeunique=true)
     update_genotypes_representation_to_strings!(genotypes, snpdata.snp_info)
     insertcols!(genotypes, 1, :SAMPLE_ID => snpdata.person_info."iid")
     return genotypes, Dict()
