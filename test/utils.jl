@@ -221,12 +221,15 @@ end
         SNP1 = ["AC", "AC", "CC", "AA", "AA", "AA"],
         SNP2 = ["ACG", "AC", "AC", "G", "G", "G"], # non-SNP
         SNP3 = ["TT", "TC", "TC", "TC", "CC", "CC"], # The most frequent genotype is the heterozygote
-        SNP4 = ["TT", "TC", "TC", "TC", "TT", "TT"] # Only two genotypes present
+        SNP4 = ["TT", "TC", "TC", "TC", "TT", "TT"], # Only two genotypes present
+        SNP5 = ["AA", "AA", "AA", "AA", "AA", "AA"]  # Monomorphic variant
     )
     @test TargeneCore.get_variant_levels("SNP1", dataset) == Dict(:SNP1 => ["AA", "AC", "CC"])
     @test TargeneCore.get_variant_levels("SNP2", dataset) == Dict(:SNP2 => ["AC", "ACG", "G"])
     @test TargeneCore.get_variant_levels("SNP3", dataset) == Dict(:SNP3 => ["CC", "TC", "TT"])
     @test TargeneCore.get_variant_levels("SNP4", dataset) == Dict(:SNP4 => ["TT", "TC"])
+    # Monomorphic variant falls back to default sort (no heterozygote to identify)
+    @test TargeneCore.get_variant_levels("SNP5", dataset) == Dict(:SNP5 => ["AA"])
 end
 
 @testset "Test pvalue_or_nan" begin
