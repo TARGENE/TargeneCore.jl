@@ -66,8 +66,10 @@ function get_variant_levels(treatment::String, dataset::DataFrame)
     # If the variant is not a SNP: default to the vanilla level sort
     all(length.(genotypes) .== 2) || return get_treatment_levels(treatment, dataset)
     
-    # Identify the heterozygote
-    het = only(filter(g->g[1] != g[2], genotypes))
+    # Identify the heterozygote - if none exists (monomorphic), fall back to default sort
+    hets = filter(g->g[1] != g[2], genotypes)
+    length(hets) == 1 || return get_treatment_levels(treatment, dataset)
+    het = only(hets)
     homo1 = string(het[1], het[1])
     homo2 = string(het[2], het[2])
     geno_counts = Dict(zip(genotypes, counts[!, :nrow]))
