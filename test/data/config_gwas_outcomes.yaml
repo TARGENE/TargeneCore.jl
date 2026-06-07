@@ -1,0 +1,15 @@
+type: gwas
+
+outcomes:
+  - outcome: BINARY_1
+    outcome_extra_covariates:
+      - COV_1
+    extra_confounders:
+      - 21003
+      - 22001
+  - outcome: CONTINUOUS_2
+    outcome_extra_covariates:
+      - COV_1
+    extra_confounders:
+      - 21003
+      - 22001

@@ -170,6 +170,101 @@ end
     )
 end
 
+@testset "Test inputs_from_config from groups: specified outcomes" begin
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_groups_outcomes.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")),
+        "--batchsize=100",
+        "--call-threshold=0.8",
+        "--verbosity=0",
+        "--positivity-constraint=0",
+    ])
+    TargeneCore.julia_main()
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        endswith(file, "jls") && append!(estimands, deserialize(file).estimands)
+    end
+    @test all(e isa JointEstimand for e in estimands)
+    # Each outcome block encloses its own variants. BINARY_1 is paired with the TF2 group
+    # and the two continuous traits with the TF1 group. Each group yields 2 order-2 tuples
+    # (2 bQTLs x 1 eQTL), so 3 outcomes x 2 = 6 estimands.
+    summary_stats = summary_stats_df(estimands)
+    @test summary_stats == DataFrame(
+        ESTIMAND_TYPE = ["TMLE.StatisticalAIE"],
+        ORDER = [2],
+        nrow = [6]
+    )
+    outcomes = Set(TargeneCore.get_outcome(Ψ) for Ψ in estimands)
+    @test outcomes == Set([:BINARY_1, :CONTINUOUS_1, :CONTINUOUS_2])
+    @test :BINARY_2 ∉ outcomes
+    # TF1-specific variants (RSID_99, RSID_102) only appear with the continuous outcomes,
+    # TF2-specific variants (RSID_191, RSID_2) only with BINARY_1.
+    for Ψ in estimands
+        treatments = get_treatments(Ψ)
+        outcome = TargeneCore.get_outcome(Ψ)
+        if :RSID_99 ∈ treatments || :RSID_102 ∈ treatments
+            @test outcome ∈ (:CONTINUOUS_1, :CONTINUOUS_2)
+        elseif :RSID_191 ∈ treatments || :RSID_2 ∈ treatments
+            @test outcome == :BINARY_1
+        end
+    end
+end
+
+@testset "Test inputs_from_config from groups: specified outcomes, complex structure" begin
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_groups_outcomes_complex.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")),
+        "--batchsize=1000",
+        "--call-threshold=0.8",
+        "--verbosity=0",
+        "--positivity-constraint=0",
+    ])
+    TargeneCore.julia_main()
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        endswith(file, "jls") && append!(estimands, deserialize(file).estimands)
+    end
+    @test all(e isa JointEstimand for e in estimands)
+
+    # Each outcome block has its own variants + extra_treatment TREAT_1, giving 3 treatment
+    # lists per group: bQTLs (2), eQTLs (1), TREAT_1 (1).
+    #   AIE order 2: C(3,2) products = 2 + 2 + 1 = 5 tuples per outcome
+    #   AIE order 3: C(3,3) products = 2 tuples per outcome
+    #   CM  order 2: same as AIE order 2 = 5 tuples per outcome
+    # Three outcomes (BINARY_1 via TF2, CONTINUOUS_1/2 via TF1):
+    #   AIE order 2: 5*3 = 15, AIE order 3: 2*3 = 6, CM order 2: 5*3 = 15
+    summary_stats = summary_stats_df(estimands)
+    @test summary_stats == DataFrame(
+        ESTIMAND_TYPE = ["TMLE.StatisticalAIE", "TMLE.StatisticalCM", "TMLE.StatisticalAIE"],
+        ORDER = [2, 2, 3],
+        nrow = [15, 15, 6]
+    )
+
+    outcomes = Set(TargeneCore.get_outcome(Ψ) for Ψ in estimands)
+    @test outcomes == Set([:BINARY_1, :CONTINUOUS_1, :CONTINUOUS_2])
+    @test :BINARY_2 ∉ outcomes
+    # Group-specific variants must only carry their block's outcome(s).
+    for Ψ in estimands
+        treatments = get_treatments(Ψ)
+        outcome = TargeneCore.get_outcome(Ψ)
+        if :RSID_99 ∈ treatments || :RSID_102 ∈ treatments
+            @test outcome ∈ (:CONTINUOUS_1, :CONTINUOUS_2)
+        elseif :RSID_191 ∈ treatments || :RSID_2 ∈ treatments
+            @test outcome == :BINARY_1
+        end
+    end
+end
+
 @testset "Test inputs_from_config from flat list: no positivity constraint" begin
     tmpdir = mktempdir()
     copy!(ARGS, [
@@ -239,6 +334,44 @@ end
         ORDER=[1, 1, 2, 3],
         nrow=[16, 16, 24, 4]
         )
+end
+
+@testset "Test inputs_from_config from flat list: specified outcomes" begin
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_flat_outcomes.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "traits_1.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "imputed" ,"ukbb")),
+        string("--outprefix=", joinpath(tmpdir, "final")),
+        "--batchsize=100",
+        "--call-threshold=0.8",
+        "--verbosity=0",
+        "--positivity-constraint=0",
+    ])
+    TargeneCore.julia_main()
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        endswith(file, "jls") && append!(estimands, deserialize(file).estimands)
+    end
+    @test all(e isa JointEstimand for e in estimands)
+
+    # treatment variables = variants (RSID_17, RSID_99, RSID_102) + extra_treatment TREAT_1 = 4.
+    # outcomes restricted to [BINARY_1, CONTINUOUS_1] (2).
+    #   ATE order 1: C(4,1)=4 tuples * 2 outcomes = 8
+    #   AIE order 2: C(4,2)=6 tuples * 2 outcomes = 12
+    summary_stats = summary_stats_df(estimands)
+    @test summary_stats == DataFrame(
+        ESTIMAND_TYPE = ["TMLE.StatisticalATE", "TMLE.StatisticalAIE"],
+        ORDER = [1, 2],
+        nrow = [8, 12]
+    )
+
+    outcomes = Set(TargeneCore.get_outcome(Ψ) for Ψ in estimands)
+    @test outcomes == Set([:BINARY_1, :CONTINUOUS_1])
+    @test :BINARY_2 ∉ outcomes
+    @test :CONTINUOUS_2 ∉ outcomes
 end
 
 end

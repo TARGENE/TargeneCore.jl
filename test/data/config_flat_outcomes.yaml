@@ -1,0 +1,32 @@
+type: flat
+
+estimands: 
+  - type: AIE
+    orders: [2]
+  - type: ATE
+
+outcomes:
+  - outcome: BINARY_1
+    variants:
+      - RSID_17
+      - RSID_99
+      - RSID_102
+    extra_treatments:
+      - TREAT_1
+    outcome_extra_covariates:
+      - COV_1
+    extra_confounders:
+      - 21003
+      - 22001
+  - outcome: CONTINUOUS_1
+    variants:
+      - RSID_17
+      - RSID_99
+      - RSID_102
+    extra_treatments:
+      - TREAT_1
+    outcome_extra_covariates:
+      - COV_1
+    extra_confounders:
+      - 21003
+      - 22001

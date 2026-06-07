@@ -7,6 +7,18 @@ retrieve_variants_list(config::Dict) = vcat((retrieve_variants_list(x) for x in 
 retrieve_variants_list(variants::AbstractVector) = variants
 
 """
+    collect_config_variants(config)
+
+Returns the full list of variant rsids referenced by a configuration, so they can be called
+from the genotype files.
+"""
+function collect_config_variants(config)
+    haskey(config, "outcomes") || return retrieve_variants_list(config["variants"])
+    variant_lists = [retrieve_variants_list(block["variants"]) for block in config["outcomes"] if haskey(block, "variants")]
+    return isempty(variant_lists) ? String[] : vcat(variant_lists...)
+end
+
+"""
     treatment_tuples_from_groups(treatments_lists, orders)
 
 Generate treatment combinations for all order in orders. The final list is sorted 
@@ -273,6 +285,83 @@ function estimands_from_gwas(estimands_configs, dataset, variants, outcomes, con
 end
 
 
+"""
+    build_estimands_for_mode(config_type, estimands_configs, dataset, genotypes, variants, outcomes, confounders, treatments_levels; kwargs...)
+
+Dispatches estimand generation to the appropriate routine for the configuration `config_type`
+(`flat`, `groups` or `gwas`).
+"""
+function build_estimands_for_mode(config_type, estimands_configs, dataset, genotypes, variants, outcomes, confounders, treatments_levels;
+    extra_treatments=[],
+    outcome_extra_covariates=[],
+    positivity_constraint=0.,
+    verbosity=0
+    )
+    if config_type == "flat"
+        return estimands_from_flat_list(estimands_configs, dataset, variants, outcomes, confounders, treatments_levels;
+            extra_treatments=extra_treatments,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity)
+    elseif config_type == "groups"
+        return estimands_from_groups(estimands_configs, dataset, variants, outcomes, confounders, treatments_levels;
+            extra_treatments=extra_treatments,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity)
+    elseif config_type == "gwas"
+        gwas_variants = filter(!=("SAMPLE_ID"), names(genotypes))
+        return estimands_from_gwas(estimands_configs, dataset, gwas_variants, outcomes, confounders;
+            extra_treatments=extra_treatments,
+            outcome_extra_covariates=outcome_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity)
+    else
+        throw(ArgumentError(string("Unknown extraction type: ", config_type, ", use any of: (flat, groups, gwas)")))
+    end
+end
+
+"""
+    estimands_from_outcome_blocks(config, dataset, genotypes, pcs, treatments_levels; kwargs...)
+
+Implements the enclosing-outcomes configuration form. Here `config["outcomes"]` is a list of
+blocks, each declaring a single `outcome` together with its own `variants`, `extra_treatments`,
+`outcome_extra_covariates` and `extra_confounders`. Every block is processed independently and
+its variables apply to that outcome only; any key omitted from a block is treated as empty (no
+inheritance from a top-level value).
+"""
+function estimands_from_outcome_blocks(config, dataset, genotypes, pcs, treatments_levels;
+    positivity_constraint=0.,
+    verbosity=0
+    )
+    config_type = config["type"]
+    # Genotype levels are filtered to those present in the dataset once; per-block extra
+    # treatments are added to a copy so blocks don't leak treatment levels into each other.
+    only_keep_variant_genotypes_in_dataset!(treatments_levels, dataset)
+    available = Set(Symbol.(names(dataset)))
+    estimands = []
+    for block in config["outcomes"]
+        haskey(block, "outcome") || throw(ArgumentError("Each entry of `outcomes` must specify a single `outcome`."))
+        outcome = Symbol(block["outcome"])
+        outcome ∈ available || throw(ArgumentError(string("Specified outcome was not found in the dataset: ", outcome)))
+        block_extra_treatments = haskey(block, "extra_treatments") ? Symbol.(block["extra_treatments"]) : Symbol[]
+        block_extra_covariates = haskey(block, "outcome_extra_covariates") ? Symbol.(block["outcome_extra_covariates"]) : Symbol[]
+        block_extra_confounders = haskey(block, "extra_confounders") ? Symbol.(block["extra_confounders"]) : Symbol[]
+        block_confounders = confounders_from_pcs(pcs, block_extra_confounders)
+        block_levels = copy(treatments_levels)
+        add_extra_treatments_levels!(block_levels, block_extra_treatments, dataset)
+        variants = get(block, "variants", nothing)
+        append!(estimands, build_estimands_for_mode(
+            config_type, config["estimands"], dataset, genotypes, variants, [outcome], block_confounders, block_levels;
+            extra_treatments=block_extra_treatments,
+            outcome_extra_covariates=block_extra_covariates,
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity
+        ))
+    end
+    return estimands
+end
+
 function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file;
     outprefix="final",
     batchsize=nothing,
@@ -283,52 +372,41 @@ function inputs_from_config(config_file, genotypes_prefix, traits_file, pcs_file
     traits = read_csv_file(traits_file)
     pcs = load_flash_pca_results(pcs_file)
     config = YAML.load_file(config_file)
+    config_type = config["type"]
 
-    # Variables
     verbosity > 0 && @info("Parsing configuration file.")
-    extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
-    outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
-    extra_confounders = haskey(config, "extra_confounders") ? Symbol.(config["extra_confounders"]) : []
-    confounders = confounders_from_pcs(pcs, extra_confounders)
-    nonoutcomes = Set(vcat(:SAMPLE_ID, extra_confounders, outcome_extra_covariates, extra_treatments))
-    outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
+    # Set default gwas estimands config (ATE) if not specified
+    if config_type == "gwas" && !haskey(config, "estimands")
+        config["estimands"] = [Dict("type" => "ATE")]
+    end
 
     # Genotypes and final dataset
     verbosity > 0 && @info("Building and writing dataset.")
     genotypes, treatments_levels = make_genotypes(genotypes_prefix, config, call_threshold)
     dataset = merge(traits, pcs, genotypes)
-    finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
     Arrow.write(string(outprefix, ".data.arrow"), dataset)
 
-    # Estimands
-    config_type = config["type"]
-    estimands = if config_type == "flat"
-        estimands_from_flat_list(config["estimands"], dataset, config["variants"], outcomes, confounders, treatments_levels;
+    # Estimands. When a top-level `outcomes` key is present it declares one block of variables
+    # per outcome (the enclosing-outcomes form). Otherwise we fall back to the legacy behaviour
+    # where variables are global and every available trait column is an outcome.
+    estimands = if haskey(config, "outcomes")
+        estimands_from_outcome_blocks(config, dataset, genotypes, pcs, treatments_levels;
+            positivity_constraint=positivity_constraint,
+            verbosity=verbosity)
+    else
+        extra_treatments = haskey(config, "extra_treatments") ? Symbol.(config["extra_treatments"]) : []
+        outcome_extra_covariates = haskey(config, "outcome_extra_covariates") ? Symbol.(config["outcome_extra_covariates"]) : []
+        extra_confounders = haskey(config, "extra_confounders") ? Symbol.(config["extra_confounders"]) : []
+        confounders = confounders_from_pcs(pcs, extra_confounders)
+        nonoutcomes = Set(vcat(:SAMPLE_ID, extra_confounders, outcome_extra_covariates, extra_treatments))
+        outcomes = filter(x -> x ∉ nonoutcomes, Symbol.(names(traits)))
+        finalise_treatments_levels!(treatments_levels, extra_treatments, dataset)
+        variants = config_type == "gwas" ? nothing : config["variants"]
+        build_estimands_for_mode(config_type, config["estimands"], dataset, genotypes, variants, outcomes, confounders, treatments_levels;
             extra_treatments=extra_treatments,
             outcome_extra_covariates=outcome_extra_covariates,
             positivity_constraint=positivity_constraint,
             verbosity=verbosity)
-    elseif config_type == "groups"
-        estimands_from_groups(config["estimands"], dataset, config["variants"], outcomes, confounders, treatments_levels;
-            extra_treatments=extra_treatments,
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
-    elseif config_type == "gwas"
-        variants = filter(!=("SAMPLE_ID"), names(genotypes))
-        # Set default gwas estimands config (ATE) if not specified
-        if !haskey(config, "estimands")
-            config["estimands"] = [Dict("type" => "ATE")]
-        end
-        estimands_from_gwas(config["estimands"], dataset, variants, outcomes, confounders;
-            extra_treatments=extra_treatments,
-            outcome_extra_covariates=outcome_extra_covariates,
-            positivity_constraint=positivity_constraint,
-            verbosity=verbosity
-        )
-    else
-        throw(ArgumentError(string("Unknown extraction type: ", config_type, ", use any of: (flat, groups, gwas)")))
     end
 
     @assert length(estimands) > 0 "No estimands left, probably due to a too high positivity constraint."

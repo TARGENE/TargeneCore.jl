@@ -1,0 +1,40 @@
+type: groups
+
+estimands:
+  - type: AIE
+    orders: [2]
+
+outcomes:
+  - outcome: BINARY_1
+    variants:
+      TF2:
+        bQTLs:
+          - RSID_17
+          - RSID_191
+        eQTLs:
+          - RSID_2
+    extra_confounders:
+      - 21003
+      - 22001
+  - outcome: CONTINUOUS_1
+    variants:
+      TF1:
+        bQTLs:
+          - RSID_17
+          - RSID_99
+        eQTLs:
+          - RSID_102
+    extra_confounders:
+      - 21003
+      - 22001
+  - outcome: CONTINUOUS_2
+    variants:
+      TF1:
+        bQTLs:
+          - RSID_17
+          - RSID_99
+        eQTLs:
+          - RSID_102
+    extra_confounders:
+      - 21003
+      - 22001

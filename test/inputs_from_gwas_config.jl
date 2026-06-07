@@ -105,6 +105,34 @@ end
     )
 end
 
+@testset "Test inputs_from_config gwas: specified outcomes" begin
+    tmpdir = mktempdir()
+    copy!(ARGS, [
+        "estimation-inputs",
+        joinpath(TESTDIR, "data", "config_gwas_outcomes.yaml"),
+        string("--traits-file=", joinpath(TESTDIR, "data", "ukbb_traits.csv")),
+        string("--pcs-file=", joinpath(TESTDIR, "data", "ukbb_pcs.csv")),
+        string("--genotypes-prefix=", joinpath(TESTDIR, "data", "ukbb", "genotypes" , "ukbb_1.")),
+        string("--outprefix=", joinpath(tmpdir, "final")),
+        "--batchsize=5",
+        "--verbosity=0",
+        "--positivity-constraint=0"
+    ])
+    TargeneCore.julia_main()
+    estimands = []
+    for file in readdir(tmpdir, join=true)
+        endswith(file, "jls") && append!(estimands, deserialize(file).estimands)
+    end
+    @test all(e isa JointEstimand for e in estimands)
+    # The top-level `outcomes` key restricts the GWAS to BINARY_1 and CONTINUOUS_2 only.
+    # Each of the 875 variants yields one estimand per specified outcome.
+    summary_stats = get_summary_stats(estimands)
+    @test summary_stats == DataFrame(
+        OUTCOME = [:BINARY_1, :CONTINUOUS_2],
+        nrow = repeat([875], 2)
+    )
+end
+
 end
 
 true

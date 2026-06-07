@@ -137,7 +137,7 @@ function make_genotypes(genotype_prefix, config, call_threshold)
     genotypes, genotypes_levels = if config["type"] == "gwas"
         get_genotypes_from_beds(genotype_prefix)
     else
-        variants_set = Set(retrieve_variants_list(config["variants"]))
+        variants_set = Set(collect_config_variants(config))
         call_genotypes(genotype_prefix, variants_set, call_threshold)
     end
     return genotypes, genotypes_levels
